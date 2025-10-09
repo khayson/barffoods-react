@@ -1,14 +1,20 @@
 import { type ReactNode, useState, useEffect } from 'react';
 import CustomerHeader from '@/layouts/customer/customer-header';
 import CustomerMobileMenu from '@/layouts/customer/customer-mobile-menu';
+import { NotificationProvider } from '@/contexts/NotificationContext';
+import { usePage } from '@inertiajs/react';
+import { type SharedData } from '@/types';
+import { Toaster } from '@/components/ui/sonner';
 
 interface CustomerLayoutProps {
     children: ReactNode;
 }
 
-export default function CustomerLayout({ children }: CustomerLayoutProps) {
+function CustomerLayoutContent({ children }: CustomerLayoutProps) {
     const [isMobile, setIsMobile] = useState(false);
     const [showMobileMenu, setShowMobileMenu] = useState(false);
+    const page = usePage<SharedData>();
+    const { auth } = page.props;
 
     // Handle responsive behavior
     useEffect(() => {
@@ -71,6 +77,27 @@ export default function CustomerLayout({ children }: CustomerLayoutProps) {
                     onClick={closeMobileMenu}
                 />
             )}
+
+            {/* Sonner Toast Notifications */}
+            <Toaster 
+                position="top-right"
+                expand={true}
+                richColors={true}
+                closeButton={true}
+            />
         </div>
+    );
+}
+
+export default function CustomerLayout({ children }: CustomerLayoutProps) {
+    const page = usePage<SharedData>();
+    const { auth } = page.props;
+    
+    return (
+        <NotificationProvider userId={auth.user?.id?.toString()}>
+            <CustomerLayoutContent>
+                {children}
+            </CustomerLayoutContent>
+        </NotificationProvider>
     );
 }

@@ -21,28 +21,28 @@ export default function CustomerDashboard() {
                     </p>
                 </div>
 
-                {/* Welcome Content */}
-                <div className="flex items-center justify-center min-h-[50vh]">
-                    <div className="text-center space-y-4">
-                        <div className="mx-auto h-16 w-16 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center">
-                            <span className="text-2xl">🛒</span>
+                        {/* Welcome Content */}
+                        <div className="flex items-center justify-center min-h-[50vh]">
+                            <div className="text-center space-y-4">
+                                <div className="mx-auto h-16 w-16 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center">
+                                    <span className="text-2xl">🛒</span>
+                                </div>
+                                <h2 className="text-3xl font-bold text-gray-900 dark:text-white">
+                                    Welcome to BarfFoods!
+                                </h2>
+                                <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+                                    Your customer dashboard is ready. Start exploring our grocery catalog and place your first order.
+                                </p>
+                                <div className="flex justify-center space-x-4 mt-8">
+                                    <button className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                                        Browse Products
+                                    </button>
+                                    <button className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                                        View Orders
+                                    </button>
+                                </div>
+                            </div>
                         </div>
-                        <h2 className="text-3xl font-bold text-gray-900 dark:text-white">
-                            Welcome to BarfFoods!
-                        </h2>
-                        <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-                            Your customer dashboard is ready. Start exploring our grocery catalog and place your first order.
-                        </p>
-                        <div className="flex justify-center space-x-4 mt-8">
-                            <button className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
-                                Browse Products
-                            </button>
-                            <button className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                                View Orders
-                            </button>
-                        </div>
-                    </div>
-                </div>
             </div>
         </CustomerLayout>
     );

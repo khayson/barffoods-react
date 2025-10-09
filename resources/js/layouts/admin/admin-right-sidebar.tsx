@@ -14,12 +14,15 @@ import {
     ExternalLink
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useNotifications } from '@/contexts/NotificationContext';
+import { formatDistanceToNow } from 'date-fns';
 
 interface AdminRightSidebarProps {
     isMobile?: boolean;
     onClose?: () => void;
     collapsed?: boolean;
     onToggleCollapse?: () => void;
+    screenSize?: 'mobile' | 'tablet' | 'desktop' | 'large';
 }
 
 interface NotificationItem {
@@ -96,8 +99,8 @@ const mockActivities: ActivityItem[] = [
 ];
 
 
-export default function AdminRightSidebar({ isMobile = false, onClose, collapsed = false, onToggleCollapse }: AdminRightSidebarProps) {
-    const [notifications] = useState<NotificationItem[]>(mockNotifications);
+export default function AdminRightSidebar({ isMobile = false, onClose, collapsed = false, onToggleCollapse, screenSize = 'desktop' }: AdminRightSidebarProps) {
+    const { state: notificationState } = useNotifications();
     const [activities] = useState<ActivityItem[]>(mockActivities);
 
     const getNotificationIcon = (type: string) => {
@@ -112,7 +115,7 @@ export default function AdminRightSidebar({ isMobile = false, onClose, collapsed
 
     return (
         <div className={`
-            flex flex-col bg-white dark:bg-gray-800 shadow-lg rounded-xl overflow-hidden relative transition-all duration-300 ease-in-out
+            flex flex-col bg-white dark:bg-gray-800 shadow-lg rounded-xl overflow-hidden relative transition-all duration-300 ease-in-out scrollbar-hide
             ${collapsed ? 'w-16' : 'w-80'}
             ${isMobile ? 'h-full' : 'h-[calc(100vh-8rem)]'}
         `}>
@@ -163,29 +166,43 @@ export default function AdminRightSidebar({ isMobile = false, onClose, collapsed
                 <div>
                     {!collapsed ? (
                         <>
-                            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Notifications</h3>
+                            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
+                                Notifications ({notificationState.unreadCount})
+                            </h3>
                             <div className="space-y-2">
-                                {notifications.map((notification) => (
-                                    <div key={notification.id} className={`p-3 rounded-lg border-l-4 ${notification.unread ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-gray-50 dark:bg-gray-700'} ${notification.type === 'success' ? 'border-green-500' : notification.type === 'warning' ? 'border-yellow-500' : notification.type === 'error' ? 'border-red-500' : 'border-blue-500'}`}>
+                                {notificationState.notifications.slice(0, 5).map((notification) => (
+                                    <div key={notification.id} className={`p-3 rounded-lg border-l-4 ${notification.status === 'unread' ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-gray-50 dark:bg-gray-700'} ${notification.priority === 'urgent' ? 'border-red-500' : notification.priority === 'high' ? 'border-orange-500' : notification.priority === 'medium' ? 'border-yellow-500' : 'border-green-500'}`}>
                                         <div className="flex items-start space-x-2">
-                                            {getNotificationIcon(notification.type)}
+                                            <span className="text-lg">{notification.icon || '🔔'}</span>
                                             <div className="flex-1">
                                                 <p className="text-sm font-medium text-gray-900 dark:text-white">{notification.title}</p>
                                                 <p className="text-xs text-gray-600 dark:text-gray-400">{notification.message}</p>
-                                                <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">{notification.time}</p>
+                                                <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                                                    {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
+                                                </p>
                                             </div>
                                         </div>
                                     </div>
                                 ))}
+                                {notificationState.notifications.length === 0 && (
+                                    <div className="text-center py-4">
+                                        <Bell className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                                        <p className="text-sm text-gray-500 dark:text-gray-400">No notifications</p>
+                                    </div>
+                                )}
                             </div>
                         </>
                     ) : (
                         <div className="flex justify-center">
                             <div className="relative">
                                 <Bell className="h-6 w-6 text-gray-600 dark:text-gray-400" />
-                                {notifications.filter(n => n.unread).length > 0 && (
-                                    <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">
-                                        {notifications.filter(n => n.unread).length}
+                                {notificationState.unreadCount > 0 && (
+                                    <span className={`absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full flex items-center justify-center ${
+                                        notificationState.unreadCount >= 9 
+                                            ? 'px-1.5 py-0.5 min-w-[1.5rem] h-4' 
+                                            : 'h-4 w-4'
+                                    }`}>
+                                        {notificationState.unreadCount >= 9 ? '9+' : notificationState.unreadCount}
                                     </span>
                                 )}
                             </div>

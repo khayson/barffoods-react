@@ -25,6 +25,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/compon
 import { useInitials } from '@/hooks/use-initials';
 import ProductSearchModal from '@/components/product-search-modal';
 import { Link } from '@inertiajs/react';
+import { useNotifications } from '@/contexts/NotificationContext';
+import NotificationDropdown from '@/components/notifications/NotificationDropdown';
 
 interface CustomerHeaderProps {
     onToggleMobileMenu: () => void;
@@ -47,10 +49,12 @@ const navigation: NavItem[] = [
 export default function CustomerHeader({ onToggleMobileMenu, isMobile }: CustomerHeaderProps) {
     const [isDarkMode, setIsDarkMode] = useState(false);
     const [searchOpen, setSearchOpen] = useState(false);
+    const [notificationOpen, setNotificationOpen] = useState(false);
     const page = usePage<SharedData>();
     const { auth } = page.props;
     const getInitials = useInitials();
     const currentPath = window.location.pathname;
+    const { state: notificationState, setDropdownOpen } = useNotifications();
 
     // Check for saved theme preference or default to light mode
     useEffect(() => {
@@ -182,16 +186,37 @@ export default function CustomerHeader({ onToggleMobileMenu, isMobile }: Custome
                         )}
 
                         {/* Notifications */}
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 relative"
-                        >
-                            <Bell className="h-5 w-5" />
-                            <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">
-                                3
-                            </span>
-                        </Button>
+                        <div className="relative">
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 relative"
+                                data-notification-button
+                                onClick={() => {
+                                    const newState = !notificationOpen;
+                                    setNotificationOpen(newState);
+                                    setDropdownOpen(newState);
+                                }}
+                            >
+                                <Bell className="h-5 w-5" />
+                                {notificationState.unreadCount > 0 && (
+                                    <span className={`absolute -top-1 -right-1 bg-red-500 rounded-full text-xs text-white flex items-center justify-center ${
+                                        notificationState.unreadCount >= 9 
+                                            ? 'px-1.5 py-0.5 min-w-[1.5rem] h-4' 
+                                            : 'h-3 w-3'
+                                    }`}>
+                                        {notificationState.unreadCount >= 9 ? '9+' : notificationState.unreadCount}
+                                    </span>
+                                )}
+                            </Button>
+                            <NotificationDropdown 
+                                isOpen={notificationOpen} 
+                                onClose={() => {
+                                    setNotificationOpen(false);
+                                    setDropdownOpen(false);
+                                }} 
+                            />
+                        </div>
 
                         {/* Wishlist */}
                         <Button

@@ -7,8 +7,11 @@ import { edit as editPassword } from '@/routes/password';
 import { edit } from '@/routes/profile';
 import { show } from '@/routes/two-factor';
 import { type NavItem } from '@/types';
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { type PropsWithChildren } from 'react';
+import { type SharedData } from '@/types';
+import AdminLayout from '@/layouts/admin-layout';
+import CustomerLayout from '@/layouts/customer-layout';
 
 const sidebarNavItems: NavItem[] = [
     {
@@ -34,6 +37,13 @@ const sidebarNavItems: NavItem[] = [
 ];
 
 export default function SettingsLayout({ children }: PropsWithChildren) {
+    const page = usePage<SharedData>();
+    const { auth } = page.props;
+    
+    // Determine user role and select appropriate layout
+    const isAdmin = auth.user?.role === 'super_admin';
+    const isCustomer = auth.user?.role === 'customer';
+    
     // When server-side rendering, we only render the layout on the client...
     if (typeof window === 'undefined') {
         return null;
@@ -41,7 +51,8 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
 
     const currentPath = window.location.pathname;
 
-    return (
+    // Settings content component
+    const SettingsContent = () => (
         <div className="px-4 py-6">
             <Heading
                 title="Settings"
@@ -86,4 +97,22 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
             </div>
         </div>
     );
+
+    // Return appropriate layout based on user role
+    if (isAdmin) {
+        return (
+            <AdminLayout>
+                <SettingsContent />
+            </AdminLayout>
+        );
+    } else if (isCustomer) {
+        return (
+            <CustomerLayout>
+                <SettingsContent />
+            </CustomerLayout>
+        );
+    }
+
+    // Fallback for unauthenticated users or unknown roles
+    return <SettingsContent />;
 }
