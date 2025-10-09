@@ -1,5 +1,8 @@
 <?php
 
+use App\Http\Middleware\CheckRole;
+use App\Http\Middleware\EnsureUserIsAdmin;
+use App\Http\Middleware\EnsureUserIsCustomer;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Foundation\Application;
@@ -20,6 +23,13 @@ return Application::configure(basePath: dirname(__DIR__))
             HandleAppearance::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
+        ]);
+
+        // Register role-based middleware
+        $middleware->alias([
+            'role' => CheckRole::class,
+            'admin' => EnsureUserIsAdmin::class,
+            'customer' => EnsureUserIsCustomer::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
