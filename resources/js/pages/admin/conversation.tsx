@@ -85,7 +85,10 @@ export default function AdminConversation({ conversation }: AdminConversationPro
 
     // Setup real-time messaging
     useEffect(() => {
-        if (!window.Echo) {
+        // Use existing Echo instance from NotificationProvider or create new one
+        if (window.Echo) {
+            echoRef.current = window.Echo;
+        } else {
             window.Pusher = Pusher;
             window.Echo = new Echo({
                 broadcaster: 'reverb',
@@ -95,13 +98,17 @@ export default function AdminConversation({ conversation }: AdminConversationPro
                 wssPort: import.meta.env.VITE_REVERB_PORT,
                 forceTLS: (import.meta.env.VITE_REVERB_SCHEME ?? 'https') === 'https',
                 enabledTransports: ['ws', 'wss'],
+                auth: {
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                    },
+                },
             });
+            echoRef.current = window.Echo;
         }
 
-        echoRef.current = window.Echo;
-
         return () => {
-            // Cleanup will be handled when component unmounts
+            // Don't disconnect Echo as it might be used by other components
         };
     }, []);
 

@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import { router } from '@inertiajs/react';
 import Echo from 'laravel-echo';
 import Pusher from 'pusher-js';
 
@@ -83,27 +84,32 @@ export default function FloatingSupportIcon({ className = '' }: FloatingSupportI
         };
     }, [isOpen]);
 
-    // Setup real-time messaging
-    useEffect(() => {
-        if (!window.Echo) {
-            window.Pusher = Pusher;
-            window.Echo = new Echo({
-                broadcaster: 'reverb',
-                key: import.meta.env.VITE_REVERB_APP_KEY,
-                wsHost: import.meta.env.VITE_REVERB_HOST,
-                wsPort: import.meta.env.VITE_REVERB_PORT,
-                wssPort: import.meta.env.VITE_REVERB_PORT,
-                forceTLS: (import.meta.env.VITE_REVERB_SCHEME ?? 'https') === 'https',
-                enabledTransports: ['ws', 'wss'],
-            });
-        }
+        // Setup real-time messaging
+        useEffect(() => {
+            if (!window.Echo) {
+                window.Pusher = Pusher;
+                window.Echo = new Echo({
+                    broadcaster: 'reverb',
+                    key: import.meta.env.VITE_REVERB_APP_KEY,
+                    wsHost: import.meta.env.VITE_REVERB_HOST,
+                    wsPort: import.meta.env.VITE_REVERB_PORT,
+                    wssPort: import.meta.env.VITE_REVERB_PORT,
+                    forceTLS: (import.meta.env.VITE_REVERB_SCHEME ?? 'https') === 'https',
+                    enabledTransports: ['ws', 'wss'],
+                    auth: {
+                        headers: {
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                        },
+                    },
+                });
+            }
 
-        echoRef.current = window.Echo;
+            echoRef.current = window.Echo;
 
-        return () => {
-            // Cleanup will be handled when component unmounts
-        };
-    }, []);
+            return () => {
+                // Cleanup will be handled when component unmounts
+            };
+        }, []);
 
     // Listen for real-time messages
     useEffect(() => {
@@ -212,34 +218,28 @@ export default function FloatingSupportIcon({ className = '' }: FloatingSupportI
         }
 
         setIsLoading(true);
-        try {
-            const response = await fetch('/api/customer/messaging', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify(newConversation),
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                toast.success('Message sent successfully!');
+        
+        router.post('/api/customer/messaging', {
+            subject: newConversation.subject.trim(),
+            message: newConversation.message.trim(),
+        }, {
+            preserveScroll: true,
+            onSuccess: async (data: any) => {
+                toast.success('Conversation created successfully!');
                 setNewConversation({ subject: '', message: '' });
                 await loadConversations();
                 if (data.conversation) {
                     setSelectedConversation(data.conversation);
                 }
-            } else {
-                throw new Error('Failed to send message');
+            },
+            onError: (errors) => {
+                console.error('Failed to create conversation:', errors);
+                toast.error('Failed to create conversation');
+            },
+            onFinish: () => {
+                setIsLoading(false);
             }
-        } catch (error) {
-            console.error('Failed to send message:', error);
-            toast.error('Failed to send message');
-            setIsLoading(false);
-        }
+        });
     };
 
     const handleSendMessage = async (e: React.FormEvent) => {
@@ -247,19 +247,13 @@ export default function FloatingSupportIcon({ className = '' }: FloatingSupportI
         if (!selectedConversation || !newMessage.trim()) return;
 
         setIsLoading(true);
-        try {
-            const response = await fetch(`/api/customer/messaging/${selectedConversation.id}/messages`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({ content: newMessage }),
-            });
-
-            if (response.ok) {
+        
+        router.post(`/api/customer/messaging/${selectedConversation.id}/messages`, {
+            content: newMessage.trim(),
+            type: 'text'
+        }, {
+            preserveScroll: true,
+            onSuccess: async () => {
                 toast.success('Message sent!');
                 setNewMessage('');
                 // Reset textarea height
@@ -276,14 +270,15 @@ export default function FloatingSupportIcon({ className = '' }: FloatingSupportI
                         messages: messages
                     });
                 }
-            } else {
-                throw new Error('Failed to send message');
+            },
+            onError: (errors) => {
+                console.error('Failed to send message:', errors);
+                toast.error('Failed to send message');
+            },
+            onFinish: () => {
+                setIsLoading(false);
             }
-        } catch (error) {
-            console.error('Failed to send message:', error);
-            toast.error('Failed to send message');
-            setIsLoading(false);
-        }
+        });
     };
 
     const formatTime = (dateString: string) => {

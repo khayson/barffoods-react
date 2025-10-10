@@ -18,7 +18,7 @@ import {
     MoreHorizontal,
     Plus
 } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger } from '@/components/ui/dropdown-menu';
 import { formatDistanceToNow } from 'date-fns';
 
 interface Conversation {
@@ -123,12 +123,20 @@ export default function AdminMessaging({ conversations, admins }: AdminMessaging
             });
 
             if (response.ok) {
+                // Find the admin name for the success message
+                const admin = adminsData.find(a => a.id === adminId);
+                const adminName = admin ? admin.name : 'Admin';
+                
+                // Show success message
+                alert(`Conversation assigned to ${adminName} successfully!`);
                 window.location.reload();
             } else {
                 console.error('Failed to assign conversation');
+                alert('Failed to assign conversation. Please try again.');
             }
         } catch (error) {
             console.error('Error assigning conversation:', error);
+            alert('An error occurred while assigning the conversation.');
         }
     };
 
@@ -234,14 +242,14 @@ export default function AdminMessaging({ conversations, admins }: AdminMessaging
                             Manage customer conversations and provide 24/7 support
                         </p>
                     </div>
-                    <Button className="flex items-center space-x-2" onClick={handleNewConversation}>
+                    {/* <Button className="flex items-center space-x-2" onClick={handleNewConversation}>
                         <Plus className="h-4 w-4" />
                         <span>New Conversation</span>
-                    </Button>
+                    </Button> */}
                 </div>
 
                 {/* Stats Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <Card>
                         <CardContent className="p-4">
                             <div className="flex items-center space-x-2">
@@ -297,7 +305,7 @@ export default function AdminMessaging({ conversations, admins }: AdminMessaging
                             </div>
                         </CardContent>
                     </Card>
-                </div>
+                </div> */}
 
                 {/* Filters */}
                 <Card>
@@ -432,9 +440,27 @@ export default function AdminMessaging({ conversations, admins }: AdminMessaging
                                                         </Button>
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end">
-                                                        <DropdownMenuItem onClick={() => handleAssignToAdmin(conversation.id, adminsData[0]?.id || 1)}>
-                                                            Assign to Admin
-                                                        </DropdownMenuItem>
+                                                        <DropdownMenuSub>
+                                                            <DropdownMenuSubTrigger>
+                                                                Assign to Admin
+                                                            </DropdownMenuSubTrigger>
+                                                            <DropdownMenuSubContent>
+                                                                {adminsData.length > 0 ? (
+                                                                    adminsData.map((admin) => (
+                                                                        <DropdownMenuItem 
+                                                                            key={admin.id}
+                                                                            onClick={() => handleAssignToAdmin(conversation.id, admin.id)}
+                                                                        >
+                                                                            {admin.name}
+                                                                        </DropdownMenuItem>
+                                                                    ))
+                                                                ) : (
+                                                                    <DropdownMenuItem disabled>
+                                                                        No admins available
+                                                                    </DropdownMenuItem>
+                                                                )}
+                                                            </DropdownMenuSubContent>
+                                                        </DropdownMenuSub>
                                                         <DropdownMenuItem onClick={() => handleChangePriority(conversation.id, 'high')}>
                                                             Change Priority
                                                         </DropdownMenuItem>

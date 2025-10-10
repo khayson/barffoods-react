@@ -71,5 +71,6 @@ Route::prefix('api/customer')->middleware(['web', 'auth', 'role:customer'])->gro
     Route::post('/messaging/{conversation}/messages', [App\Http\Controllers\Customer\MessagingController::class, 'sendMessage'])->name('messaging.send');
 });
 
+
 require __DIR__.'/settings.php';
 require __DIR__.'/auth.php';

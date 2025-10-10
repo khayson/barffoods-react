@@ -17,10 +17,10 @@ class CustomerSeeder extends Seeder
     {
         $customers = [
             [
-                'name' => 'John Customer',
-                'email' => 'customer1@example.com',
+                'name' => 'Customer',
+                'email' => 'customer@barffoods.com',
                 'phone' => '+1234567890',
-                'password' => 'password',
+                'password' => '123password',
                 'profile' => [
                     'date_of_birth' => '1990-05-15',
                     'gender' => 'male',
@@ -34,10 +34,10 @@ class CustomerSeeder extends Seeder
                 ],
             ],
             [
-                'name' => 'Jane Customer',
-                'email' => 'customer2@example.com',
+                'name' => 'Jane Smith',
+                'email' => 'jane@barffoods.com',
                 'phone' => '+1234567891',
-                'password' => 'password',
+                'password' => '123password',
                 'profile' => [
                     'date_of_birth' => '1985-08-22',
                     'gender' => 'female',
@@ -51,51 +51,17 @@ class CustomerSeeder extends Seeder
                 ],
             ],
             [
-                'name' => 'Bob Customer',
-                'email' => 'customer3@example.com',
+                'name' => 'Mike Johnson',
+                'email' => 'mike@barffoods.com',
                 'phone' => '+1234567892',
-                'password' => 'password',
+                'password' => '123password',
                 'profile' => [
                     'date_of_birth' => '1992-12-10',
                     'gender' => 'male',
-                    'dietary_preferences' => ['keto'],
+                    'dietary_preferences' => ['keto', 'low-carb'],
                     'allergies' => [],
-                    'notification_preferences' => [
-                        'email' => true,
-                        'sms' => true,
-                        'push' => false,
-                    ],
-                ],
-            ],
-            [
-                'name' => 'Alice Customer',
-                'email' => 'customer4@example.com',
-                'phone' => '+1234567893',
-                'password' => 'password',
-                'profile' => [
-                    'date_of_birth' => '1988-03-25',
-                    'gender' => 'female',
-                    'dietary_preferences' => ['paleo', 'organic'],
-                    'allergies' => ['shellfish'],
                     'notification_preferences' => [
                         'email' => false,
-                        'sms' => true,
-                        'push' => true,
-                    ],
-                ],
-            ],
-            [
-                'name' => 'Mike Customer',
-                'email' => 'customer5@example.com',
-                'phone' => '+1234567894',
-                'password' => 'password',
-                'profile' => [
-                    'date_of_birth' => '1995-07-18',
-                    'gender' => 'male',
-                    'dietary_preferences' => [],
-                    'allergies' => [],
-                    'notification_preferences' => [
-                        'email' => true,
                         'sms' => true,
                         'push' => true,
                     ],
@@ -136,7 +102,8 @@ class CustomerSeeder extends Seeder
             $this->command->info("Created customer: {$customer->name} ({$customer->email})");
         }
 
-        $this->command->info('Customer seeding completed successfully!');
-        $this->command->info('Total customers: ' . User::where('role', 'customer')->count());
+        $this->command->info('Customer user created successfully!');
+        $this->command->info('Email: customer@barffoods.com');
+        $this->command->info('Password: 123password');
     }
 }
