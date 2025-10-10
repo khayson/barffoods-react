@@ -5,12 +5,19 @@ use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\AdminNotificationController;
 use App\Http\Controllers\Admin\MessagingController;
+use App\Http\Controllers\ProductController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::get('/', function () {
     return Inertia::render('welcome');
 })->name('home');
+
+// Product routes
+Route::get('/products/{id}', [ProductController::class, 'show'])->name('products.show');
+
+// Product API routes
+Route::get('/api/products', [ProductController::class, 'index'])->name('api.products.index');
 
 // Customer routes (default authenticated users)
 Route::middleware(['auth', 'role:customer'])->group(function () {
