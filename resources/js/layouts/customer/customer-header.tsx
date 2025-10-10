@@ -42,7 +42,7 @@ interface NavItem {
 
 const navigation: NavItem[] = [
     { name: 'Home', href: '/dashboard', icon: LayoutGrid },
-    { name: 'Support', href: '/customer/messaging', icon: MessageCircle },
+    // { name: 'Support', href: '/customer/messaging', icon: MessageCircle },
     // { name: 'Products', href: '/products', icon: Package },
     // { name: 'Profile', href: '/profile', icon: User },
     // { name: 'Settings', href: '/settings', icon: Settings },
