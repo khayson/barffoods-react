@@ -11,7 +11,10 @@ import {
     Package,
     AlertCircle,
     CheckCircle,
-    ExternalLink
+    ExternalLink,
+    MessageSquare,
+    Clock,
+    Users
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNotifications } from '@/contexts/NotificationContext';
@@ -206,6 +209,62 @@ export default function AdminRightSidebar({ isMobile = false, onClose, collapsed
                                     </span>
                                 )}
                             </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Messaging Stats */}
+                <div>
+                    {!collapsed ? (
+                        <>
+                            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Messaging</h3>
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                                    <div className="flex items-center space-x-2">
+                                        <MessageSquare className="h-4 w-4 text-blue-600" />
+                                        <span className="text-sm font-medium text-gray-900 dark:text-white">Open</span>
+                                    </div>
+                                    <span className="text-sm font-bold text-blue-600">3</span>
+                                </div>
+                                
+                                <div className="flex items-center justify-between p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+                                    <div className="flex items-center space-x-2">
+                                        <Clock className="h-4 w-4 text-yellow-600" />
+                                        <span className="text-sm font-medium text-gray-900 dark:text-white">In Progress</span>
+                                    </div>
+                                    <span className="text-sm font-bold text-yellow-600">2</span>
+                                </div>
+                                
+                                <div className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                                    <div className="flex items-center space-x-2">
+                                        <AlertCircle className="h-4 w-4 text-red-600" />
+                                        <span className="text-sm font-medium text-gray-900 dark:text-white">Urgent</span>
+                                    </div>
+                                    <span className="text-sm font-bold text-red-600">1</span>
+                                </div>
+                                
+                                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                    <div className="flex items-center space-x-2">
+                                        <Users className="h-4 w-4 text-gray-600" />
+                                        <span className="text-sm font-medium text-gray-900 dark:text-white">Total</span>
+                                    </div>
+                                    <span className="text-sm font-bold text-gray-600">12</span>
+                                </div>
+                            </div>
+                            
+                            <div className="mt-3">
+                                <a 
+                                    href="/admin/messaging" 
+                                    className="w-full flex items-center justify-center space-x-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+                                >
+                                    <MessageSquare className="h-4 w-4" />
+                                    <span>View All</span>
+                                </a>
+                            </div>
+                        </>
+                    ) : (
+                        <div className="flex justify-center">
+                            <MessageSquare className="h-6 w-6 text-gray-600 dark:text-gray-400" />
                         </div>
                     )}
                 </div>

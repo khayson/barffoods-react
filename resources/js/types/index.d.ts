@@ -44,3 +44,5 @@ export interface User {
     updated_at: string;
     [key: string]: unknown; // This allows for additional properties...
 }
+
+// Echo and Pusher types are declared in NotificationContext.tsx

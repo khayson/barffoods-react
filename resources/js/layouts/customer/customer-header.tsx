@@ -14,7 +14,8 @@ import {
     Package,
     User,
     Settings,
-    LayoutGrid
+    LayoutGrid,
+    MessageCircle
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import AppLogoIcon from '@/components/app-logo-icon';
@@ -41,6 +42,7 @@ interface NavItem {
 
 const navigation: NavItem[] = [
     { name: 'Home', href: '/dashboard', icon: LayoutGrid },
+    { name: 'Support', href: '/customer/messaging', icon: MessageCircle },
     // { name: 'Products', href: '/products', icon: Package },
     // { name: 'Profile', href: '/profile', icon: User },
     // { name: 'Settings', href: '/settings', icon: Settings },

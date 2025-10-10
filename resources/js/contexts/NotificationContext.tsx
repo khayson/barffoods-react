@@ -9,11 +9,13 @@ import {
 import Echo from 'laravel-echo';
 import Pusher from 'pusher-js';
 import { toast } from 'sonner';
+import { Bell, AlertTriangle, CheckCircle, Info, MessageCircle, Shield, Package, CreditCard, Truck, Star } from 'lucide-react';
 
-// Extend Window interface for Pusher
+// Extend Window interface for Pusher and Echo
 declare global {
     interface Window {
         Pusher: typeof Pusher;
+        Echo: any;
     }
 }
 
@@ -204,27 +206,40 @@ export function NotificationProvider({ children, userId }: NotificationProviderP
     const [state, dispatch] = useReducer(notificationReducer, initialState);
     const [echo, setEcho] = React.useState<Echo<any> | null>(null);
 
+    // Early return if no userId is provided
+    if (!userId) {
+        return <>{children}</>;
+    }
+
     // Laravel Echo connection management
     const connect = useCallback(() => {
         if (echo || !userId) return;
 
         try {
-            window.Pusher = Pusher;
+            // Initialize Pusher if not already done
+            if (!window.Pusher) {
+                window.Pusher = Pusher;
+            }
             
-            const echoInstance = new Echo({
-                broadcaster: 'reverb',
-                key: import.meta.env.VITE_REVERB_APP_KEY,
-                wsHost: import.meta.env.VITE_REVERB_HOST,
-                wsPort: import.meta.env.VITE_REVERB_PORT,
-                wssPort: import.meta.env.VITE_REVERB_PORT,
-                forceTLS: (import.meta.env.VITE_REVERB_SCHEME ?? 'https') === 'https',
-                enabledTransports: ['ws', 'wss'],
-                auth: {
-                    headers: {
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+            // Initialize Echo if not already done
+            if (!window.Echo) {
+                window.Echo = new Echo({
+                    broadcaster: 'reverb',
+                    key: import.meta.env.VITE_REVERB_APP_KEY || 'barffoods-key',
+                    wsHost: import.meta.env.VITE_REVERB_HOST || 'localhost',
+                    wsPort: import.meta.env.VITE_REVERB_PORT || '8080',
+                    wssPort: import.meta.env.VITE_REVERB_PORT || '8080',
+                    forceTLS: (import.meta.env.VITE_REVERB_SCHEME ?? 'http') === 'https',
+                    enabledTransports: ['ws', 'wss'],
+                    auth: {
+                        headers: {
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                        },
                     },
-                },
-            });
+                });
+            }
+            
+            const echoInstance = window.Echo;
 
             // Listen for notifications on user's private channel
             const channel = echoInstance.private(`notifications.${userId}`);
@@ -247,34 +262,55 @@ export function NotificationProvider({ children, userId }: NotificationProviderP
                         }
                     } : undefined;
 
-                    // Show toast based on priority/type
+                    // Show toast based on priority/type with custom styling
+                    const toastOptions = {
+                        description: notification.message,
+                        duration,
+                        action,
+                    };
+
+                    // Get appropriate icon based on notification type
+                    const getNotificationIcon = (notification: Notification) => {
+                        switch (notification.type) {
+                            case 'customer':
+                            case 'order':
+                                return <MessageCircle className="h-4 w-4" />;
+                            case 'security':
+                                return <Shield className="h-4 w-4" />;
+                            case 'inventory':
+                                return <Package className="h-4 w-4" />;
+                            case 'payment':
+                                return <CreditCard className="h-4 w-4" />;
+                            case 'delivery':
+                                return <Truck className="h-4 w-4" />;
+                            case 'review':
+                                return <Star className="h-4 w-4" />;
+                            case 'system':
+                                return <Bell className="h-4 w-4" />;
+                            default:
+                                return <Info className="h-4 w-4" />;
+                        }
+                    };
+
                     if (notification.priority === 'urgent' || notification.type === 'security') {
                         toast.error(notification.title, {
-                            description: notification.message,
-                            duration,
-                            action,
-                            icon: notification.icon || '🚨',
+                            ...toastOptions,
+                            icon: getNotificationIcon(notification),
                         });
                     } else if (notification.priority === 'high' || notification.type === 'inventory') {
                         toast.warning(notification.title, {
-                            description: notification.message,
-                            duration,
-                            action,
-                            icon: notification.icon || '⚠️',
+                            ...toastOptions,
+                            icon: getNotificationIcon(notification),
                         });
                     } else if (notification.type === 'order' || notification.type === 'payment') {
                         toast.success(notification.title, {
-                            description: notification.message,
-                            duration,
-                            action,
-                            icon: notification.icon || '✅',
+                            ...toastOptions,
+                            icon: getNotificationIcon(notification),
                         });
                     } else {
                         toast.info(notification.title, {
-                            description: notification.message,
-                            duration,
-                            action,
-                            icon: notification.icon || '🔔',
+                            ...toastOptions,
+                            icon: getNotificationIcon(notification),
                         });
                     }
                 }
@@ -287,30 +323,41 @@ export function NotificationProvider({ children, userId }: NotificationProviderP
             });
 
             // Add connection event listeners
-            if ('pusher' in echoInstance.connector) {
-                echoInstance.connector.pusher.connection.bind('connected', () => {
-                    dispatch({ type: 'SET_CONNECTION_STATUS', payload: true });
-                });
+            try {
+                if (echoInstance.connector && 'pusher' in echoInstance.connector) {
+                    echoInstance.connector.pusher.connection.bind('connected', () => {
+                        dispatch({ type: 'SET_CONNECTION_STATUS', payload: true });
+                    });
 
-                echoInstance.connector.pusher.connection.bind('disconnected', () => {
-                    dispatch({ type: 'SET_CONNECTION_STATUS', payload: false });
-                });
+                    echoInstance.connector.pusher.connection.bind('disconnected', () => {
+                        dispatch({ type: 'SET_CONNECTION_STATUS', payload: false });
+                    });
 
-                echoInstance.connector.pusher.connection.bind('error', (error: any) => {
-                    dispatch({ type: 'SET_CONNECTION_STATUS', payload: false });
-                });
+                    echoInstance.connector.pusher.connection.bind('error', (error: any) => {
+                        console.warn('Pusher connection error:', error);
+                        dispatch({ type: 'SET_CONNECTION_STATUS', payload: false });
+                    });
+                }
+            } catch (connectorError) {
+                console.warn('Could not bind to Pusher connector:', connectorError);
             }
 
             dispatch({ type: 'SET_CONNECTION_STATUS', payload: true });
             setEcho(echoInstance);
         } catch (error) {
-            dispatch({ type: 'SET_ERROR', payload: 'Failed to connect' });
+            console.error('Failed to connect to Reverb:', error);
+            dispatch({ type: 'SET_ERROR', payload: 'Failed to connect to real-time notifications' });
+            dispatch({ type: 'SET_CONNECTION_STATUS', payload: false });
         }
     }, [echo, userId]);
 
     const disconnect = useCallback(() => {
         if (echo) {
-            echo.disconnect();
+            try {
+                echo.disconnect();
+            } catch (error) {
+                console.warn('Error disconnecting Echo:', error);
+            }
             setEcho(null);
             dispatch({ type: 'SET_CONNECTION_STATUS', payload: false });
         }
@@ -493,7 +540,23 @@ export function NotificationProvider({ children, userId }: NotificationProviderP
 export function useNotifications() {
     const context = useContext(NotificationContext);
     if (context === undefined) {
-        throw new Error('useNotifications must be used within a NotificationProvider');
+        // Return a default context when not within a provider
+        return {
+            state: initialState,
+            dispatch: () => {},
+            fetchNotifications: async () => {},
+            markAsRead: async () => {},
+            markAllAsRead: async () => {},
+            deleteNotification: async () => {},
+            updateSettings: async () => {},
+            setFilters: () => {},
+            setDropdownOpen: () => {},
+            connect: () => {},
+            disconnect: () => {},
+            getFilteredNotifications: () => [],
+            getNotificationsByType: () => [],
+            getUnreadNotifications: () => [],
+        };
     }
     return context;
 }

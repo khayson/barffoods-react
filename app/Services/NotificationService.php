@@ -41,7 +41,14 @@ class NotificationService
         ]);
 
         // Broadcast the notification
-        broadcast(new NotificationCreated($notification));
+        try {
+            broadcast(new NotificationCreated($notification));
+        } catch (\Exception $e) {
+            Log::warning('Failed to broadcast notification', [
+                'notification_id' => $notification->id,
+                'error' => $e->getMessage()
+            ]);
+        }
 
         Log::info('Notification created', [
             'id' => $notification->id,

@@ -1,6 +1,7 @@
 import { type ReactNode, useState, useEffect } from 'react';
 import CustomerHeader from '@/layouts/customer/customer-header';
 import CustomerMobileMenu from '@/layouts/customer/customer-mobile-menu';
+import FloatingSupportIcon from '@/components/customer/FloatingSupportIcon';
 import { NotificationProvider } from '@/contexts/NotificationContext';
 import { usePage } from '@inertiajs/react';
 import { type SharedData } from '@/types';
@@ -69,6 +70,9 @@ function CustomerLayoutContent({ children }: CustomerLayoutProps) {
                     {children}
                 </div>
             </main>
+
+            {/* Floating Support Icon */}
+            <FloatingSupportIcon />
 
             {/* Mobile overlay when menu is open */}
             {isMobile && showMobileMenu && (

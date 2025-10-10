@@ -4,6 +4,7 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\AdminNotificationController;
+use App\Http\Controllers\Admin\MessagingController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -21,6 +22,11 @@ Route::middleware(['auth', 'role:customer'])->group(function () {
 Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:super_admin'])->group(function () {
     Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
     Route::get('/notifications', [AdminController::class, 'notifications'])->name('notifications');
+    
+    // Messaging routes
+    Route::get('/messaging', [MessagingController::class, 'index'])->name('messaging');
+    Route::get('/messaging/{conversation}', [MessagingController::class, 'show'])->name('messaging.conversation');
+    
     // Add other admin routes here
 });
 
@@ -35,6 +41,15 @@ Route::middleware(['web', 'auth'])->group(function () {
     Route::put('/api/notifications/settings', [NotificationController::class, 'updateSettings']);
 });
 
+// Admin Messaging API Routes
+Route::prefix('api/admin')->middleware(['web', 'auth', 'role:super_admin'])->group(function () {
+    Route::post('/messaging/{conversation}/messages', [App\Http\Controllers\Admin\MessagingController::class, 'sendMessage']);
+    Route::post('/messaging/{conversation}/assign', [App\Http\Controllers\Admin\MessagingController::class, 'assign']);
+    Route::patch('/messaging/{conversation}/status', [App\Http\Controllers\Admin\MessagingController::class, 'updateStatus']);
+    Route::patch('/messaging/{conversation}/priority', [App\Http\Controllers\Admin\MessagingController::class, 'updatePriority']);
+    Route::get('/messaging/stats', [App\Http\Controllers\Admin\MessagingController::class, 'stats']);
+});
+
 // Admin Notification API Routes
 Route::prefix('api/admin')->middleware(['web', 'auth', 'role:super_admin'])->group(function () {
     Route::get('/notifications', [AdminNotificationController::class, 'index']);
@@ -46,6 +61,14 @@ Route::prefix('api/admin')->middleware(['web', 'auth', 'role:super_admin'])->gro
     Route::get('/notifications/{notification}', [AdminNotificationController::class, 'show']);
     Route::put('/notifications/{notification}', [AdminNotificationController::class, 'update']);
     Route::delete('/notifications/{notification}', [AdminNotificationController::class, 'destroy']);
+});
+
+// Customer Messaging API Routes (for FloatingSupportIcon)
+Route::prefix('api/customer')->middleware(['web', 'auth', 'role:customer'])->group(function () {
+    Route::get('/messaging', [App\Http\Controllers\Customer\MessagingController::class, 'apiIndex'])->name('messaging.api');
+    Route::get('/messaging/{conversation}/messages', [App\Http\Controllers\Customer\MessagingController::class, 'apiMessages'])->name('messaging.messages.api');
+    Route::post('/messaging', [App\Http\Controllers\Customer\MessagingController::class, 'store'])->name('messaging.store');
+    Route::post('/messaging/{conversation}/messages', [App\Http\Controllers\Customer\MessagingController::class, 'sendMessage'])->name('messaging.send');
 });
 
 require __DIR__.'/settings.php';

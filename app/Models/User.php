@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class User extends Authenticatable
 {
@@ -74,5 +76,55 @@ class User extends Authenticatable
     public function customerProfile()
     {
         return $this->hasOne(CustomerProfile::class);
+    }
+
+    /**
+     * Get the conversations the user participates in.
+     */
+    public function conversations(): BelongsToMany
+    {
+        return $this->belongsToMany(Conversation::class, 'conversation_participants')
+            ->withPivot(['role', 'joined_at', 'last_read_at', 'is_active'])
+            ->withTimestamps();
+    }
+
+    /**
+     * Get the messages sent by the user.
+     */
+    public function messages(): HasMany
+    {
+        return $this->hasMany(Message::class);
+    }
+
+    /**
+     * Get conversations assigned to this admin.
+     */
+    public function assignedConversations(): HasMany
+    {
+        return $this->hasMany(Conversation::class, 'assigned_to');
+    }
+
+    /**
+     * Get the message reads by this user.
+     */
+    public function messageReads(): HasMany
+    {
+        return $this->hasMany(MessageRead::class);
+    }
+
+    /**
+     * Get conversations where user is a customer.
+     */
+    public function customerConversations(): BelongsToMany
+    {
+        return $this->conversations()->wherePivot('role', 'customer');
+    }
+
+    /**
+     * Get conversations where user is an admin.
+     */
+    public function adminConversations(): BelongsToMany
+    {
+        return $this->conversations()->wherePivot('role', 'admin');
     }
 }

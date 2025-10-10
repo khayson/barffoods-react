@@ -14,9 +14,11 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // Run the super admin seeder
+        // Run the seeders in order
         $this->call([
             SuperAdminSeeder::class,
+            CustomerSeeder::class,
+            MessagingSeeder::class,
         ]);
     }
 }

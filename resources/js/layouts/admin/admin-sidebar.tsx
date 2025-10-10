@@ -10,7 +10,8 @@ import {
     ChevronLeft,
     ChevronRight,
     X,
-    Bell
+    Bell,
+    MessageSquare
 } from 'lucide-react';
 import { type SharedData } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -33,6 +34,7 @@ const navigation: NavItem[] = [
     { name: 'Products', href: '/admin/products', icon: Package, color: 'bg-green-100 text-green-600' },
     { name: 'Orders', href: '/admin/orders', icon: ShoppingCart, color: 'bg-green-100 text-green-600' },
     { name: 'Customers', href: '/admin/customers', icon: Users, color: 'bg-green-100 text-green-600' },
+    { name: 'Messaging', href: '/admin/messaging', icon: MessageSquare, color: 'bg-orange-100 text-orange-600' },
     { name: 'Notifications', href: '/admin/notifications', icon: Bell, color: 'bg-blue-100 text-blue-600' },
     { name: 'Analytics', href: '/admin/analytics', icon: BarChart3, color: 'bg-purple-100 text-purple-600' },
     // { name: 'Settings', href: '/admin/settings', icon: Settings, color: 'bg-gray-100 text-gray-600' },

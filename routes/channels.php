@@ -9,3 +9,11 @@ Broadcast::channel('App.Models.User.{id}', function ($user, $id) {
 Broadcast::channel('notifications.{userId}', function ($user, $userId) {
     return (int) $user->id === (int) $userId;
 });
+
+Broadcast::channel('conversation.{conversationId}', function ($user, $conversationId) {
+    // Check if user is a participant in this conversation
+    return \App\Models\ConversationParticipant::where('conversation_id', $conversationId)
+        ->where('user_id', $user->id)
+        ->where('is_active', true)
+        ->exists();
+});
