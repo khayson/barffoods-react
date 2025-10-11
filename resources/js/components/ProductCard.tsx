@@ -1,13 +1,15 @@
 import { Heart, Plus, Star, MapPin, Tag } from 'lucide-react';
 import { Link } from '@inertiajs/react';
+import { useWishlist } from '@/contexts/WishlistContext';
+import { useCart } from '@/contexts/CartContext';
 
 interface Product {
     id: string;
     name: string;
-    price: number;
-    originalPrice?: number | null;
-    rating: number;
-    reviews: number;
+    price: number | string;
+    originalPrice?: number | string | null;
+    rating: number | string;
+    reviews: number | string;
     image: string;
     store: string;
     category: string;
@@ -16,21 +18,21 @@ interface Product {
 
 interface ProductCardProps {
     product: Product;
-    isWishlisted?: boolean;
-    onToggleWishlist?: (productId: string) => void;
-    onAddToCart?: (productId: string) => void;
     variant?: 'default' | 'compact' | 'modal';
     className?: string;
 }
 
 export default function ProductCard({ 
     product, 
-    isWishlisted = false, 
-    onToggleWishlist, 
-    onAddToCart,
     variant = 'default',
     className = ''
 }: ProductCardProps) {
+    const { isInWishlist, toggleWishlist } = useWishlist();
+    const { addToCart, cartItems } = useCart();
+    
+    const isWishlisted = isInWishlist(product.id);
+    const cartItem = cartItems.find(item => item.product.id === product.id);
+    const cartQuantity = cartItem?.quantity || 0;
     const getBadgeColor = (color: string) => {
         const colors: { [key: string]: string } = {
             green: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
@@ -109,24 +111,36 @@ export default function ProductCard({
             {/* Product Image */}
             <Link href={`/products/${product.id}`} className={`${classes.image} relative block`}>
                 <div className={classes.icon}>
-                    {product.image}
+                    {product.image && product.image.startsWith('http') ? (
+                        <img
+                            src={product.image}
+                            alt={product.name}
+                            className="w-full h-full object-cover"
+                        />
+                    ) : (
+                        <div className="w-full h-full flex items-center justify-center text-4xl">
+                            {product.image || '📦'}
+                        </div>
+                    )}
                 </div>
                 
                 {/* Wishlist Button */}
-                {onToggleWishlist && (
-                    <button
-                        onClick={() => onToggleWishlist(product.id)}
-                        className={`absolute top-2 right-2 ${classes.wishlistButton} flex items-center justify-center transition-all duration-200 ${
-                            isWishlisted
-                                ? 'bg-red-500 text-white'
-                                : variant === 'modal' 
-                                    ? 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-red-50 dark:hover:bg-red-900/20 border border-gray-200 dark:border-gray-700'
-                                    : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-red-50 dark:hover:bg-red-900/20 border border-gray-200 dark:border-gray-700'
-                        }`}
-                    >
-                        <Heart className={`${classes.wishlistIcon} ${isWishlisted ? 'fill-current' : ''}`} />
-                    </button>
-                )}
+                <button
+                    onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        toggleWishlist(product.id);
+                    }}
+                    className={`absolute top-2 right-2 ${classes.wishlistButton} flex items-center justify-center transition-all duration-200 ${
+                        isWishlisted
+                            ? 'bg-red-500 text-white'
+                            : variant === 'modal' 
+                                ? 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-red-50 dark:hover:bg-red-900/20 border border-gray-200 dark:border-gray-700'
+                                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-red-50 dark:hover:bg-red-900/20 border border-gray-200 dark:border-gray-700'
+                    }`}
+                >
+                    <Heart className={`${classes.wishlistIcon} ${isWishlisted ? 'fill-current' : ''}`} />
+                </button>
                 
                 {/* Badges */}
                 {product.badges && (
@@ -167,11 +181,11 @@ export default function ProductCard({
                 {/* Price */}
                 <div className="flex items-center gap-2">
                     <span className={classes.price}>
-                        ${product.price.toFixed(2)}
+                        ${Number(product.price).toFixed(2)}
                     </span>
                     {product.originalPrice && product.originalPrice !== product.price && (
                         <span className={classes.originalPrice}>
-                            ${product.originalPrice.toFixed(2)}
+                            ${Number(product.originalPrice).toFixed(2)}
                         </span>
                     )}
                 </div>
@@ -190,15 +204,26 @@ export default function ProductCard({
                 </div>
             </div>
 
+
             {/* Add to Cart Button */}
-            {onAddToCart && (
-                <button 
-                    onClick={() => onAddToCart(product.id)}
-                    className={`absolute bottom-3 right-3 sm:bottom-4 sm:right-4 ${classes.addToCartButton}`}
-                >
+            <button 
+                onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    addToCart(product.id);
+                }}
+                className={`absolute bottom-3 right-3 sm:bottom-4 sm:right-4 ${classes.addToCartButton} ${
+                    cartQuantity > 0 
+                        ? 'bg-green-700 hover:bg-green-800 min-w-[28px] min-h-[28px]' 
+                        : 'bg-green-600 hover:bg-green-700'
+                } flex items-center justify-center`}
+            >
+                {cartQuantity > 0 ? (
+                    <span className="text-xs font-bold">{cartQuantity}</span>
+                ) : (
                     <Plus className={classes.addToCartIcon} />
-                </button>
-            )}
+                )}
+            </button>
         </div>
     );
 }

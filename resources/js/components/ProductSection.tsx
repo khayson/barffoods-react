@@ -6,10 +6,10 @@ import axios from 'axios';
 interface Product {
     id: string;
     name: string;
-    price: number;
-    originalPrice?: number | null;
-    rating: number;
-    reviews: number;
+    price: number | string;
+    originalPrice?: number | string | null;
+    rating: number | string;
+    reviews: number | string;
     image: string;
     store: string;
     category: string;
@@ -23,25 +23,29 @@ interface Store {
     id: string;
     name: string;
     address: string;
+    distance?: number;
 }
 
 interface Category {
     id: string;
     name: string;
+    product_count?: number;
 }
 
-interface ApiResponse {
-    products: Product[];
-    stores: Store[];
-    categories: Category[];
+interface ProductSectionProps {
+    nearbyStores: Store[];
+    allStores: Store[];
+    initialProducts: Product[];
+    initialCategories: Category[];
+    selectedCategory?: string;
+    onCategoryChange?: (category: string) => void;
 }
 
-export default function ProductSection() {
-    const [selectedStore, setSelectedStore] = useState("All Stores");
+export default function ProductSection({ nearbyStores, allStores, initialProducts, initialCategories, selectedCategory: externalSelectedCategory, onCategoryChange }: ProductSectionProps) {
+    const [selectedStores, setSelectedStores] = useState<string[]>([]);
     const [selectedCategory, setSelectedCategory] = useState("All Categories");
     const [selectedSort, setSelectedSort] = useState("Sort by");
     const [showSortDropdown, setShowSortDropdown] = useState(false);
-    const [wishlistItems, setWishlistItems] = useState<string[]>([]);
     const [displayedProducts, setDisplayedProducts] = useState<Product[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [hasMore, setHasMore] = useState(true);
@@ -50,37 +54,38 @@ export default function ProductSection() {
     const [categories, setCategories] = useState<Category[]>([]);
     const [isInitialLoad, setIsInitialLoad] = useState(true);
 
-    // Fetch products from API
+    // Initialize with props data
     useEffect(() => {
-        const fetchProducts = async () => {
-            try {
-                setIsLoading(true);
-                const response = await axios.get<ApiResponse>(`/api/products?t=${Date.now()}`);
-                const { products, stores, categories } = response.data;
-                
-                console.log('ProductSection: Fetched products:', products.map(p => ({ id: p.id, name: p.name })));
-                
-                setAllProducts(products);
-                setStores(stores);
-                setCategories(categories);
-                
-                // Initialize with first 8 products
-                setDisplayedProducts(products.slice(0, 8));
-                setHasMore(products.length > 8);
-                setIsInitialLoad(false);
-            } catch (error) {
-                console.error('Error fetching products:', error);
-            } finally {
-                setIsLoading(false);
-            }
-        };
+        // Remove duplicates based on ID
+        const uniqueProducts = initialProducts.filter((product, index, self) => 
+            index === self.findIndex(p => p.id === product.id)
+        );
+        
+        setAllProducts(uniqueProducts);
+        setStores(allStores); // Use allStores for dropdown
+        setCategories(initialCategories);
+        
+        // Auto-select nearby stores if available
+        if (nearbyStores.length > 0) {
+            setSelectedStores(nearbyStores.map(store => store.name));
+        }
+        
+        // Initialize with first 8 products
+        setDisplayedProducts(uniqueProducts.slice(0, 8));
+        setHasMore(uniqueProducts.length > 8);
+        setIsInitialLoad(false);
+    }, [nearbyStores, allStores, initialProducts, initialCategories]);
 
-        fetchProducts();
-    }, []); // Fetch on component mount
+    // Sync external category selection
+    useEffect(() => {
+        if (externalSelectedCategory && externalSelectedCategory !== selectedCategory) {
+            setSelectedCategory(externalSelectedCategory);
+        }
+    }, [externalSelectedCategory, selectedCategory]);
 
     // Clear filters function
     const clearFilters = () => {
-        setSelectedStore("All Stores");
+        setSelectedStores(nearbyStores.length > 0 ? nearbyStores.map(store => store.name) : []);
         setSelectedCategory("All Categories");
         setSelectedSort("Sort by");
     };
@@ -91,10 +96,10 @@ export default function ProductSection() {
 
         let filteredProducts = [...allProducts];
 
-        // Filter by store
-        if (selectedStore !== "All Stores") {
+        // Filter by stores (multi-select)
+        if (selectedStores.length > 0) {
             filteredProducts = filteredProducts.filter(product => 
-                product.store === selectedStore
+                selectedStores.includes(product.store)
             );
         }
 
@@ -109,11 +114,11 @@ export default function ProductSection() {
         filteredProducts = filteredProducts.sort((a, b) => {
             switch (selectedSort) {
                 case "Price: Low to High":
-                    return a.price - b.price;
+                    return Number(a.price) - Number(b.price);
                 case "Price: High to Low":
-                    return b.price - a.price;
+                    return Number(b.price) - Number(a.price);
                 case "Rating: High to Low":
-                    return b.rating - a.rating;
+                    return Number(b.rating) - Number(a.rating);
                 case "Name: A to Z":
                     return a.name.localeCompare(b.name);
                 case "Name: Z to A":
@@ -121,25 +126,22 @@ export default function ProductSection() {
                 case "Newest First":
                     return parseInt(b.id) - parseInt(a.id); // Assuming higher ID = newer
                 case "Most Popular":
-                    return b.reviews - a.reviews;
+                    return Number(b.reviews) - Number(a.reviews);
                 default:
                     return 0; // No sorting
             }
         });
 
-        // Reset displayed products
-        setDisplayedProducts(filteredProducts.slice(0, 8));
-        setHasMore(filteredProducts.length > 8);
-    }, [selectedStore, selectedCategory, selectedSort, allProducts, isInitialLoad]);
-
-    // Wishlist functions
-    const toggleWishlist = (productId: string) => {
-        setWishlistItems(prev => 
-            prev.includes(productId) 
-                ? prev.filter(id => id !== productId)
-                : [...prev, productId]
+        // Remove duplicates based on ID
+        const uniqueProducts = filteredProducts.filter((product, index, self) => 
+            index === self.findIndex(p => p.id === product.id)
         );
-    };
+
+        // Reset displayed products
+        setDisplayedProducts(uniqueProducts.slice(0, 8));
+        setHasMore(uniqueProducts.length > 8);
+    }, [selectedStores, selectedCategory, selectedSort, allProducts, isInitialLoad]);
+
 
     // Load more products function
     const loadMoreProducts = useCallback(async () => {
@@ -153,9 +155,9 @@ export default function ProductSection() {
         let filteredProducts = [...allProducts];
 
         // Apply current filters
-        if (selectedStore !== "All Stores") {
+        if (selectedStores.length > 0) {
             filteredProducts = filteredProducts.filter(product => 
-                product.store === selectedStore
+                selectedStores.includes(product.store)
             );
         }
 
@@ -169,11 +171,11 @@ export default function ProductSection() {
         filteredProducts = filteredProducts.sort((a, b) => {
             switch (selectedSort) {
                 case "Price: Low to High":
-                    return a.price - b.price;
+                    return Number(a.price) - Number(b.price);
                 case "Price: High to Low":
-                    return b.price - a.price;
+                    return Number(b.price) - Number(a.price);
                 case "Rating: High to Low":
-                    return b.rating - a.rating;
+                    return Number(b.rating) - Number(a.rating);
                 case "Name: A to Z":
                     return a.name.localeCompare(b.name);
                 case "Name: Z to A":
@@ -181,7 +183,7 @@ export default function ProductSection() {
                 case "Newest First":
                     return parseInt(b.id) - parseInt(a.id);
                 case "Most Popular":
-                    return b.reviews - a.reviews;
+                    return Number(b.reviews) - Number(a.reviews);
                 default:
                     return 0;
             }
@@ -193,7 +195,7 @@ export default function ProductSection() {
         setDisplayedProducts(prev => [...prev, ...nextBatch]);
         setHasMore(currentCount + nextBatch.length < filteredProducts.length);
         setIsLoading(false);
-    }, [isLoading, hasMore, allProducts, selectedStore, selectedCategory, selectedSort, displayedProducts.length]);
+    }, [isLoading, hasMore, allProducts, selectedStores, selectedCategory, selectedSort, displayedProducts.length]);
 
     // Infinite scroll effect
     useEffect(() => {
@@ -271,30 +273,102 @@ export default function ProductSection() {
                 <div className="mb-8">
                     <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Products</h2>
                     
+                    {/* Status Bar */}
+                    <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg">
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                            <div className="flex items-center space-x-4">
+                                {/* Store Status */}
+                                <div className="flex items-center space-x-2">
+                                    <div className={`w-2 h-2 rounded-full ${nearbyStores.length > 0 ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
+                                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                                        {nearbyStores.length > 0 
+                                            ? `${nearbyStores.length} stores nearby` 
+                                            : 'All stores(no stores nearby)'
+                                        }
+                                    </p>
+                                </div>
+                                
+                                {/* Category Filter */}
+                                {selectedCategory !== "All Categories" && (
+                                    <>
+                                        <div className="w-px h-4 bg-gray-300 dark:bg-gray-600"></div>
+                                        <div className="flex items-center space-x-2">
+                                            <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                                                Filter: <span className="font-medium text-gray-900 dark:text-white">{selectedCategory}</span>
+                                            </p>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                            
+                            {/* Clear Filter Button */}
+                            {selectedCategory !== "All Categories" && (
+                                <button
+                                    onClick={() => {
+                                        setSelectedCategory("All Categories");
+                                        onCategoryChange?.("All Categories");
+                                    }}
+                                    className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                                >
+                                    Clear filter
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                    
                     {/* Filters */}
                     <div className="flex flex-wrap items-center gap-4 mb-6">
                         {/* Store Filter */}
                         <div className="relative">
                             <select
-                                value={selectedStore}
-                                onChange={(e) => setSelectedStore(e.target.value)}
+                                onChange={(e) => {
+                                    const storeName = e.target.value;
+                                    if (storeName && !selectedStores.includes(storeName)) {
+                                        setSelectedStores(prev => [...prev, storeName]);
+                                    }
+                                    e.target.value = '';
+                                }}
                                 className="appearance-none bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 pr-8 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500"
                             >
-                                <option value="All Stores">All Stores</option>
+                                <option value="">Add Store</option>
                                 {stores.map((store) => (
                                     <option key={store.id} value={store.name}>
-                                        {store.name}
+                                        {store.name} {store.distance ? `(${store.distance.toFixed(1)} mi)` : ''}
                                     </option>
                                 ))}
                             </select>
                             <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
                         </div>
+                        
+                        {/* Selected Stores */}
+                        {selectedStores.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                                {selectedStores.map((storeName) => (
+                                    <span
+                                        key={storeName}
+                                        className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+                                    >
+                                        {storeName}
+                                        <button
+                                            onClick={() => setSelectedStores(prev => prev.filter(name => name !== storeName))}
+                                            className="ml-2 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-200"
+                                        >
+                                            ×
+                                        </button>
+                                    </span>
+                                ))}
+                            </div>
+                        )}
 
                         {/* Category Filter */}
                         <div className="relative">
                             <select
                                 value={selectedCategory}
-                                onChange={(e) => setSelectedCategory(e.target.value)}
+                                onChange={(e) => {
+                                    setSelectedCategory(e.target.value);
+                                    onCategoryChange?.(e.target.value);
+                                }}
                                 className="appearance-none bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 pr-8 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500"
                             >
                                 <option value="All Categories">All Categories</option>
@@ -347,30 +421,102 @@ export default function ProductSection() {
             <div className="mb-8">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Products</h2>
                 
+                {/* Status Bar */}
+                <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center space-x-4">
+                            {/* Store Status */}
+                            <div className="flex items-center space-x-2">
+                                <div className={`w-2 h-2 rounded-full ${nearbyStores.length > 0 ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">
+                                    {nearbyStores.length > 0 
+                                        ? `${nearbyStores.length} stores nearby` 
+                                        : 'All stores(no stores nearby)'
+                                    }
+                                </p>
+                            </div>
+                            
+                            {/* Category Filter */}
+                            {selectedCategory !== "All Categories" && (
+                                <>
+                                    <div className="w-px h-4 bg-gray-300 dark:bg-gray-600"></div>
+                                    <div className="flex items-center space-x-2">
+                                        <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                                            Filter: <span className="font-medium text-gray-900 dark:text-white">{selectedCategory}</span>
+                                        </p>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                        
+                        {/* Clear Filter Button */}
+                        {selectedCategory !== "All Categories" && (
+                            <button
+                                onClick={() => {
+                                    setSelectedCategory("All Categories");
+                                    onCategoryChange?.("All Categories");
+                                }}
+                                className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                            >
+                                Clear filter
+                            </button>
+                        )}
+                    </div>
+                </div>
+                
                 {/* Filters */}
                 <div className="flex flex-wrap items-center gap-4 mb-6">
                     {/* Store Filter */}
                     <div className="relative">
                         <select
-                            value={selectedStore}
-                            onChange={(e) => setSelectedStore(e.target.value)}
+                            onChange={(e) => {
+                                const storeName = e.target.value;
+                                if (storeName && !selectedStores.includes(storeName)) {
+                                    setSelectedStores(prev => [...prev, storeName]);
+                                }
+                                e.target.value = '';
+                            }}
                             className="appearance-none bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 pr-8 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500"
                         >
-                            <option value="All Stores">All Stores</option>
+                            <option value="">Add Store</option>
                             {stores.map((store) => (
                                 <option key={store.id} value={store.name}>
-                                    {store.name}
+                                    {store.name} {store.distance ? `(${store.distance.toFixed(1)} mi)` : ''}
                                 </option>
                             ))}
                         </select>
                         <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
                     </div>
+                    
+                    {/* Selected Stores */}
+                    {selectedStores.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                            {selectedStores.map((storeName) => (
+                                <span
+                                    key={storeName}
+                                    className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+                                >
+                                    {storeName}
+                                    <button
+                                        onClick={() => setSelectedStores(prev => prev.filter(name => name !== storeName))}
+                                        className="ml-2 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-200"
+                                    >
+                                        ×
+                                    </button>
+                                </span>
+                            ))}
+                        </div>
+                    )}
 
                     {/* Category Filter */}
                     <div className="relative">
                         <select
                             value={selectedCategory}
-                            onChange={(e) => setSelectedCategory(e.target.value)}
+                            onChange={(e) => {
+                                setSelectedCategory(e.target.value);
+                                onCategoryChange?.(e.target.value);
+                            }}
                             className="appearance-none bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 pr-8 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500"
                         >
                             <option value="All Categories">All Categories</option>
@@ -418,17 +564,11 @@ export default function ProductSection() {
                 <EmptyState type={allProducts.length === 0 ? 'no-products' : 'no-results'} />
             ) : (
                 <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-6">
-                    {displayedProducts.map((product) => (
+                    {displayedProducts.map((product, index) => (
                         <ProductCard
-                            key={product.id}
+                            key={`${product.id}-${index}`}
                             product={product}
                             variant="default"
-                            isWishlisted={wishlistItems.includes(product.id)}
-                            onToggleWishlist={(productId) => toggleWishlist(productId)}
-                            onAddToCart={(productId) => {
-                                // Add to cart functionality
-                                console.log('Add to cart:', productId);
-                            }}
                         />
                     ))}
                 </div>

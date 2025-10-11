@@ -6,18 +6,54 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\AdminNotificationController;
 use App\Http\Controllers\Admin\MessagingController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ProductReviewController;
+use App\Http\Controllers\StoreController;
+use App\Http\Controllers\WelcomeController;
+use App\Http\Controllers\WishlistItemController;
+use App\Http\Controllers\CartItemController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-Route::get('/', function () {
-    return Inertia::render('welcome');
-})->name('home');
+Route::get('/', [WelcomeController::class, 'index'])->name('home');
 
 // Product routes
 Route::get('/products/{id}', [ProductController::class, 'show'])->name('products.show');
 
+// Review routes (authenticated users only)
+Route::middleware(['auth'])->group(function () {
+    Route::post('/reviews', [ProductReviewController::class, 'store'])->name('reviews.store');
+    Route::put('/reviews/{id}', [ProductReviewController::class, 'update'])->name('reviews.update');
+    Route::delete('/reviews/{id}', [ProductReviewController::class, 'destroy'])->name('reviews.destroy');
+    Route::post('/reviews/{id}/helpful', [ProductReviewController::class, 'toggleHelpful'])->name('reviews.helpful');
+    Route::post('/reviews/{id}/report', [ProductReviewController::class, 'report'])->name('reviews.report');
+});
+
+// Wishlist routes (authenticated users only)
+Route::middleware(['auth'])->group(function () {
+    Route::get('/api/wishlist', [WishlistItemController::class, 'index'])->name('wishlist.index');
+    Route::post('/api/wishlist', [WishlistItemController::class, 'store'])->name('wishlist.store');
+    Route::delete('/api/wishlist/{id}', [WishlistItemController::class, 'destroy'])->name('wishlist.destroy');
+    Route::get('/api/wishlist/check/{productId}', [WishlistItemController::class, 'check'])->name('wishlist.check');
+});
+
+// Cart page (no auth required)
+Route::get('/cart', [CartItemController::class, 'show'])->name('cart.show');
+
+// Cart API routes (available for both authenticated and anonymous users)
+Route::get('/api/cart', [CartItemController::class, 'index'])->name('cart.index');
+Route::post('/api/cart', [CartItemController::class, 'store'])->name('cart.store');
+Route::put('/api/cart/{id}', [CartItemController::class, 'update'])->name('cart.update');
+Route::delete('/api/cart/{id}', [CartItemController::class, 'destroy'])->name('cart.destroy');
+Route::delete('/api/cart', [CartItemController::class, 'clear'])->name('cart.clear');
+
 // Product API routes
 Route::get('/api/products', [ProductController::class, 'index'])->name('api.products.index');
+Route::get('/api/products/{id}', [ProductController::class, 'show'])->name('api.products.show');
+
+// Store API routes
+Route::get('/api/stores', [StoreController::class, 'index'])->name('api.stores.index');
+Route::get('/api/stores/nearby', [StoreController::class, 'getNearbyStores'])->name('api.stores.nearby');
+Route::post('/api/stores/calculate-delivery', [StoreController::class, 'calculateDelivery'])->name('api.stores.calculate-delivery');
 
 // Customer routes (default authenticated users)
 Route::middleware(['auth', 'role:customer'])->group(function () {

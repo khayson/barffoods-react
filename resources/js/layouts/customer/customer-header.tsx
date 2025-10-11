@@ -17,7 +17,7 @@ import {
     LayoutGrid,
     MessageCircle
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import AppLogoIcon from '@/components/app-logo-icon';
 import { UserInfo } from '@/components/user-info';
 import { UserMenuContent } from '@/components/user-menu-content';
@@ -28,6 +28,11 @@ import ProductSearchModal from '@/components/product-search-modal';
 import { Link } from '@inertiajs/react';
 import { useNotifications } from '@/contexts/NotificationContext';
 import NotificationDropdown from '@/components/notifications/NotificationDropdown';
+import { useWishlist } from '@/contexts/WishlistContext';
+import { useCart } from '@/contexts/CartContext';
+import WishlistDropdown from '@/components/WishlistDropdown';
+import CartDropdown from '@/components/CartDropdown';
+import { toast } from 'sonner';
 
 interface CustomerHeaderProps {
     onToggleMobileMenu: () => void;
@@ -52,11 +57,17 @@ export default function CustomerHeader({ onToggleMobileMenu, isMobile }: Custome
     const [isDarkMode, setIsDarkMode] = useState(false);
     const [searchOpen, setSearchOpen] = useState(false);
     const [notificationOpen, setNotificationOpen] = useState(false);
+    const [wishlistOpen, setWishlistOpen] = useState(false);
+    const [cartOpen, setCartOpen] = useState(false);
     const page = usePage<SharedData>();
     const { auth } = page.props;
     const getInitials = useInitials();
     const currentPath = window.location.pathname;
     const { state: notificationState, setDropdownOpen } = useNotifications();
+    const { wishlistCount } = useWishlist();
+    const { totalItems } = useCart();
+    const wishlistButtonRef = useRef<HTMLButtonElement>(null);
+    const cartButtonRef = useRef<HTMLButtonElement>(null);
 
     // Check for saved theme preference or default to light mode
     useEffect(() => {
@@ -122,12 +133,12 @@ export default function CustomerHeader({ onToggleMobileMenu, isMobile }: Custome
                             <Menu className="h-5 w-5" />
                         </Button>
                         
-                        <div className="flex items-center space-x-2">
+                        <Link href="/" className="flex items-center space-x-2">
                             <AppLogoIcon className="w-7 h-7" />
                             {!isMobile && (
                                 <span className="text-lg font-bold text-gray-900 dark:text-white">BarfFoods</span>
                             )}
-                        </div>
+                        </Link>
                     </div>
 
                         {/* Center Section - Navigation Links (Desktop Only) */}
@@ -222,26 +233,34 @@ export default function CustomerHeader({ onToggleMobileMenu, isMobile }: Custome
 
                         {/* Wishlist */}
                         <Button
+                            ref={wishlistButtonRef}
                             variant="ghost"
                             size="sm"
                             className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 relative"
+                            onClick={() => auth.user ? setWishlistOpen(!wishlistOpen) : toast.error('Please log in to view wishlist')}
                         >
                             <Heart className="h-5 w-5" />
-                            <span className="absolute -top-1 -right-1 h-3 w-3 bg-pink-500 rounded-full text-xs text-white flex items-center justify-center">
-                                5
-                            </span>
+                            {wishlistCount > 0 && (
+                                <span className="absolute -top-1 -right-1 bg-pink-500 rounded-full text-xs text-white flex items-center justify-center min-w-[1.2rem] h-5 px-1">
+                                    {wishlistCount > 9 ? '9+' : wishlistCount}
+                                </span>
+                            )}
                         </Button>
 
                         {/* Cart */}
                         <Button
+                            ref={cartButtonRef}
                             variant="ghost"
                             size="sm"
                             className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 relative"
+                            onClick={() => setCartOpen(!cartOpen)}
                         >
                             <ShoppingCart className="h-5 w-5" />
-                            <span className="absolute -top-1 -right-1 h-3 w-3 bg-green-500 rounded-full text-xs text-white flex items-center justify-center">
-                                2
-                            </span>
+                            {totalItems > 0 && (
+                                <span className="absolute -top-1 -right-1 bg-green-500 rounded-full text-xs text-white flex items-center justify-center min-w-[1.2rem] h-5 px-1">
+                                    {totalItems > 9 ? '9+' : totalItems}
+                                </span>
+                            )}
                         </Button>
 
                         {/* Theme Toggle */}
@@ -296,6 +315,20 @@ export default function CustomerHeader({ onToggleMobileMenu, isMobile }: Custome
             
             {/* Product Search Modal */}
             <ProductSearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
+            
+            {/* Wishlist Dropdown */}
+            <WishlistDropdown
+                isOpen={wishlistOpen}
+                onClose={() => setWishlistOpen(false)}
+                buttonRef={wishlistButtonRef}
+            />
+            
+            {/* Cart Dropdown */}
+            <CartDropdown
+                isOpen={cartOpen}
+                onClose={() => setCartOpen(false)}
+                buttonRef={cartButtonRef}
+            />
         </header>
     );
 }

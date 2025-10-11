@@ -1,4 +1,5 @@
-import { Head } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
+import { useState } from 'react';
 import Navigation from '@/components/Navigation';
 import HowItWorksBanner from '@/components/HowItWorksBanner';
 import HeroCarousel from '@/components/HeroCarousel';
@@ -8,7 +9,58 @@ import ProductSection from '@/components/ProductSection';
 import StoreLocationsMap from '@/components/StoreLocationsMap';
 import Footer from '@/components/Footer';
 
+interface PageProps {
+    nearbyStores: Array<{
+        id: string;
+        name: string;
+        address: string;
+        phone: string;
+        latitude: number;
+        longitude: number;
+        delivery_radius: number;
+        min_order_amount: number;
+        delivery_fee: number;
+        distance: number;
+    }>;
+    allStores: Array<{
+        id: string;
+        name: string;
+        address: string;
+        phone: string;
+        latitude: number;
+        longitude: number;
+        delivery_radius: number;
+        min_order_amount: number;
+        delivery_fee: number;
+        distance: number;
+    }>;
+    products: Array<{
+        id: string;
+        name: string;
+        price: number | string;
+        originalPrice?: number | string | null;
+        rating: number | string;
+        reviews: number | string;
+        image: string;
+        store: string;
+        category: string;
+        badges?: Array<{ text: string; color: 'red' | 'orange' | 'green' | 'yellow' | 'blue' | 'brown' | 'purple' }>;
+    }>;
+    categories: Array<{
+        id: string;
+        name: string;
+        product_count: number;
+    }>;
+    userLocation: {
+        latitude: number;
+        longitude: number;
+    };
+    [key: string]: any;
+}
+
 export default function Welcome() {
+    const { props } = usePage<PageProps>();
+    const [selectedCategory, setSelectedCategory] = useState<string>("All Categories");
     return (
         <>
             <Head title="BarfFoods - Fresh Groceries Delivered">
@@ -35,10 +87,20 @@ export default function Welcome() {
                 <FeaturesSection />
 
                 {/* Shop By Category */}
-                <ShopByCategory />
+                <ShopByCategory 
+                    onCategorySelect={setSelectedCategory} 
+                    selectedCategory={selectedCategory}
+                />
 
                 {/* Product Section */}
-                <ProductSection />
+                <ProductSection 
+                    nearbyStores={props.nearbyStores}
+                    allStores={props.allStores}
+                    initialProducts={props.products}
+                    initialCategories={props.categories}
+                    selectedCategory={selectedCategory}
+                    onCategoryChange={setSelectedCategory}
+                />
                 
                 {/* Store Locations & Delivery Zones */}
                 <StoreLocationsMap />

@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { MapPin, Navigation, Clock, Phone, CheckCircle, XCircle, Store, Truck } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import axios from 'axios';
+import { router } from '@inertiajs/react';
 
 // Fix for default markers in Leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -20,6 +22,9 @@ interface Store {
   coordinates: [number, number]; // [lat, lng]
   features: string[];
   distance?: number; // Distance from user location
+  delivery_radius?: number;
+  min_order_amount?: number;
+  delivery_fee?: number;
 }
 
 interface DeliveryZone {
@@ -44,76 +49,43 @@ export default function StoreLocationsMap() {
   const markersRef = useRef<L.Marker[]>([]);
   const userMarkerRef = useRef<L.Marker | null>(null);
 
-  // Mock data - in a real app, this would come from an API
-  const stores: Store[] = [
-    {
-      id: '1',
-      name: 'Downtown Store',
-      address: '123 Main St, Downtown',
-      phone: '(555) 123-4567',
-      hours: 'Mon-Sun: 7AM-10PM',
-      coordinates: [40.7128, -74.0060], // NYC coordinates
-      features: ['Parking', 'Pickup', 'Fresh Produce']
-    },
-    {
-      id: '2',
-      name: 'Mall Location',
-      address: '456 Mall Ave, Shopping Center',
-      phone: '(555) 234-5678',
-      hours: 'Mon-Sun: 8AM-9PM',
-      coordinates: [40.7589, -73.9851],
-      features: ['Mall Access', 'Parking', 'Express Checkout']
-    },
-    {
-      id: '3',
-      name: 'Suburban Branch',
-      address: '789 Suburb St, Suburban',
-      phone: '(555) 345-6789',
-      hours: 'Mon-Sun: 6AM-11PM',
-      coordinates: [40.7505, -73.9934],
-      features: ['Large Parking', 'Drive-thru', 'Bulk Items']
-    },
-    {
-      id: '4',
-      name: 'Express Store',
-      address: '321 Quick Lane, Express',
-      phone: '(555) 456-7890',
-      hours: 'Mon-Sun: 24/7',
-      coordinates: [40.7614, -73.9776],
-      features: ['24/7', 'Quick Checkout', 'Grab & Go']
+  // Fetch stores from API
+  const fetchNearbyStores = async (userCoords: [number, number]) => {
+    try {
+      const response = await axios.get('/api/stores/nearby', {
+        params: {
+          latitude: userCoords[0],
+          longitude: userCoords[1],
+          radius: 25
+        }
+      });
+      
+      const stores = response.data.map((store: any) => ({
+        id: store.id.toString(),
+        name: store.name,
+        address: store.address,
+        phone: store.phone,
+        hours: 'Mon-Sun: 7AM-10PM', // Default hours
+        coordinates: [parseFloat(store.latitude), parseFloat(store.longitude)],
+        features: ['Parking', 'Pickup', 'Fresh Produce'], // Default features
+        distance: store.distance,
+        delivery_radius: store.delivery_radius,
+        min_order_amount: store.min_order_amount,
+        delivery_fee: store.delivery_fee
+      }));
+      
+      setNearbyStores(stores);
+      if (leafletMap) {
+        addStoreMarkers(stores, leafletMap);
+      }
+    } catch (error) {
+      console.error('Error fetching stores:', error);
     }
-  ];
+  };
 
-  const deliveryZones: DeliveryZone[] = [
-    {
-      id: '1',
-      name: 'Downtown Zone',
-      coordinates: [
-        [40.7000, -74.0200],
-        [40.7200, -74.0200],
-        [40.7200, -73.9900],
-        [40.7000, -73.9900]
-      ],
-      deliveryTime: '2-4 hours',
-      minOrder: 50,
-      deliveryFee: 0
-    },
-    {
-      id: '2',
-      name: 'Mall Area Zone',
-      coordinates: [
-        [40.7400, -74.0000],
-        [40.7700, -74.0000],
-        [40.7700, -73.9700],
-        [40.7400, -73.9700]
-      ],
-      deliveryTime: '1-3 hours',
-      minOrder: 75,
-      deliveryFee: 5
-    }
-  ];
+  const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]);
 
-  // Function to detect user location
+  // Function to manually detect user location (refresh location)
   const detectUserLocation = () => {
     if (!leafletMap) return;
     
@@ -124,17 +96,29 @@ export default function StoreLocationsMap() {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude } = position.coords;
-          setUserLocation([latitude, longitude]);
-          findNearbyStores([latitude, longitude], leafletMap);
+          const userCoords: [number, number] = [latitude, longitude];
+          
+          setUserLocation(userCoords);
           
           // Update map center
-          leafletMap.setView([latitude, longitude], 13);
+          leafletMap.setView(userCoords, 13);
           
-          // Add user location marker
+          // Update URL with detected location to refresh page data
+          router.get('/', {
+            latitude: latitude,
+            longitude: longitude
+          }, {
+            preserveState: true,
+            preserveScroll: true,
+            replace: true
+          });
+
+          // Remove existing user marker
           if (userMarkerRef.current) {
             leafletMap.removeLayer(userMarkerRef.current);
           }
-          
+
+          // Add new user location marker
           const userIcon = L.divIcon({
             className: 'user-location-marker',
             html: `
@@ -145,7 +129,7 @@ export default function StoreLocationsMap() {
             iconAnchor: [12, 12],
           });
 
-          userMarkerRef.current = L.marker([latitude, longitude], {
+          userMarkerRef.current = L.marker(userCoords, {
             icon: userIcon,
             title: 'Your Location'
           }).addTo(leafletMap);
@@ -157,6 +141,9 @@ export default function StoreLocationsMap() {
               <p class="text-sm text-gray-600">Lng: ${longitude.toFixed(4)}</p>
             </div>
           `);
+
+          // Fetch nearby stores for the new location
+          fetchNearbyStores(userCoords);
 
           setIsDetectingLocation(false);
         },
@@ -204,10 +191,74 @@ export default function StoreLocationsMap() {
     setLeafletMap(map);
     setMapLoaded(true);
 
-    // Set default location immediately
-    const defaultLocation: [number, number] = [40.7128, -74.0060];
-    setUserLocation(defaultLocation);
-    findNearbyStores(defaultLocation, map);
+    // Try to detect user location automatically
+    if (navigator.geolocation) {
+      setIsDetectingLocation(true);
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          const userCoords: [number, number] = [latitude, longitude];
+          
+          setUserLocation(userCoords);
+          map.setView(userCoords, 13);
+          
+          // Update URL with detected location to refresh page data
+          router.get('/', {
+            latitude: latitude,
+            longitude: longitude
+          }, {
+            preserveState: true,
+            preserveScroll: true,
+            replace: true
+          });
+          
+          // Add user location marker
+          const userIcon = L.divIcon({
+            className: 'user-location-marker',
+            html: `
+              <div class="w-6 h-6 bg-blue-500 rounded-full border-3 border-white shadow-lg animate-pulse">
+              </div>
+            `,
+            iconSize: [24, 24],
+            iconAnchor: [12, 12],
+          });
+
+          const userMarker = L.marker(userCoords, {
+            icon: userIcon,
+            title: 'Your Location'
+          }).addTo(map);
+
+          userMarker.bindPopup(`
+            <div class="p-2">
+              <h3 class="font-semibold text-blue-600">📍 Your Location</h3>
+              <p class="text-sm text-gray-600">Lat: ${latitude.toFixed(4)}</p>
+              <p class="text-sm text-gray-600">Lng: ${longitude.toFixed(4)}</p>
+            </div>
+          `);
+
+          fetchNearbyStores(userCoords);
+          setIsDetectingLocation(false);
+        },
+        (error) => {
+          console.log('Geolocation failed, using default location:', error.message);
+          // Fallback to default location
+          const defaultLocation: [number, number] = [40.7128, -74.0060];
+          setUserLocation(defaultLocation);
+          fetchNearbyStores(defaultLocation);
+          setIsDetectingLocation(false);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 300000
+        }
+      );
+    } else {
+      // Fallback to default location if geolocation is not supported
+      const defaultLocation: [number, number] = [40.7128, -74.0060];
+      setUserLocation(defaultLocation);
+      fetchNearbyStores(defaultLocation);
+    }
 
     // Cleanup function
     return () => {
@@ -229,23 +280,6 @@ export default function StoreLocationsMap() {
     return R * c;
   };
 
-  // Find stores near user location
-  const findNearbyStores = (userCoords: [number, number], map?: L.Map) => {
-    const nearby = stores
-      .map(store => ({
-        ...store,
-        distance: calculateDistance(userCoords[0], userCoords[1], store.coordinates[0], store.coordinates[1])
-      }))
-      .sort((a, b) => a.distance - b.distance)
-      .slice(0, 3); // Show top 3 nearest stores
-
-    setNearbyStores(nearby);
-    
-    // Add markers to Leaflet Map
-    if (map) {
-      addStoreMarkers(nearby, map);
-    }
-  };
 
   // Add store markers to Leaflet Map
   const addStoreMarkers = (storesToMark: Store[], map: L.Map) => {
@@ -288,7 +322,7 @@ export default function StoreLocationsMap() {
             <p>📍 ${store.address}</p>
             <p>📞 ${store.phone}</p>
             <p>🕒 ${store.hours}</p>
-            <p class="font-medium text-blue-600">${store.distance?.toFixed(1)} miles away</p>
+            <p class="font-medium text-blue-600">${store.distance ? store.distance.toFixed(1) : '0.0'} miles away</p>
           </div>
         </div>
       `;
@@ -304,16 +338,19 @@ export default function StoreLocationsMap() {
     });
   };
 
-  // Check if user is in delivery zone
+  // Check if user is in delivery zone based on nearby stores
   const isInDeliveryZone = (userCoords: [number, number]): DeliveryZone | null => {
-    // Simple bounding box check - in a real app, you'd use proper polygon intersection
-    for (const zone of deliveryZones) {
-      const [minLat, minLon] = zone.coordinates[0];
-      const [maxLat, maxLon] = zone.coordinates[2];
-      
-      if (userCoords[0] >= minLat && userCoords[0] <= maxLat &&
-          userCoords[1] >= minLon && userCoords[1] <= maxLon) {
-        return zone;
+    // Find the closest store within delivery radius
+    for (const store of nearbyStores) {
+      if (store.distance && store.delivery_radius && store.distance <= store.delivery_radius) {
+        return {
+          id: `zone-${store.id}`,
+          name: `${store.name} Delivery Zone`,
+          coordinates: [], // Not needed for this check
+          deliveryTime: '1-3 hours',
+          minOrder: store.min_order_amount || 25,
+          deliveryFee: store.delivery_fee || 5.99
+        };
       }
     }
     return null;
@@ -356,8 +393,18 @@ export default function StoreLocationsMap() {
               className="w-full h-full relative"
               style={{ minHeight: '384px' }}
             >
-              {/* Fallback Map - Static Image with Overlays */}
+              {/* Loading State */}
               {!leafletMap && mapLoaded && (
+                <div className="w-full h-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Loading map...</p>
+                  </div>
+                </div>
+              )}
+              
+              {/* Fallback Map - Static Image with Overlays */}
+              {false && (
                 <div className="w-full h-full bg-gray-200 dark:bg-gray-700 relative overflow-hidden">
                   {/* Map Background Pattern */}
                   <div className="absolute inset-0 opacity-30">
@@ -390,10 +437,10 @@ export default function StoreLocationsMap() {
                   )}
 
                   {/* Store Locations Overlay */}
-                  {userLocation && stores.map((store, index) => {
+                  {userLocation && nearbyStores.map((store: Store, index: number) => {
                     // Calculate position relative to user location
-                    const userLat = userLocation[0];
-                    const userLng = userLocation[1];
+                    const userLat = userLocation![0];
+                    const userLng = userLocation![1];
                     const storeLat = store.coordinates[0];
                     const storeLng = store.coordinates[1];
                     
@@ -441,7 +488,7 @@ export default function StoreLocationsMap() {
                     <div className="absolute inset-0 pointer-events-none">
                       <div className="absolute top-1/4 left-1/4 w-1/2 h-1/2 border-3 border-green-400 border-dashed rounded-lg bg-green-100 dark:bg-green-900/20 opacity-60">
                         <div className="absolute top-3 left-3 bg-green-500 text-white text-sm px-3 py-1 rounded font-medium">
-                          {currentZone.name}
+                          {currentZone!.name}
                         </div>
                       </div>
                     </div>
@@ -470,7 +517,6 @@ export default function StoreLocationsMap() {
                     <div className="text-gray-600 dark:text-gray-400">
                       <div className="font-semibold text-gray-900 dark:text-white">Interactive Map</div>
                       <div className="text-xs">Click stores to view details</div>
-                      <div className="text-xs text-yellow-600 mt-1">⚠️ Fallback mode - Loading Leaflet map...</div>
                     </div>
                   </div>
                 </div>
@@ -511,7 +557,7 @@ export default function StoreLocationsMap() {
                 ) : (
                   <>
                     <Navigation className="h-3 w-3" />
-                    <span>Detect Location</span>
+                    <span>Refresh Location</span>
                   </>
                 )}
               </button>
@@ -520,7 +566,7 @@ export default function StoreLocationsMap() {
             {userLocation && (
               <div className="space-y-3">
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Coordinates: {userLocation[0].toFixed(4)}, {userLocation[1].toFixed(4)}
+                  Location: {userLocation[0].toFixed(2)}, {userLocation[1].toFixed(2)}
                 </p>
                 
                 {/* Delivery Zone Status */}

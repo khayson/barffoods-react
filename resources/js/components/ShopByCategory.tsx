@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import axios from 'axios';
 
 interface Category {
     id: number;
@@ -8,69 +9,59 @@ interface Category {
     backgroundColor: string;
 }
 
-const categories: Category[] = [
-    {
-        id: 1,
-        name: "Fruits",
-        itemCount: 20,
-        image: "🍎",
-        backgroundColor: "bg-pink-50"
-    },
-    {
-        id: 2,
-        name: "Vegetable",
-        itemCount: 16,
-        image: "🥬",
-        backgroundColor: "bg-yellow-50"
-    },
-    {
-        id: 3,
-        name: "Juice",
-        itemCount: 8,
-        image: "🥤",
-        backgroundColor: "bg-green-50"
-    },
-    {
-        id: 4,
-        name: "Nuts & Seeds",
-        itemCount: 22,
-        image: "🌽",
-        backgroundColor: "bg-mint-50"
-    },
-    {
-        id: 5,
-        name: "Dairy",
-        itemCount: 15,
-        image: "🥛",
-        backgroundColor: "bg-blue-50"
-    },
-    {
-        id: 6,
-        name: "Meat",
-        itemCount: 12,
-        image: "🥩",
-        backgroundColor: "bg-red-50"
-    },
-    {
-        id: 7,
-        name: "Bakery",
-        itemCount: 18,
-        image: "🍞",
-        backgroundColor: "bg-orange-50"
-    },
-    {
-        id: 8,
-        name: "Spices",
-        itemCount: 25,
-        image: "🌶️",
-        backgroundColor: "bg-purple-50"
-    }
-];
+interface ShopByCategoryProps {
+    onCategorySelect?: (categoryName: string) => void;
+    selectedCategory?: string;
+}
 
-export default function ShopByCategory() {
+// Category mapping for icons and colors
+const categoryMapping: { [key: string]: { image: string; backgroundColor: string } } = {
+    'Fruits & Vegetables': { image: '🍎', backgroundColor: 'bg-pink-50' },
+    'Dairy & Eggs': { image: '🥛', backgroundColor: 'bg-blue-50' },
+    'Meat & Seafood': { image: '🥩', backgroundColor: 'bg-red-50' },
+    'Bakery': { image: '🍞', backgroundColor: 'bg-orange-50' },
+    'Beverages': { image: '🥤', backgroundColor: 'bg-green-50' },
+    'Snacks': { image: '🍿', backgroundColor: 'bg-yellow-50' },
+    'Pantry Essentials': { image: '🥫', backgroundColor: 'bg-gray-50' },
+    'Frozen Foods': { image: '🧊', backgroundColor: 'bg-blue-50' },
+    'Health & Wellness': { image: '💊', backgroundColor: 'bg-green-50' },
+    'Household': { image: '🧽', backgroundColor: 'bg-purple-50' }
+};
+
+export default function ShopByCategory({ onCategorySelect, selectedCategory }: ShopByCategoryProps) {
     const scrollRef = useRef<HTMLDivElement>(null);
     const [isHovered, setIsHovered] = useState(false);
     const scrollPositionRef = useRef(0);
+    const [categories, setCategories] = useState<Category[]>([]);
+
+    // Fetch categories from API
+    useEffect(() => {
+        const fetchCategories = async () => {
+            try {
+                const response = await axios.get('/api/products');
+                const apiCategories = response.data.categories;
+                
+                // Map API categories to component format
+                const mappedCategories: Category[] = apiCategories.map((cat: any) => {
+                    const mapping = categoryMapping[cat.name] || { image: '📦', backgroundColor: 'bg-gray-50' };
+                    return {
+                        id: parseInt(cat.id),
+                        name: cat.name,
+                        itemCount: cat.product_count || 0,
+                        image: mapping.image,
+                        backgroundColor: mapping.backgroundColor
+                    };
+                });
+                
+                setCategories(mappedCategories);
+            } catch (error) {
+                console.error('Error fetching categories:', error);
+                setCategories([]); // Empty array on error, no fallback data
+            }
+        };
+
+        fetchCategories();
+    }, []);
 
     useEffect(() => {
         const scrollContainer = scrollRef.current;
@@ -123,8 +114,23 @@ export default function ShopByCategory() {
                         {[...categories, ...categories, ...categories].map((category, index) => (
                             <div
                                 key={`${category.id}-${index}`}
-                                className={`${category.backgroundColor} dark:bg-gray-800 rounded-xl p-4 hover:shadow-md transition-all duration-300 cursor-pointer group flex-shrink-0 w-48`}
+                                className={`${category.backgroundColor} dark:bg-gray-800 rounded-xl p-4 hover:shadow-md transition-all duration-300 cursor-pointer group flex-shrink-0 w-48 relative border-2 ${
+                                    selectedCategory === category.name 
+                                        ? 'border-green-500 shadow-lg bg-green-50 dark:bg-green-900/20' 
+                                        : 'border-transparent hover:border-gray-300 dark:hover:border-gray-600'
+                                }`}
+                                onClick={() => onCategorySelect?.(category.name)}
                             >
+                                {/* Selected indicator */}
+                                {selectedCategory === category.name && (
+                                    <div className="absolute top-2 right-2">
+                                        <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center shadow-sm">
+                                            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                            </svg>
+                                        </div>
+                                    </div>
+                                )}
                                 {/* Category Image */}
                                 <div className="flex justify-center items-center mb-3 h-16">
                                     <div className="text-6xl opacity-80 group-hover:scale-110 transition-transform duration-300">

@@ -1,0 +1,79 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Order extends Model
+{
+    protected $fillable = [
+        'order_number',
+        'user_id',
+        'store_id',
+        'status',
+        'total_amount',
+        'delivery_address',
+        'delivery_fee',
+        'delivery_time_estimate',
+    ];
+
+    protected $casts = [
+        'total_amount' => 'decimal:2',
+        'delivery_fee' => 'decimal:2',
+        'delivery_time_estimate' => 'integer',
+    ];
+
+    /**
+     * Get the user that owns the order.
+     */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Get the store that owns the order.
+     */
+    public function store(): BelongsTo
+    {
+        return $this->belongsTo(Store::class);
+    }
+
+    /**
+     * Get the order items for the order.
+     */
+    public function orderItems(): HasMany
+    {
+        return $this->hasMany(OrderItem::class);
+    }
+
+    /**
+     * Get the status history for the order.
+     */
+    public function statusHistory(): HasMany
+    {
+        return $this->hasMany(OrderStatusHistory::class);
+    }
+
+    /**
+     * Get the payment transactions for the order.
+     */
+    public function paymentTransactions(): HasMany
+    {
+        return $this->hasMany(PaymentTransaction::class);
+    }
+
+    /**
+     * Generate a unique order number.
+     */
+    public static function generateOrderNumber(): string
+    {
+        do {
+            $orderNumber = 'ORD-' . date('Ymd') . '-' . str_pad(random_int(1, 9999), 4, '0', STR_PAD_LEFT);
+        } while (self::where('order_number', $orderNumber)->exists());
+
+        return $orderNumber;
+    }
+}

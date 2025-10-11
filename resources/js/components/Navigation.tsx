@@ -1,17 +1,28 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from '@inertiajs/react';
 import { Search, ShoppingCart, Facebook, Instagram, Youtube, Sun, Moon, Menu, X, Heart } from 'lucide-react';
 import { login, register } from '@/routes';
 import { type SharedData } from '@/types';
 import { usePage } from '@inertiajs/react';
 import ProductSearchModal from '@/components/product-search-modal';
+import WishlistDropdown from '@/components/WishlistDropdown';
+import CartDropdown from '@/components/CartDropdown';
 import { Kbd } from '@/components/ui/kbd';
+import { toast } from 'sonner';
+import { useWishlist } from '@/contexts/WishlistContext';
+import { useCart } from '@/contexts/CartContext';
 
 export default function Navigation() {
     const { auth } = usePage<SharedData>().props;
+    const { wishlistCount } = useWishlist();
+    const { totalItems } = useCart();
     const [isDarkMode, setIsDarkMode] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [searchOpen, setSearchOpen] = useState(false);
+    const [wishlistOpen, setWishlistOpen] = useState(false);
+    const [cartOpen, setCartOpen] = useState(false);
+    const wishlistButtonRef = useRef<HTMLButtonElement>(null);
+    const cartButtonRef = useRef<HTMLButtonElement>(null);
 
     // Initialize theme from localStorage or system preference
     useEffect(() => {
@@ -40,6 +51,7 @@ export default function Navigation() {
             localStorage.setItem('theme', 'light');
         }
     };
+
 
     // Handle search keyboard shortcut
     useEffect(() => {
@@ -88,21 +100,33 @@ export default function Navigation() {
                     {/* Right Section - Wishlist, Cart, Theme Toggle, and Login */}
                     <div className="flex items-center space-x-1 sm:space-x-4">
                         {/* Wishlist */}
-                        <button className="p-1.5 sm:p-2 bg-pink-50 dark:bg-pink-900 hover:bg-pink-100 dark:hover:bg-pink-800 rounded-md transition-colors relative">
+                        <button 
+                            ref={wishlistButtonRef}
+                            onClick={() => auth.user ? setWishlistOpen(!wishlistOpen) : toast.error('Please log in to view wishlist')}
+                            className="p-1.5 sm:p-2 bg-pink-50 dark:bg-pink-900 hover:bg-pink-100 dark:hover:bg-pink-800 rounded-md transition-colors relative"
+                        >
                             <Heart className="h-4 w-4 sm:h-5 sm:w-5 text-pink-600 dark:text-pink-400" />
                             {/* Wishlist count badge */}
-                            <span className="absolute -top-1 -right-1 h-4 w-4 sm:h-5 sm:w-5 bg-pink-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
-                                3
-                            </span>
+                            {wishlistCount > 0 && (
+                                <span className="absolute -top-1 -right-1 h-4 w-4 sm:h-5 sm:w-5 bg-pink-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                                    {wishlistCount}
+                                </span>
+                            )}
                         </button>
 
                         {/* Shopping Cart */}
-                        <button className="p-1.5 sm:p-2 bg-green-50 dark:bg-green-900 hover:bg-green-100 dark:hover:bg-green-800 rounded-md transition-colors relative">
+                        <button 
+                            ref={cartButtonRef}
+                            onClick={() => setCartOpen(!cartOpen)}
+                            className="p-1.5 sm:p-2 bg-green-50 dark:bg-green-900 hover:bg-green-100 dark:hover:bg-green-800 rounded-md transition-colors relative"
+                        >
                             <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5 text-green-600 dark:text-green-400" />
                             {/* Cart count badge */}
-                            <span className="absolute -top-1 -right-1 h-4 w-4 sm:h-5 sm:w-5 bg-green-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
-                                2
-                            </span>
+                            {totalItems > 0 && (
+                                <span className="absolute -top-1 -right-1 h-4 w-4 sm:h-5 sm:w-5 bg-green-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                                    {totalItems}
+                                </span>
+                            )}
                         </button>
 
                         {/* Theme Toggle */}
@@ -245,6 +269,20 @@ export default function Navigation() {
             
             {/* Product Search Modal */}
             <ProductSearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
+            
+            {/* Wishlist Dropdown */}
+            <WishlistDropdown 
+                isOpen={wishlistOpen} 
+                onClose={() => setWishlistOpen(false)}
+                buttonRef={wishlistButtonRef}
+            />
+            
+            {/* Cart Dropdown */}
+            <CartDropdown 
+                isOpen={cartOpen} 
+                onClose={() => setCartOpen(false)}
+                buttonRef={cartButtonRef}
+            />
         </nav>
     );
 }

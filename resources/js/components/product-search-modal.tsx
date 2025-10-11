@@ -250,9 +250,6 @@ export default function ProductSearchModal({ isOpen, onClose }: ProductSearchMod
                                                     category: product.category || 'Category'
                                                 }}
                                                 variant="modal"
-                                                isWishlisted={wishlistItems.has(product.id)}
-                                                onToggleWishlist={toggleWishlist}
-                                                onAddToCart={addToCart}
                                             />
                                         ))}
                                     </div>
@@ -282,9 +279,6 @@ export default function ProductSearchModal({ isOpen, onClose }: ProductSearchMod
                                                     category: product.category || 'Category'
                                                 }}
                                                 variant="modal"
-                                                isWishlisted={wishlistItems.has(product.id)}
-                                                onToggleWishlist={toggleWishlist}
-                                                onAddToCart={addToCart}
                                             />
                                         ))}
                                     </div>

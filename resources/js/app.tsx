@@ -5,6 +5,10 @@ import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot } from 'react-dom/client';
 import { initializeTheme } from './hooks/use-appearance';
 import { configureEcho } from '@laravel/echo-react';
+import { Toaster } from 'sonner';
+import { WishlistProvider } from './contexts/WishlistContext';
+import { CartProvider } from './contexts/CartContext';
+import { type SharedData } from './types';
 
 configureEcho({
     broadcaster: 'reverb',
@@ -22,7 +26,16 @@ createInertiaApp({
     setup({ el, App, props }) {
         const root = createRoot(el);
 
-        root.render(<App {...props} />);
+        const pageProps = props.initialPage.props as unknown as SharedData;
+        
+        root.render(
+            <WishlistProvider user={pageProps.auth?.user}>
+                <CartProvider user={pageProps.auth?.user}>
+                    <App {...props} />
+                    <Toaster position="top-right" richColors />
+                </CartProvider>
+            </WishlistProvider>
+        );
     },
     progress: {
         color: '#4B5563',

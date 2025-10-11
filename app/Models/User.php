@@ -127,4 +127,44 @@ class User extends Authenticatable
     {
         return $this->conversations()->wherePivot('role', 'admin');
     }
+
+    /**
+     * Get the cart items for the user.
+     */
+    public function cartItems(): HasMany
+    {
+        return $this->hasMany(CartItem::class);
+    }
+
+    /**
+     * Get the orders for the user.
+     */
+    public function orders(): HasMany
+    {
+        return $this->hasMany(Order::class);
+    }
+
+    /**
+     * Get the addresses for the user.
+     */
+    public function addresses(): HasMany
+    {
+        return $this->hasMany(UserAddress::class);
+    }
+
+    /**
+     * Get the wishlist items for the user.
+     */
+    public function wishlistItems(): HasMany
+    {
+        return $this->hasMany(WishlistItem::class);
+    }
+
+    /**
+     * Get the product reviews for the user.
+     */
+    public function productReviews(): HasMany
+    {
+        return $this->hasMany(ProductReview::class);
+    }
 }

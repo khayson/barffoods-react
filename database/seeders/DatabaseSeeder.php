@@ -19,6 +19,10 @@ class DatabaseSeeder extends Seeder
             SuperAdminSeeder::class,
             CustomerSeeder::class,
             MessagingSeeder::class,
+            StoreSeeder::class,
+            CategorySeeder::class,
+            ProductSeeder::class,
+            ProductReviewSeeder::class,
         ]);
     }
 }
