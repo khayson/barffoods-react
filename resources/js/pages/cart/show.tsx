@@ -50,7 +50,17 @@ interface CartPageProps {
     cartItems: CartItem[];
     groupedItems: Record<string, GroupedStore>;
     totalItems: number;
-    totalPrice: number;
+    subtotal: number;
+    calculations: {
+        subtotal: number;
+        discount: number;
+        delivery_fee: number;
+        tax: number;
+        total: number;
+        discount_breakdown: any[];
+        applied_discounts: any[];
+        available_discounts: any[];
+    };
     storeCount: number;
     isAuthenticated: boolean;
     isMultiStore: boolean;
@@ -60,7 +70,8 @@ export default function CartPage({
     cartItems: initialCartItems,
     groupedItems: initialGroupedItems,
     totalItems: initialTotalItems,
-    totalPrice: initialTotalPrice,
+    subtotal: initialSubtotal,
+    calculations: initialCalculations,
     storeCount: initialStoreCount,
     isAuthenticated,
     isMultiStore: initialIsMultiStore
@@ -70,6 +81,7 @@ export default function CartPage({
 
     // Use cartItems from context if available, otherwise use initial data
     const currentCartItems = cartItems.length > 0 ? cartItems : initialCartItems;
+    const calculations = initialCalculations;
     
     // Group items by store dynamically
     const groupedItems = currentCartItems.reduce((groups: Record<string, GroupedStore>, item) => {
@@ -96,7 +108,7 @@ export default function CartPage({
     }, {});
 
     const totalItems = currentCartItems.reduce((sum, item) => sum + item.quantity, 0);
-    const totalPrice = currentCartItems.reduce((sum, item) => sum + item.total_price, 0);
+    const subtotal = currentCartItems.reduce((sum, item) => sum + item.total_price, 0);
     const storeCount = Object.keys(groupedItems).length;
     const isMultiStore = storeCount > 1;
 
@@ -126,15 +138,13 @@ export default function CartPage({
 
     const handleCheckout = () => {
         if (!auth?.user) {
-            toast.error('Please log in to checkout', {
-                description: 'You need to be logged in to proceed with checkout.'
-            });
+            // Redirect to login page with return URL
+            window.location.href = `/login?redirect=${encodeURIComponent('/checkout')}`;
             return;
         }
-        // TODO: Navigate to checkout page
-        toast.info('Checkout coming soon!', {
-            description: 'Checkout functionality will be available soon.'
-        });
+        
+        // Navigate to checkout page
+        window.location.href = '/checkout';
     };
 
     return (
@@ -215,10 +225,8 @@ export default function CartPage({
                                         {/* Order Summary Card */}
                                         <OrderSummaryCard
                                             totalItems={totalItems}
-                                            totalPrice={totalPrice}
-                                            discount={0}
-                                            deliveryFee={29.99}
-                                            tax={39.99}
+                                            totalPrice={subtotal}
+                                            calculations={calculations}
                                             isAuthenticated={isAuthenticated}
                                             onCheckout={handleCheckout}
                                         />

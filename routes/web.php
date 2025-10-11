@@ -39,16 +39,47 @@ Route::middleware(['auth'])->group(function () {
 // Cart page (no auth required)
 Route::get('/cart', [CartItemController::class, 'show'])->name('cart.show');
 
+// Checkout routes (auth required)
+Route::middleware(['auth'])->group(function () {
+    Route::get('/checkout', [App\Http\Controllers\CheckoutController::class, 'index'])->name('checkout.index');
+    Route::post('/checkout', [App\Http\Controllers\CheckoutController::class, 'store'])->name('checkout.store');
+});
+
+        // Address management routes (auth required)
+        Route::middleware(['auth'])->group(function () {
+            Route::get('/api/addresses', [App\Http\Controllers\UserAddressController::class, 'index'])->name('addresses.index');
+            Route::post('/api/addresses', [App\Http\Controllers\UserAddressController::class, 'store'])->name('addresses.store');
+            Route::put('/api/addresses/{address}', [App\Http\Controllers\UserAddressController::class, 'update'])->name('addresses.update');
+            Route::delete('/api/addresses/{address}', [App\Http\Controllers\UserAddressController::class, 'destroy'])->name('addresses.destroy');
+            Route::post('/api/addresses/{address}/set-default', [App\Http\Controllers\UserAddressController::class, 'setDefault'])->name('addresses.set-default');
+            
+        // Address validation routes
+        Route::post('/api/address/validate', [App\Http\Controllers\AddressValidationController::class, 'validate'])->name('address.validate');
+        Route::post('/api/address/check-delivery-zone', [App\Http\Controllers\AddressValidationController::class, 'checkDeliveryZone'])->name('address.check-delivery-zone');
+        Route::get('/api/address/suggestions', [App\Http\Controllers\AddressValidationController::class, 'getSuggestions'])->name('address.suggestions');
+        
+        // Shipping routes
+        Route::get('/api/shipping/methods', [App\Http\Controllers\ShippingController::class, 'getMethods'])->name('shipping.methods');
+        Route::get('/api/orders/{order}/shipping/rates', [App\Http\Controllers\ShippingController::class, 'getRates'])->name('shipping.rates');
+        Route::post('/api/orders/{order}/shipping/label', [App\Http\Controllers\ShippingController::class, 'createLabel'])->name('shipping.label');
+        Route::post('/api/shipping/track', [App\Http\Controllers\ShippingController::class, 'track'])->name('shipping.track');
+        });
+
+
 // Cart API routes (available for both authenticated and anonymous users)
 Route::get('/api/cart', [CartItemController::class, 'index'])->name('cart.index');
 Route::post('/api/cart', [CartItemController::class, 'store'])->name('cart.store');
 Route::put('/api/cart/{id}', [CartItemController::class, 'update'])->name('cart.update');
 Route::delete('/api/cart/{id}', [CartItemController::class, 'destroy'])->name('cart.destroy');
 Route::delete('/api/cart', [CartItemController::class, 'clear'])->name('cart.clear');
+Route::get('/api/cart/calculations', [CartItemController::class, 'getCalculations'])->name('cart.calculations');
 
 // Product API routes
 Route::get('/api/products', [ProductController::class, 'index'])->name('api.products.index');
 Route::get('/api/products/{id}', [ProductController::class, 'show'])->name('api.products.show');
+
+// System Settings API (public)
+Route::get('/api/system-settings', [App\Http\Controllers\Admin\SystemSettingsController::class, 'getPublicSettings'])->name('api.system-settings');
 
 // Store API routes
 Route::get('/api/stores', [StoreController::class, 'index'])->name('api.stores.index');
@@ -69,6 +100,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:super_admin'])
     // Messaging routes
     Route::get('/messaging', [MessagingController::class, 'index'])->name('messaging');
     Route::get('/messaging/{conversation}', [MessagingController::class, 'show'])->name('messaging.conversation');
+    
+    // System Settings (Super Admin only)
+    Route::get('/system-settings', [App\Http\Controllers\Admin\SystemSettingsController::class, 'index'])->name('system-settings');
     
     // Add other admin routes here
 });
@@ -104,6 +138,11 @@ Route::prefix('api/admin')->middleware(['web', 'auth', 'role:super_admin'])->gro
     Route::get('/notifications/{notification}', [AdminNotificationController::class, 'show']);
     Route::put('/notifications/{notification}', [AdminNotificationController::class, 'update']);
     Route::delete('/notifications/{notification}', [AdminNotificationController::class, 'destroy']);
+    
+    // System Settings (Super Admin only)
+    Route::get('/system-settings', [App\Http\Controllers\Admin\SystemSettingsController::class, 'index'])->name('admin.system-settings');
+    Route::post('/system-settings', [App\Http\Controllers\Admin\SystemSettingsController::class, 'update'])->name('admin.system-settings.update');
+    Route::get('/api/system-settings', [App\Http\Controllers\Admin\SystemSettingsController::class, 'getSettings'])->name('admin.system-settings.api');
 });
 
 // Customer Messaging API Routes (for FloatingSupportIcon)

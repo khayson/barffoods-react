@@ -22,6 +22,11 @@ return new class extends Migration
             $table->text('delivery_address');
             $table->decimal('delivery_fee', 8, 2)->default(0.00);
             $table->integer('delivery_time_estimate')->default(30); // minutes
+            $table->string('tracking_code')->nullable();
+            $table->text('label_url')->nullable();
+            $table->string('carrier')->nullable();
+            $table->string('service')->nullable();
+            $table->decimal('shipping_cost', 8, 2)->nullable();
             $table->timestamps();
             
             $table->index('user_id');

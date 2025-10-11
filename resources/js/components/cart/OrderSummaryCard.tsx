@@ -5,9 +5,16 @@ import { Button } from '@/components/ui/button';
 interface OrderSummaryCardProps {
     totalItems: number;
     totalPrice: number;
-    discount: number;
-    deliveryFee: number;
-    tax: number;
+    calculations?: {
+        subtotal: number;
+        discount: number;
+        delivery_fee: number;
+        tax: number;
+        total: number;
+        discount_breakdown: any[];
+        applied_discounts: any[];
+        available_discounts: any[];
+    };
     isAuthenticated: boolean;
     onCheckout: () => void;
 }
@@ -15,14 +22,16 @@ interface OrderSummaryCardProps {
 export default function OrderSummaryCard({ 
     totalItems, 
     totalPrice, 
-    discount = 0, 
-    deliveryFee = 29.99, 
-    tax = 39.99,
+    calculations,
     isAuthenticated,
     onCheckout
 }: OrderSummaryCardProps) {
-    const subtotal = totalPrice;
-    const finalTotal = subtotal - discount + deliveryFee + tax;
+    // Use calculations if available, otherwise fallback to basic calculations
+    const subtotal = calculations?.subtotal ?? totalPrice;
+    const discount = calculations?.discount ?? 0;
+    const deliveryFee = calculations?.delivery_fee ?? 4.99;
+    const tax = calculations?.tax ?? 0;
+    const finalTotal = calculations?.total ?? (subtotal - discount + deliveryFee + tax);
 
     return (
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6 mb-4">
@@ -41,12 +50,14 @@ export default function OrderSummaryCard({
                 </div>
 
                 {/* Discount */}
-                <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600 dark:text-gray-400">Discount</span>
-                    <span className="text-sm font-medium text-green-600 dark:text-green-400">
-                        -${discount.toFixed(2)}
-                    </span>
-                </div>
+                {discount > 0 && (
+                    <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600 dark:text-gray-400">Discount</span>
+                        <span className="text-sm font-medium text-green-600 dark:text-green-400">
+                            -${discount.toFixed(2)}
+                        </span>
+                    </div>
+                )}
 
                 {/* Delivery */}
                 <div className="flex items-center justify-between">
@@ -83,7 +94,6 @@ export default function OrderSummaryCard({
                 <Button
                     onClick={onCheckout}
                     className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 text-base rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 mt-4"
-                    disabled={!isAuthenticated}
                 >
                     <CreditCard className="w-4 h-4 mr-2" />
                     {isAuthenticated ? 'Check Out' : 'Login to Checkout'}

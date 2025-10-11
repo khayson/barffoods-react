@@ -9,6 +9,7 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class User extends Authenticatable
 {
@@ -97,6 +98,22 @@ class User extends Authenticatable
     }
 
     /**
+     * Get the addresses for the user.
+     */
+    public function addresses(): HasMany
+    {
+        return $this->hasMany(UserAddress::class);
+    }
+
+    /**
+     * Get the default address for the user.
+     */
+    public function defaultAddress(): HasOne
+    {
+        return $this->hasOne(UserAddress::class)->where('is_default', true);
+    }
+
+    /**
      * Get conversations assigned to this admin.
      */
     public function assignedConversations(): HasMany
@@ -144,13 +161,7 @@ class User extends Authenticatable
         return $this->hasMany(Order::class);
     }
 
-    /**
-     * Get the addresses for the user.
-     */
-    public function addresses(): HasMany
-    {
-        return $this->hasMany(UserAddress::class);
-    }
+
 
     /**
      * Get the wishlist items for the user.

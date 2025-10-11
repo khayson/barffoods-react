@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Store;
+use App\Models\SystemSetting;
 
 class StoreController extends Controller
 {
@@ -80,7 +81,8 @@ class StoreController extends Controller
         $deliveryTime = $baseTime + ($distance * $timePerMile);
 
         // Calculate delivery fee (base fee + distance fee)
-        $baseFee = $store->delivery_fee;
+        // Use store's delivery fee, fallback to global setting
+        $baseFee = $store->delivery_fee ?? SystemSetting::get('global_delivery_fee', 4.99);
         $distanceFee = max(0, ($distance - 5) * 2); // $2 per mile after 5 miles
         $totalFee = $baseFee + $distanceFee;
 

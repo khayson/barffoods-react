@@ -12,17 +12,24 @@ class Order extends Model
         'order_number',
         'user_id',
         'store_id',
+        'user_address_id',
         'status',
         'total_amount',
         'delivery_address',
         'delivery_fee',
         'delivery_time_estimate',
+        'tracking_code',
+        'label_url',
+        'carrier',
+        'service',
+        'shipping_cost',
     ];
 
     protected $casts = [
         'total_amount' => 'decimal:2',
         'delivery_fee' => 'decimal:2',
         'delivery_time_estimate' => 'integer',
+        'shipping_cost' => 'decimal:2',
     ];
 
     /**
@@ -39,6 +46,14 @@ class Order extends Model
     public function store(): BelongsTo
     {
         return $this->belongsTo(Store::class);
+    }
+
+    /**
+     * Get the user address for the order.
+     */
+    public function userAddress(): BelongsTo
+    {
+        return $this->belongsTo(UserAddress::class);
     }
 
     /**

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\CartItem;
 use App\Models\Product;
 use App\Models\AnonymousCart;
+use App\Services\CartCalculationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
@@ -12,6 +13,13 @@ use Inertia\Inertia;
 
 class CartItemController extends Controller
 {
+    protected $cartCalculationService;
+
+    public function __construct(CartCalculationService $cartCalculationService)
+    {
+        $this->cartCalculationService = $cartCalculationService;
+    }
+
     /**
      * Show cart page
      */
@@ -26,17 +34,48 @@ class CartItemController extends Controller
         // Group items by store
         $groupedItems = $this->groupItemsByStore($cartItems);
         $totalItems = $cartItems->sum('quantity');
-        $totalPrice = $cartItems->sum('total_price');
+        $subtotal = $cartItems->sum('total_price');
         $storeCount = $groupedItems->count();
+
+        // Calculate totals with system settings
+        $calculations = $this->cartCalculationService->calculateCartTotals(
+            $cartItems->toArray(), 
+            Auth::id()
+        );
 
         return Inertia::render('cart/show', [
             'cartItems' => $cartItems,
             'groupedItems' => $groupedItems,
             'totalItems' => $totalItems,
-            'totalPrice' => $totalPrice,
+            'subtotal' => $subtotal,
+            'calculations' => $calculations,
             'storeCount' => $storeCount,
             'isAuthenticated' => Auth::check(),
             'isMultiStore' => $storeCount > 1,
+        ]);
+    }
+
+    /**
+     * Get cart calculations API endpoint
+     */
+    public function getCalculations(Request $request)
+    {
+        if (Auth::check()) {
+            $cartItems = $this->getAuthenticatedUserCartItems();
+        } else {
+            $cartItems = $this->getAnonymousCartItems();
+        }
+
+        $calculations = $this->cartCalculationService->calculateCartTotals(
+            $cartItems->toArray(), 
+            Auth::id()
+        );
+
+        return response()->json([
+            'success' => true,
+            'calculations' => $calculations,
+            'system_settings' => $this->cartCalculationService->getSystemSettings(),
+            'available_payment_methods' => $this->cartCalculationService->getAvailablePaymentMethods()
         ]);
     }
 
@@ -166,8 +205,14 @@ class CartItemController extends Controller
                         'price' => $item->product->price,
                         'originalPrice' => $item->product->original_price,
                         'image' => $item->product->image,
-                        'store' => $item->product->store->name,
-                        'category' => $item->product->category->name,
+                        'store' => [
+                            'id' => (string) $item->product->store->id,
+                            'name' => $item->product->store->name,
+                        ],
+                        'category' => [
+                            'id' => (string) $item->product->category->id,
+                            'name' => $item->product->category->name,
+                        ],
                         'inStock' => $item->product->stock_quantity > 0,
                         'stockQuantity' => $item->product->stock_quantity,
                     ],
@@ -212,8 +257,14 @@ class CartItemController extends Controller
                             'price' => $product->price,
                             'originalPrice' => $product->original_price,
                             'image' => $product->image,
-                            'store' => $product->store->name,
-                            'category' => $product->category->name,
+                            'store' => [
+                                'id' => (string) $product->store->id,
+                                'name' => $product->store->name,
+                            ],
+                            'category' => [
+                                'id' => (string) $product->category->id,
+                                'name' => $product->category->name,
+                            ],
                             'inStock' => $product->stock_quantity > 0,
                             'stockQuantity' => $product->stock_quantity,
                         ],

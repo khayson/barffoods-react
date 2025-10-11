@@ -14,9 +14,10 @@ import { LoaderCircle } from 'lucide-react';
 interface LoginProps {
     status?: string;
     canResetPassword: boolean;
+    redirect?: string;
 }
 
-export default function Login({ status, canResetPassword }: LoginProps) {
+export default function Login({ status, canResetPassword, redirect }: LoginProps) {
     return (
         <AuthLayout
             title="Log in to your account"
@@ -31,6 +32,11 @@ export default function Login({ status, canResetPassword }: LoginProps) {
             >
                 {({ processing, errors }) => (
                     <>
+                        {/* Hidden redirect field */}
+                        {redirect && (
+                            <input type="hidden" name="redirect" value={redirect} />
+                        )}
+                        
                         <div className="grid gap-6">
                             <div className="grid gap-2">
                                 <Label htmlFor="email">Email address</Label>

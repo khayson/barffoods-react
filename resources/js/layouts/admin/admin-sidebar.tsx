@@ -37,7 +37,7 @@ const navigation: NavItem[] = [
     { name: 'Messaging', href: '/admin/messaging', icon: MessageSquare, color: 'bg-orange-100 text-orange-600' },
     { name: 'Notifications', href: '/admin/notifications', icon: Bell, color: 'bg-blue-100 text-blue-600' },
     { name: 'Analytics', href: '/admin/analytics', icon: BarChart3, color: 'bg-purple-100 text-purple-600' },
-    // { name: 'Settings', href: '/admin/settings', icon: Settings, color: 'bg-gray-100 text-gray-600' },
+    { name: 'System Settings', href: '/admin/system-settings', icon: Settings, color: 'bg-gray-100 text-gray-600' },
 ];
 
 interface AdminSidebarProps {

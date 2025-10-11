@@ -57,19 +57,8 @@ export function CartProvider({ children, user }: CartProviderProps) {
     const totalPrice = cartItems.reduce((sum, item) => sum + item.total_price, 0);
 
     // Track cartItems state changes
-    useEffect(() => {
-        console.log('cartItems state changed:', cartItems);
-        cartItems.forEach((item, index) => {
-            console.log(`State cart item ${index}:`, {
-                id: item.id,
-                quantity: item.quantity,
-                product_name: item.product?.name
-            });
-        });
-    }, [cartItems]);
 
     const fetchCart = async () => {
-        console.log('fetchCart called - refreshing cart data');
         setIsLoading(true);
         try {
             const response = await fetch('/api/cart', {
@@ -79,33 +68,14 @@ export function CartProvider({ children, user }: CartProviderProps) {
                 },
             });
 
-            console.log('fetchCart response status:', response.status);
             if (response.ok) {
                 const data = await response.json();
-                console.log('fetchCart received data:', data);
-                console.log('Setting cart items to:', data.cart_items || []);
-                
-                // Log each cart item to see the quantities
-                if (data.cart_items) {
-                    data.cart_items.forEach((item: any, index: number) => {
-                        console.log(`Cart item ${index}:`, {
-                            id: item.id,
-                            quantity: item.quantity,
-                            product_name: item.product?.name
-                        });
-                    });
-                }
                 
                 // Use functional state update to ensure React detects the change
                 setCartItems(prevItems => {
                     const newItems = [...(data.cart_items || [])];
-                    console.log('Functional state update - prevItems:', prevItems);
-                    console.log('Functional state update - newItems:', newItems);
                     return newItems;
                 });
-                
-                // Log the new data that was set
-                console.log('New cart items data set:', data.cart_items);
             } else {
                 console.error('fetchCart failed with status:', response.status);
             }
