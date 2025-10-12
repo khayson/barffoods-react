@@ -117,7 +117,7 @@ class CartItemController extends Controller
     /**
      * Get anonymous user's cart items
      */
-    private function getAnonymousCartItems()
+    public function getAnonymousCartItems()
     {
         $sessionId = Session::getId();
         $anonymousCart = AnonymousCart::getOrCreateForSession($sessionId);
@@ -227,7 +227,7 @@ class CartItemController extends Controller
 
         return response()->json([
             'success' => true,
-            'cart_items' => $cartItems,
+            'cart_items' => $cartItems->toArray(),
             'total_items' => $totalItems,
             'total_price' => $totalPrice,
             'count' => $cartItems->count()
@@ -237,7 +237,7 @@ class CartItemController extends Controller
     /**
      * Get anonymous user's cart
      */
-    private function getAnonymousCart()
+    public function getAnonymousCart()
     {
         $sessionId = Session::getId();
         $anonymousCart = AnonymousCart::getOrCreateForSession($sessionId);
@@ -289,7 +289,7 @@ class CartItemController extends Controller
 
         return response()->json([
             'success' => true,
-            'cart_items' => $cartItems,
+            'cart_items' => $cartItems->toArray(),
             'total_items' => $totalItems,
             'total_price' => $totalPrice,
             'count' => $cartItems->count()
@@ -370,7 +370,7 @@ class CartItemController extends Controller
     /**
      * Add to anonymous user's cart
      */
-    private function addToAnonymousCart(Request $request)
+    public function addToAnonymousCart(Request $request)
     {
         $product = Product::findOrFail($request->product_id);
 
@@ -479,7 +479,7 @@ class CartItemController extends Controller
     /**
      * Update anonymous user's cart item
      */
-    private function updateAnonymousCartItem(Request $request, $id)
+    public function updateAnonymousCartItem(Request $request, $id)
     {
         \Log::info('updateAnonymousCartItem called', [
             'id' => $id,
@@ -572,7 +572,7 @@ class CartItemController extends Controller
     /**
      * Remove from anonymous user's cart
      */
-    private function removeFromAnonymousCart($id)
+    public function removeFromAnonymousCart($id)
     {
         // Extract product ID from anonymous cart item ID format: anonymous_{product_id}_{added_at}
         $parts = explode('_', $id);
@@ -624,7 +624,7 @@ class CartItemController extends Controller
     /**
      * Clear anonymous user's cart
      */
-    private function clearAnonymousCart()
+    public function clearAnonymousCart()
     {
         $sessionId = Session::getId();
         $anonymousCart = AnonymousCart::getOrCreateForSession($sessionId);

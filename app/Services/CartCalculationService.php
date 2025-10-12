@@ -9,10 +9,12 @@ use App\Models\User;
 class CartCalculationService
 {
     protected $discountService;
+    protected $distanceService;
 
-    public function __construct(DiscountService $discountService)
+    public function __construct(DiscountService $discountService, DistanceService $distanceService)
     {
         $this->discountService = $discountService;
+        $this->distanceService = $distanceService;
     }
 
     /**
@@ -27,13 +29,13 @@ class CartCalculationService
         $discountData = $this->discountService->calculateDiscount($subtotal, $userId);
         $discount = $discountData['total_discount'];
         
-        // Calculate delivery fee
+        // Calculate delivery fee (fallback for local delivery)
         $deliveryFee = $this->calculateDeliveryFee($storeId);
         
         // Calculate tax
         $tax = $this->calculateTax($subtotal - $discount);
         
-        // Calculate final total
+        // Calculate final total (without shipping - shipping calculated at checkout)
         $total = $subtotal - $discount + $deliveryFee + $tax;
 
         return [

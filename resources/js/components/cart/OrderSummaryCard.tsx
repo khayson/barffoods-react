@@ -87,7 +87,7 @@ export default function OrderSummaryCard({
 
                 {/* Note */}
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                    Tax and delivery calculated at checkout
+                    Shipping and final tax calculated at checkout
                 </p>
 
                 {/* Checkout Button */}

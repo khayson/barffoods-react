@@ -66,14 +66,31 @@ class AddressValidationController extends Controller
     public function getSuggestions(Request $request): JsonResponse
     {
         $request->validate([
-            'input' => 'required|string|min:3|max:100',
+            'query' => 'required|string|min:1',
+            'type' => 'required|in:street,city,state,zip',
+            'street_address' => 'nullable|string',
+            'city' => 'nullable|string',
+            'state' => 'nullable|string',
+            'zip_code' => 'nullable|string',
         ]);
 
-        $suggestions = $this->addressValidationService->getAddressSuggestions($request->input);
+        $query = $request->get('query', '');
+        $type = $request->get('type');
+        $context = $request->only(['street_address', 'city', 'state', 'zip_code']);
 
-        return response()->json([
-            'success' => true,
-            'suggestions' => $suggestions,
-        ]);
+        try {
+            $suggestions = $this->addressValidationService->getSuggestions($query, $type, $context);
+
+            return response()->json([
+                'success' => true,
+                'suggestions' => $suggestions
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to get address suggestions: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

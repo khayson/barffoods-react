@@ -165,71 +165,89 @@ export default function CartPage({
                 
                 {/* Cart Content */}
                 <main className="bg-gray-50 dark:bg-gray-900 min-h-screen">
-                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                         {currentCartItems.length === 0 ? (
                             <EmptyCart />
                         ) : (
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                                {/* Left Column - Shopping Cart */}
-                                <div className="lg:col-span-2">
-                                    {/* Header */}
-                                    <div className="mb-6">
-                                        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                                            Shopping Cart
-                                        </h1>
-                                    </div>
+                            <div className="space-y-8">
+                                {/* Header */}
+                                <div className="text-center">
+                                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+                                        Review Your Order
+                                    </h1>
+                                    <p className="text-gray-600 dark:text-gray-400">
+                                        Review your items and proceed to checkout for shipping and payment details
+                                    </p>
+                                </div>
 
-                                    {/* Cart Items */}
-                                    <div className="space-y-4">
-                                        {currentCartItems.map((item) => (
-                                            <CartItemCard
-                                                key={item.id}
-                                                item={item}
-                                                onQuantityChange={handleQuantityChange}
-                                                onRemoveItem={handleRemoveItem}
-                                            />
-                                        ))}
-                                    </div>
+                                {/* Cart Items */}
+                                <div className="space-y-4">
+                                    {currentCartItems.map((item) => (
+                                        <CartItemCard
+                                            key={item.id}
+                                            item={item}
+                                            onQuantityChange={handleQuantityChange}
+                                            onRemoveItem={handleRemoveItem}
+                                        />
+                                    ))}
+                                </div>
 
-                                    {/* Bottom Actions */}
-                                    <div className="flex items-center justify-between mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
-                                        <Link
-                                            href="/"
-                                            className="inline-flex items-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
-                                        >
-                                            <ArrowLeft className="w-4 h-4 mr-2" />
-                                            Back
-                                        </Link>
-                                        
+                                {/* Shop Information */}
+                                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
+                                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                                        Order Details
+                                    </h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                                        <div>
+                                            <span className="text-gray-600 dark:text-gray-400">Total Items:</span>
+                                            <span className="ml-2 font-medium text-gray-900 dark:text-white">{totalItems}</span>
+                                        </div>
+                                        <div>
+                                            <span className="text-gray-600 dark:text-gray-400">Stores:</span>
+                                            <span className="ml-2 font-medium text-gray-900 dark:text-white">{storeCount}</span>
+                                        </div>
+                                        <div>
+                                            <span className="text-gray-600 dark:text-gray-400">Subtotal:</span>
+                                            <span className="ml-2 font-medium text-gray-900 dark:text-white">${subtotal.toFixed(2)}</span>
+                                        </div>
+                                    </div>
+                                    {isMultiStore && (
+                                        <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                                            <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                                                <strong>Multi-store order:</strong> Items from {storeCount} different stores. 
+                                                Shipping will be calculated separately for each store at checkout.
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Action Buttons */}
+                                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t border-gray-200 dark:border-gray-700">
+                                    <Link
+                                        href="/"
+                                        className="inline-flex items-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+                                    >
+                                        <ArrowLeft className="w-4 h-4 mr-2" />
+                                        Continue Shopping
+                                    </Link>
+                                    
+                                    <div className="flex items-center gap-4">
                                         <Button
                                             variant="destructive"
                                             onClick={handleClearCart}
                                             className="bg-red-600 hover:bg-red-700"
                                         >
                                             <X className="w-4 h-4 mr-2" />
-                                            Cancel Order
+                                            Clear Cart
                                         </Button>
-                                    </div>
-                                </div>
-
-                                {/* Right Column - Sticky Sidebar */}
-                                <div className="lg:col-span-1">
-                                    <div className="sticky top-8 space-y-4">
-                                        {/* Shop Information Card */}
-                                        <ShopInfoCard
-                                            storeCount={storeCount}
-                                            storeNames={Object.values(groupedItems).map(store => store.storeName)}
-                                            isMultiStore={isMultiStore}
-                                        />
-
-                                        {/* Order Summary Card */}
-                                        <OrderSummaryCard
-                                            totalItems={totalItems}
-                                            totalPrice={subtotal}
-                                            calculations={calculations}
-                                            isAuthenticated={isAuthenticated}
-                                            onCheckout={handleCheckout}
-                                        />
+                                        
+                                        <Button
+                                            onClick={handleCheckout}
+                                            className="bg-green-600 hover:bg-green-700 text-white font-semibold px-8 py-3"
+                                            size="lg"
+                                        >
+                                            {isAuthenticated ? 'Proceed to Checkout' : 'Login to Checkout'}
+                                        </Button>
                                     </div>
                                 </div>
                             </div>

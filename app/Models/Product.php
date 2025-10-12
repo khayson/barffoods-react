@@ -20,6 +20,10 @@ class Product extends Model
         'is_active',
         'average_rating',
         'review_count',
+        'weight',
+        'length',
+        'width',
+        'height',
     ];
 
     protected $casts = [
@@ -29,6 +33,10 @@ class Product extends Model
         'is_active' => 'boolean',
         'average_rating' => 'decimal:2',
         'review_count' => 'integer',
+        'weight' => 'decimal:2',
+        'length' => 'decimal:2',
+        'width' => 'decimal:2',
+        'height' => 'decimal:2',
     ];
 
     /**

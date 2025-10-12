@@ -41,6 +41,8 @@ return [
         'base_url' => env('EASYPOST_TEST_MODE', true) 
             ? 'https://api.easypost.com/v2' 
             : 'https://api.easypost.com/v2',
+        'timeout' => env('EASYPOST_TIMEOUT', 30),
+        'verify_ssl' => env('EASYPOST_VERIFY_SSL', true),
     ],
 
 ];

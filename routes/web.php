@@ -43,6 +43,13 @@ Route::get('/cart', [CartItemController::class, 'show'])->name('cart.show');
 Route::middleware(['auth'])->group(function () {
     Route::get('/checkout', [App\Http\Controllers\CheckoutController::class, 'index'])->name('checkout.index');
     Route::post('/checkout', [App\Http\Controllers\CheckoutController::class, 'store'])->name('checkout.store');
+    
+    // Sanctum token endpoint
+    Route::get('/api/sanctum/token', function () {
+        return response()->json([
+            'token' => session('sanctum_token')
+        ]);
+    })->name('api.sanctum.token');
 });
 
         // Address management routes (auth required)
@@ -52,27 +59,24 @@ Route::middleware(['auth'])->group(function () {
             Route::put('/api/addresses/{address}', [App\Http\Controllers\UserAddressController::class, 'update'])->name('addresses.update');
             Route::delete('/api/addresses/{address}', [App\Http\Controllers\UserAddressController::class, 'destroy'])->name('addresses.destroy');
             Route::post('/api/addresses/{address}/set-default', [App\Http\Controllers\UserAddressController::class, 'setDefault'])->name('addresses.set-default');
+        });
             
-        // Address validation routes
+        // Address validation routes (no auth required for suggestions)
         Route::post('/api/address/validate', [App\Http\Controllers\AddressValidationController::class, 'validate'])->name('address.validate');
         Route::post('/api/address/check-delivery-zone', [App\Http\Controllers\AddressValidationController::class, 'checkDeliveryZone'])->name('address.check-delivery-zone');
-        Route::get('/api/address/suggestions', [App\Http\Controllers\AddressValidationController::class, 'getSuggestions'])->name('address.suggestions');
         
-        // Shipping routes
-        Route::get('/api/shipping/methods', [App\Http\Controllers\ShippingController::class, 'getMethods'])->name('shipping.methods');
+        // Shipping routes (auth required)
         Route::get('/api/orders/{order}/shipping/rates', [App\Http\Controllers\ShippingController::class, 'getRates'])->name('shipping.rates');
         Route::post('/api/orders/{order}/shipping/label', [App\Http\Controllers\ShippingController::class, 'createLabel'])->name('shipping.label');
         Route::post('/api/shipping/track', [App\Http\Controllers\ShippingController::class, 'track'])->name('shipping.track');
-        });
 
 
-// Cart API routes (available for both authenticated and anonymous users)
-Route::get('/api/cart', [CartItemController::class, 'index'])->name('cart.index');
-Route::post('/api/cart', [CartItemController::class, 'store'])->name('cart.store');
-Route::put('/api/cart/{id}', [CartItemController::class, 'update'])->name('cart.update');
-Route::delete('/api/cart/{id}', [CartItemController::class, 'destroy'])->name('cart.destroy');
-Route::delete('/api/cart', [CartItemController::class, 'clear'])->name('cart.clear');
-Route::get('/api/cart/calculations', [CartItemController::class, 'getCalculations'])->name('cart.calculations');
+// Anonymous cart routes (no auth required, session-based)
+Route::get('/api/cart/anonymous', [CartItemController::class, 'getAnonymousCart'])->name('api.cart.anonymous');
+Route::post('/api/cart/anonymous', [CartItemController::class, 'addToAnonymousCart'])->name('api.cart.anonymous.store');
+Route::put('/api/cart/anonymous/{id}', [CartItemController::class, 'updateAnonymousCart'])->name('api.cart.anonymous.update');
+Route::delete('/api/cart/anonymous/{id}', [CartItemController::class, 'removeFromAnonymousCart'])->name('api.cart.anonymous.destroy');
+Route::delete('/api/cart/anonymous', [CartItemController::class, 'clearAnonymousCart'])->name('api.cart.anonymous.clear');
 
 // Product API routes
 Route::get('/api/products', [ProductController::class, 'index'])->name('api.products.index');

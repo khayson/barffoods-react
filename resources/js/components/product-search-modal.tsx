@@ -70,7 +70,7 @@ export default function ProductSearchModal({ isOpen, onClose }: ProductSearchMod
                 setStores(apiStores);
                 setCategories(apiCategories);
             } catch (error) {
-                console.error('Error fetching products:', error);
+                // console.error('Error fetching products:', error);
             } finally {
                 setIsLoading(false);
             }
@@ -145,21 +145,21 @@ export default function ProductSearchModal({ isOpen, onClose }: ProductSearchMod
         // Always show only products (no categories in search results)
         searchableItems = filteredProducts;
         
-        console.log('Search Debug:', {
-            searchTerm,
-            selectedCategory,
-            selectedStore,
-            filteredProductsCount: filteredProducts.length,
-            searchableItemsCount: searchableItems.length,
-            searchableItems: searchableItems.map(item => ({ name: item.name, type: item.type }))
-        });
+        // console.log('Search Debug:', {
+        //     searchTerm,
+        //     selectedCategory,
+        //     selectedStore,
+        //     filteredProductsCount: filteredProducts.length,
+        //     searchableItemsCount: searchableItems.length,
+        //     searchableItems: searchableItems.map(item => ({ name: item.name, type: item.type }))
+        // });
         
         setFilteredItems(searchableItems);
     }, [searchTerm, selectedCategory, selectedStore, products, stores, categories]);
 
     const handleSelect = (item: SearchItem) => {
         // In a real application, this would navigate to the item's page
-        console.log('Selected:', item.name, item.href);
+        // console.log('Selected:', item.name, item.href);
         onClose();
     };
 

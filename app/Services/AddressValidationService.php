@@ -120,7 +120,10 @@ class AddressValidationService
         try {
             $fullAddress = $this->buildFullAddress($addressData);
             
-            $response = Http::timeout(5)->get('https://nominatim.openstreetmap.org/search', [
+            $response = Http::timeout(5)
+                ->withoutVerifying()
+                ->withHeaders(['User-Agent' => 'BarfFoods/1.0'])
+                ->get('https://nominatim.openstreetmap.org/search', [
                 'q' => $fullAddress,
                 'format' => 'json',
                 'limit' => 1,
@@ -214,35 +217,234 @@ class AddressValidationService
     }
 
     /**
-     * Get address suggestions for autocomplete (basic implementation)
+     * Get address suggestions based on type and context
      */
-    public function getAddressSuggestions(string $input): array
+    public function getSuggestions(string $query, string $type, array $context = []): array
     {
-        // Basic suggestions based on common patterns
-        $suggestions = [];
-        
-        if (strlen($input) >= 3) {
-            // You could implement a local database of common addresses
-            // or use a free geocoding service here
-            
-            $commonAddresses = [
-                '123 Main Street',
-                '456 Oak Avenue',
-                '789 Pine Road',
-                '321 Elm Street',
-                '654 Maple Drive',
-            ];
-            
-            foreach ($commonAddresses as $address) {
-                if (stripos($address, $input) !== false) {
-                    $suggestions[] = [
-                        'address' => $address,
-                        'type' => 'street',
-                    ];
-                }
+        try {
+            switch ($type) {
+                case 'street':
+                    return $this->getStreetSuggestions($query, $context);
+                case 'city':
+                    return $this->getCitySuggestions($query, $context);
+                case 'state':
+                    return $this->getStateSuggestions($query, $context);
+                case 'zip':
+                    return $this->getZipSuggestions($query, $context);
+                default:
+                    return [];
             }
+        } catch (\Exception $e) {
+            Log::warning('Address suggestions failed', [
+                'query' => $query,
+                'type' => $type,
+                'context' => $context,
+                'error' => $e->getMessage()
+            ]);
+
+            return [];
         }
-        
-        return $suggestions;
+    }
+
+    /**
+     * Get street address suggestions
+     */
+    protected function getStreetSuggestions(string $query, array $context): array
+    {
+        try {
+            // Use Nominatim for street suggestions
+            $searchQuery = $query;
+            if (!empty($context['city'])) {
+                $searchQuery .= ', ' . $context['city'];
+            }
+            if (!empty($context['state'])) {
+                $searchQuery .= ', ' . $context['state'];
+            }
+
+            $response = Http::timeout(5)
+                ->withoutVerifying()
+                ->withHeaders(['User-Agent' => 'BarfFoods/1.0'])
+                ->get('https://nominatim.openstreetmap.org/search', [
+                    'q' => $searchQuery,
+                    'format' => 'json',
+                    'limit' => 10,
+                    'addressdetails' => 1,
+                    'countrycodes' => 'us',
+                ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                $suggestions = [];
+
+                foreach ($data as $item) {
+                    $address = $item['address'] ?? [];
+                    $streetAddress = $this->buildStreetAddress($address);
+                    
+                             if (!empty($streetAddress)) {
+                                 $suggestions[] = [
+                                     'id' => 'street_' . md5($item['display_name'] . '_' . $item['place_id']),
+                                     'street_address' => $streetAddress,
+                                     'city' => $address['city'] ?? $address['town'] ?? $address['village'] ?? '',
+                                     'state' => $address['state'] ?? '',
+                                     'zip_code' => $address['postcode'] ?? '',
+                                     'country' => $address['country'] ?? 'US',
+                                     'formatted_address' => $item['display_name'],
+                                 ];
+                             }
+                }
+
+                return array_slice($suggestions, 0, 5);
+            }
+
+            return [];
+
+        } catch (\Exception $e) {
+            Log::warning('Street suggestions failed', [
+                'query' => $query,
+                'context' => $context,
+                'error' => $e->getMessage()
+            ]);
+
+            return [];
+        }
+    }
+
+    /**
+     * Get city suggestions
+     */
+    protected function getCitySuggestions(string $query, array $context): array
+    {
+        try {
+            $response = Http::timeout(5)
+                ->withoutVerifying()
+                ->withHeaders(['User-Agent' => 'BarfFoods/1.0'])
+                ->get('https://nominatim.openstreetmap.org/search', [
+                'q' => $query . ', US',
+                'format' => 'json',
+                'limit' => 10,
+                'addressdetails' => 1,
+                'featuretype' => 'city',
+            ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                $cities = [];
+
+                foreach ($data as $item) {
+                    $address = $item['address'] ?? [];
+                    $city = $address['city'] ?? $address['town'] ?? $address['village'] ?? '';
+                    
+                    if (!empty($city) && !in_array($city, $cities)) {
+                        $cities[] = $city;
+                    }
+                }
+
+                return array_slice($cities, 0, 5);
+            }
+
+            return [];
+
+        } catch (\Exception $e) {
+            Log::warning('City suggestions failed', [
+                'query' => $query,
+                'context' => $context,
+                'error' => $e->getMessage()
+            ]);
+
+            return [];
+        }
+    }
+
+    /**
+     * Get state suggestions
+     */
+    protected function getStateSuggestions(string $query, array $context): array
+    {
+        // US States list for autocomplete
+        $usStates = [
+            'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 'Connecticut', 'Delaware',
+            'Florida', 'Georgia', 'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa', 'Kansas', 'Kentucky',
+            'Louisiana', 'Maine', 'Maryland', 'Massachusetts', 'Michigan', 'Minnesota', 'Mississippi',
+            'Missouri', 'Montana', 'Nebraska', 'Nevada', 'New Hampshire', 'New Jersey', 'New Mexico',
+            'New York', 'North Carolina', 'North Dakota', 'Ohio', 'Oklahoma', 'Oregon', 'Pennsylvania',
+            'Rhode Island', 'South Carolina', 'South Dakota', 'Tennessee', 'Texas', 'Utah', 'Vermont',
+            'Virginia', 'Washington', 'West Virginia', 'Wisconsin', 'Wyoming'
+        ];
+
+        return array_values(array_filter($usStates, function($state) use ($query) {
+            return stripos($state, $query) !== false;
+        }));
+    }
+
+             /**
+              * Helper to build a consistent street address from Nominatim response
+              */
+             protected function buildStreetAddress(array $address): string
+             {
+                 $parts = [];
+                 if (!empty($address['house_number'])) {
+                     $parts[] = $address['house_number'];
+                 }
+                 if (!empty($address['road'])) {
+                     $parts[] = $address['road'];
+                 }
+                 if (!empty($address['neighbourhood']) && empty($address['road'])) { // Use neighbourhood if no road
+                     $parts[] = $address['neighbourhood'];
+                 }
+                 return implode(' ', $parts);
+             }
+
+             /**
+              * Get ZIP code suggestions
+              */
+             protected function getZipSuggestions(string $query, array $context): array
+    {
+        try {
+            $searchQuery = $query;
+            if (!empty($context['city'])) {
+                $searchQuery .= ', ' . $context['city'];
+            }
+            if (!empty($context['state'])) {
+                $searchQuery .= ', ' . $context['state'];
+            }
+
+            $response = Http::timeout(5)
+                ->withoutVerifying()
+                ->withHeaders(['User-Agent' => 'BarfFoods/1.0'])
+                ->get('https://nominatim.openstreetmap.org/search', [
+                'q' => $searchQuery,
+                'format' => 'json',
+                'limit' => 10,
+                'addressdetails' => 1,
+                'countrycodes' => 'us',
+            ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                $zipCodes = [];
+
+                foreach ($data as $item) {
+                    $address = $item['address'] ?? [];
+                    $zipCode = $address['postcode'] ?? '';
+                    
+                    if (!empty($zipCode) && !in_array($zipCode, $zipCodes)) {
+                        $zipCodes[] = $zipCode;
+                    }
+                }
+
+                return array_slice($zipCodes, 0, 5);
+            }
+
+            return [];
+
+        } catch (\Exception $e) {
+            Log::warning('ZIP suggestions failed', [
+                'query' => $query,
+                'context' => $context,
+                'error' => $e->getMessage()
+            ]);
+
+            return [];
+        }
     }
 }

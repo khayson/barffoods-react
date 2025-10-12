@@ -19,15 +19,42 @@ class EasyPostService
     }
 
     /**
+     * Check if EasyPost is properly configured
+     */
+    public function isConfigured(): bool
+    {
+        return !empty($this->apiKey) && !empty($this->baseUrl);
+    }
+
+    /**
+     * Get HTTP client with proper configuration
+     */
+    protected function getHttpClient()
+    {
+        $client = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $this->apiKey,
+            'Content-Type' => 'application/json',
+        ])->timeout(config('services.easypost.timeout', 30));
+
+        // Only disable SSL verification in development if explicitly configured
+        if (!config('services.easypost.verify_ssl', true)) {
+            $client = $client->withoutVerifying();
+        }
+
+        return $client;
+    }
+
+    /**
      * Verify address using EasyPost Address Verification API
      */
     public function verifyAddress(array $addressData): array
     {
         try {
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . $this->apiKey,
-                'Content-Type' => 'application/json',
-            ])->post($this->baseUrl . '/addresses', [
+            if (!$this->isConfigured()) {
+                throw new \Exception('EasyPost is not properly configured. Please set EASYPOST_API_KEY in your environment.');
+            }
+
+            $response = $this->getHttpClient()->post($this->baseUrl . '/addresses', [
                 'verify' => ['delivery'],
                 'street1' => $addressData['street_address'],
                 'city' => $addressData['city'],
@@ -80,10 +107,11 @@ class EasyPostService
     {
         try {
             // Create from address
-            $fromAddressResponse = Http::withHeaders([
-                'Authorization' => 'Bearer ' . $this->apiKey,
-                'Content-Type' => 'application/json',
-            ])->post($this->baseUrl . '/addresses', $fromAddress);
+            if (!$this->isConfigured()) {
+                throw new \Exception('EasyPost is not properly configured. Please set EASYPOST_API_KEY in your environment.');
+            }
+
+            $fromAddressResponse = $this->getHttpClient()->post($this->baseUrl . '/addresses', $fromAddress);
 
             if (!$fromAddressResponse->successful()) {
                 throw new \Exception('Failed to create from address');
@@ -91,10 +119,7 @@ class EasyPostService
             $fromAddressData = $fromAddressResponse->json();
 
             // Create to address
-            $toAddressResponse = Http::withHeaders([
-                'Authorization' => 'Bearer ' . $this->apiKey,
-                'Content-Type' => 'application/json',
-            ])->post($this->baseUrl . '/addresses', $toAddress);
+            $toAddressResponse = $this->getHttpClient()->post($this->baseUrl . '/addresses', $toAddress);
 
             if (!$toAddressResponse->successful()) {
                 throw new \Exception('Failed to create to address');
@@ -102,10 +127,7 @@ class EasyPostService
             $toAddressData = $toAddressResponse->json();
 
             // Create parcel
-            $parcelResponse = Http::withHeaders([
-                'Authorization' => 'Bearer ' . $this->apiKey,
-                'Content-Type' => 'application/json',
-            ])->post($this->baseUrl . '/parcels', $parcel);
+            $parcelResponse = $this->getHttpClient()->post($this->baseUrl . '/parcels', $parcel);
 
             if (!$parcelResponse->successful()) {
                 throw new \Exception('Failed to create parcel');
@@ -113,10 +135,7 @@ class EasyPostService
             $parcelData = $parcelResponse->json();
 
             // Create shipment
-            $shipmentResponse = Http::withHeaders([
-                'Authorization' => 'Bearer ' . $this->apiKey,
-                'Content-Type' => 'application/json',
-            ])->post($this->baseUrl . '/shipments', [
+            $shipmentResponse = $this->getHttpClient()->post($this->baseUrl . '/shipments', [
                 'to_address' => $toAddressData['id'],
                 'from_address' => $fromAddressData['id'],
                 'parcel' => $parcelData['id'],
@@ -159,10 +178,11 @@ class EasyPostService
     public function createLabel(string $shipmentId, string $rateId): array
     {
         try {
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . $this->apiKey,
-                'Content-Type' => 'application/json',
-            ])->post($this->baseUrl . '/shipments/' . $shipmentId . '/buy', [
+            if (!$this->isConfigured()) {
+                throw new \Exception('EasyPost is not properly configured. Please set EASYPOST_API_KEY in your environment.');
+            }
+
+            $response = $this->getHttpClient()->post($this->baseUrl . '/shipments/' . $shipmentId . '/buy', [
                 'rate' => ['id' => $rateId],
             ]);
 
@@ -203,10 +223,11 @@ class EasyPostService
     public function trackShipment(string $trackingCode): array
     {
         try {
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . $this->apiKey,
-                'Content-Type' => 'application/json',
-            ])->get($this->baseUrl . '/trackers/' . $trackingCode);
+            if (!$this->isConfigured()) {
+                throw new \Exception('EasyPost is not properly configured. Please set EASYPOST_API_KEY in your environment.');
+            }
+
+            $response = $this->getHttpClient()->get($this->baseUrl . '/trackers/' . $trackingCode);
 
             if ($response->successful()) {
                 $data = $response->json();
@@ -274,6 +295,129 @@ class EasyPostService
             'zip' => $addressData['zip_code'],
             'country' => 'US',
         ];
+    }
+
+    /**
+     * Get shipping rates from EasyPost
+     */
+    public function getRates(array $shipmentData): array
+    {
+        try {
+            // Create addresses
+            $fromAddress = $this->createAddress($shipmentData['from_address']);
+            $toAddress = $this->createAddress($shipmentData['to_address']);
+            
+            // Create parcel
+            $parcel = $this->createParcel($shipmentData['parcel']);
+            
+            
+            // Create shipment
+            $shipment = $this->createShipment($fromAddress, $toAddress, $parcel);
+            
+            // Get rates
+            $response = $this->getHttpClient()->get($this->baseUrl . '/shipments/' . $shipment['id'] . '/rates');
+
+            if ($response->successful()) {
+                $data = $response->json();
+                $rates = [];
+                
+                foreach ($data['rates'] as $rate) {
+                    $rates[] = [
+                        'id' => $rate['id'],
+                        'carrier' => $rate['carrier'],
+                        'service' => $rate['service'],
+                        'rate' => (float) $rate['rate'],
+                        'delivery_days' => $rate['delivery_days'] ?? null,
+                        'delivery_date' => $rate['delivery_date'] ?? null,
+                    ];
+                }
+                
+                return $rates;
+            }
+
+            throw new \Exception('Failed to get rates from EasyPost');
+
+        } catch (\Exception $e) {
+            Log::error('EasyPost getRates failed', [
+                'shipment_data' => $shipmentData,
+                'error' => $e->getMessage()
+            ]);
+
+            // NO FALLBACK DATA - Return empty array if EasyPost fails
+            return [];
+        }
+    }
+
+    /**
+     * Create address in EasyPost
+     */
+    protected function createAddress(array $addressData): array
+    {
+        $response = $this->getHttpClient()->post($this->baseUrl . '/addresses', [
+            'street1' => $addressData['street_address'] ?? $addressData['street1'],
+            'city' => $addressData['city'],
+            'state' => $addressData['state'],
+            'zip' => $addressData['zip_code'] ?? $addressData['zip'],
+            'country' => $addressData['country'] ?? 'US',
+            'company' => $addressData['company'] ?? '',
+            'phone' => $addressData['phone'] ?? '',
+        ]);
+
+        if ($response->successful()) {
+            return $response->json();
+        }
+
+        throw new \Exception('Failed to create address in EasyPost');
+    }
+
+    /**
+     * Create parcel in EasyPost
+     */
+    protected function createParcel(array $parcelData): array
+    {
+        $response = $this->getHttpClient()->post($this->baseUrl . '/parcels', [
+            'length' => $parcelData['length'],
+            'width' => $parcelData['width'],
+            'height' => $parcelData['height'],
+            'weight' => $parcelData['weight'],
+        ]);
+
+        if ($response->successful()) {
+            return $response->json();
+        }
+
+        throw new \Exception('Failed to create parcel in EasyPost');
+    }
+
+    /**
+     * Create shipment in EasyPost
+     */
+    protected function createShipment(array $fromAddress, array $toAddress, array $parcel): array
+    {
+        $requestData = [
+            'shipment' => [
+                'from_address' => $fromAddress,
+                'to_address' => $toAddress,
+                'parcel' => $parcel,
+            ]
+        ];
+        
+        
+        $response = $this->getHttpClient()->post($this->baseUrl . '/shipments', $requestData);
+
+        if ($response->successful()) {
+            $result = $response->json();
+            return $result;
+        }
+
+        Log::error('Failed to create shipment in EasyPost', [
+            'from_address_id' => $fromAddress['id'],
+            'to_address_id' => $toAddress['id'],
+            'parcel_id' => $parcel['id'],
+            'status' => $response->status(),
+            'response' => $response->body()
+        ]);
+        throw new \Exception('Failed to create shipment in EasyPost');
     }
 
     /**

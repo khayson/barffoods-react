@@ -30,6 +30,10 @@ class ProductSeeder extends Seeder
                 'stock_quantity' => 50,
                 'average_rating' => 4.5,
                 'review_count' => 128,
+                'weight' => 12.0, // ounces
+                'length' => 3.0,  // inches
+                'width' => 3.0,   // inches
+                'height' => 3.0,  // inches
             ],
             [
                 'name' => 'Bananas',
@@ -41,6 +45,10 @@ class ProductSeeder extends Seeder
                 'stock_quantity' => 75,
                 'average_rating' => 4.3,
                 'review_count' => 89,
+                'weight' => 8.0, // ounces
+                'length' => 7.0,  // inches
+                'width' => 1.5,   // inches
+                'height' => 1.5,  // inches
             ],
             [
                 'name' => 'Organic Spinach',
@@ -52,6 +60,10 @@ class ProductSeeder extends Seeder
                 'stock_quantity' => 30,
                 'average_rating' => 4.7,
                 'review_count' => 156,
+                'weight' => 6.0, // ounces
+                'length' => 8.0,  // inches
+                'width' => 6.0,   // inches
+                'height' => 2.0,  // inches
             ],
             [
                 'name' => 'Carrots',
@@ -63,6 +75,10 @@ class ProductSeeder extends Seeder
                 'stock_quantity' => 40,
                 'average_rating' => 4.2,
                 'review_count' => 67,
+                'weight' => 10.0, // ounces
+                'length' => 6.0,  // inches
+                'width' => 1.0,   // inches
+                'height' => 1.0,  // inches
             ],
 
             // Dairy & Eggs
@@ -76,6 +92,10 @@ class ProductSeeder extends Seeder
                 'stock_quantity' => 60,
                 'average_rating' => 4.2,
                 'review_count' => 89,
+                'weight' => 32.0, // ounces (1 quart)
+                'length' => 4.0,  // inches
+                'width' => 4.0,   // inches
+                'height' => 6.0,  // inches
             ],
             [
                 'name' => 'Free Range Eggs',
@@ -87,6 +107,10 @@ class ProductSeeder extends Seeder
                 'stock_quantity' => 45,
                 'average_rating' => 4.6,
                 'review_count' => 134,
+                'weight' => 24.0, // ounces (dozen eggs)
+                'length' => 10.0,  // inches
+                'width' => 6.0,   // inches
+                'height' => 3.0,  // inches
             ],
             [
                 'name' => 'Greek Yogurt',
@@ -98,6 +122,10 @@ class ProductSeeder extends Seeder
                 'stock_quantity' => 35,
                 'average_rating' => 4.4,
                 'review_count' => 78,
+                'weight' => 16.0, // ounces
+                'length' => 4.0,  // inches
+                'width' => 3.0,   // inches
+                'height' => 3.0,  // inches
             ],
 
             // Meat & Seafood
@@ -111,6 +139,10 @@ class ProductSeeder extends Seeder
                 'stock_quantity' => 25,
                 'average_rating' => 4.3,
                 'review_count' => 92,
+                'weight' => 16.0, // ounces (1 lb)
+                'length' => 6.0,  // inches
+                'width' => 4.0,   // inches
+                'height' => 2.0,  // inches
             ],
             [
                 'name' => 'Salmon Fillet',
@@ -122,6 +154,10 @@ class ProductSeeder extends Seeder
                 'stock_quantity' => 20,
                 'average_rating' => 4.8,
                 'review_count' => 156,
+                'weight' => 20.0, // ounces
+                'length' => 8.0,  // inches
+                'width' => 4.0,   // inches
+                'height' => 1.5,  // inches
             ],
 
             // Bakery
@@ -135,6 +171,10 @@ class ProductSeeder extends Seeder
                 'stock_quantity' => 30,
                 'average_rating' => 4.7,
                 'review_count' => 156,
+                'weight' => 18.0, // ounces
+                'length' => 8.0,  // inches
+                'width' => 4.0,   // inches
+                'height' => 4.0,  // inches
             ],
             [
                 'name' => 'Croissants',
@@ -146,6 +186,10 @@ class ProductSeeder extends Seeder
                 'stock_quantity' => 20,
                 'average_rating' => 4.5,
                 'review_count' => 89,
+                'weight' => 8.0, // ounces (pack of 4)
+                'length' => 6.0,  // inches
+                'width' => 4.0,   // inches
+                'height' => 2.0,  // inches
             ],
 
             // Beverages
@@ -159,6 +203,10 @@ class ProductSeeder extends Seeder
                 'stock_quantity' => 40,
                 'average_rating' => 4.3,
                 'review_count' => 67,
+                'weight' => 64.0, // ounces (half gallon)
+                'length' => 6.0,  // inches
+                'width' => 4.0,   // inches
+                'height' => 8.0,  // inches
             ],
             [
                 'name' => 'Coffee Beans',
@@ -170,6 +218,10 @@ class ProductSeeder extends Seeder
                 'stock_quantity' => 25,
                 'average_rating' => 4.6,
                 'review_count' => 123,
+                'weight' => 12.0, // ounces
+                'length' => 4.0,  // inches
+                'width' => 3.0,   // inches
+                'height' => 6.0,  // inches
             ],
 
             // Snacks
@@ -183,6 +235,10 @@ class ProductSeeder extends Seeder
                 'stock_quantity' => 35,
                 'average_rating' => 4.4,
                 'review_count' => 89,
+                'weight' => 16.0, // ounces
+                'length' => 6.0,  // inches
+                'width' => 4.0,   // inches
+                'height' => 3.0,  // inches
             ],
             [
                 'name' => 'Dark Chocolate',
@@ -194,6 +250,10 @@ class ProductSeeder extends Seeder
                 'stock_quantity' => 50,
                 'average_rating' => 4.7,
                 'review_count' => 167,
+                'weight' => 4.0, // ounces
+                'length' => 6.0,  // inches
+                'width' => 2.0,   // inches
+                'height' => 0.5,  // inches
             ],
         ];
 
