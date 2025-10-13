@@ -36,7 +36,7 @@ class ShippingService
             $fastDeliveryCost = $this->calculateFastDeliveryCost($distance ?? 0);
             $deliveryMethods[] = [
                 'id' => 'fast_delivery',
-                'name' => 'Fast Delivery',
+                'name' => 'Local Express',
                 'type' => 'fast_delivery',
                 'description' => 'Our local delivery service for faster delivery',
                 'estimated_days' => '1-2 business days',
@@ -51,7 +51,7 @@ class ShippingService
                 if (!empty($carriers)) {
                     $deliveryMethods[] = [
                         'id' => 'shipping',
-                        'name' => 'Shipping',
+                        'name' => 'Standard Shipping',
                         'type' => 'shipping',
                         'description' => 'Ship via EasyPost carriers',
                         'estimated_days' => '3-7 business days',

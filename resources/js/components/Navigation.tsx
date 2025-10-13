@@ -7,6 +7,7 @@ import { usePage } from '@inertiajs/react';
 import ProductSearchModal from '@/components/product-search-modal';
 import WishlistDropdown from '@/components/WishlistDropdown';
 import CartDropdown from '@/components/CartDropdown';
+import NotificationDropdown from '@/components/notifications/NotificationDropdown';
 import { Kbd } from '@/components/ui/kbd';
 import { toast } from 'sonner';
 import { useWishlist } from '@/contexts/WishlistContext';
@@ -128,6 +129,7 @@ export default function Navigation() {
                                 </span>
                             )}
                         </button>
+
 
                         {/* Theme Toggle */}
                         <button
@@ -283,6 +285,7 @@ export default function Navigation() {
                 onClose={() => setCartOpen(false)}
                 buttonRef={cartButtonRef}
             />
+            
         </nav>
     );
 }

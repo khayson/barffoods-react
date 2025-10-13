@@ -7,6 +7,7 @@ use Inertia\Inertia;
 use App\Models\Product;
 use App\Models\Store;
 use App\Models\Category;
+use App\Models\SystemSetting;
 
 class ProductController extends Controller
 {
@@ -121,6 +122,10 @@ class ProductController extends Controller
             'store' => [
                 'id' => (string) $product->store->id,
                 'name' => $product->store->name,
+                'address' => $product->store->address,
+                'delivery_fee' => $product->store->delivery_fee,
+                'min_order_amount' => $product->store->min_order_amount,
+                'delivery_radius' => $product->store->delivery_radius,
             ],
             'category' => [
                 'id' => (string) $product->category->id,
@@ -131,6 +136,10 @@ class ProductController extends Controller
             'badges' => $this->generateBadges($product),
             'inStock' => $product->stock_quantity > 0,
             'stock_quantity' => $product->stock_quantity,
+            'weight' => $product->weight,
+            'length' => $product->length,
+            'width' => $product->width,
+            'height' => $product->height,
         ];
         
         // If this is an API request, return JSON
@@ -162,11 +171,34 @@ class ProductController extends Controller
                 ];
             });
         
+        // Get shipping options from system settings
+        $shippingOptions = SystemSetting::get('shipping_options', [
+            'standard' => [
+                'name' => 'Standard Delivery',
+                'description' => '3-5 business days',
+                'price' => 0,
+                'enabled' => true
+            ],
+            'express' => [
+                'name' => 'Express Delivery',
+                'description' => '1-2 business days',
+                'price' => 5.99,
+                'enabled' => true
+            ],
+            'same_day' => [
+                'name' => 'Same Day Delivery',
+                'description' => 'Order before 2 PM',
+                'price' => 9.99,
+                'enabled' => true
+            ]
+        ]);
+
         return Inertia::render('products/show', [
             'product' => $formattedProduct,
             'reviews' => $formattedReviews,
             'averageRating' => $actualAverageRating,
-            'totalReviews' => $actualReviewCount
+            'totalReviews' => $actualReviewCount,
+            'shippingOptions' => $shippingOptions
         ]);
     }
 

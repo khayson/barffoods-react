@@ -11,32 +11,27 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('orders', function (Blueprint $table) {
+        Schema::create('order_groups', function (Blueprint $table) {
             $table->id();
-            $table->string('order_number')->unique();
-            $table->foreignId('order_group_id')->nullable()->constrained('order_groups')->onDelete('cascade');
+            $table->string('group_number')->unique();
             $table->foreignId('user_id')->constrained()->onDelete('restrict');
-            $table->foreignId('store_id')->constrained()->onDelete('restrict');
             $table->foreignId('user_address_id')->nullable()->constrained('user_addresses')->onDelete('set null');
-            $table->enum('status', ['pending', 'confirmed', 'preparing', 'delivered', 'cancelled'])->default('pending');
+            $table->enum('status', ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'])->default('pending');
+            $table->enum('delivery_preference', ['coordinated', 'as_ready'])->default('coordinated');
             $table->decimal('total_amount', 10, 2);
             $table->text('delivery_address');
             $table->decimal('delivery_fee', 8, 2)->default(0.00);
-            $table->integer('delivery_time_estimate')->default(30); // minutes
+            $table->integer('delivery_time_estimate')->default(30);
             $table->string('tracking_code')->nullable();
             $table->text('label_url')->nullable();
             $table->string('carrier')->nullable();
             $table->string('service')->nullable();
             $table->decimal('shipping_cost', 8, 2)->nullable();
-            $table->integer('priority')->default(0)->comment('Higher number = higher priority');
-            $table->boolean('is_ready_for_delivery')->default(false)->comment('Store has prepared all items');
-            $table->timestamp('ready_at')->nullable()->comment('When store marked items as ready');
             $table->timestamps();
             
             $table->index('user_id');
-            $table->index('store_id');
-            $table->index('order_group_id');
             $table->index('status');
+            $table->index('group_number');
         });
     }
 
@@ -45,6 +40,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('orders');
+        Schema::dropIfExists('order_groups');
     }
 };

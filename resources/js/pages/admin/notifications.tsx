@@ -26,8 +26,10 @@ export default function AdminNotifications({ notifications: initialNotifications
 
     // Filter notifications
     const filteredNotifications = notifications.filter(notification => {
-        const matchesSearch = notification.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            notification.message.toLowerCase().includes(searchTerm.toLowerCase());
+        const title = notification.title || '';
+        const message = notification.message || '';
+        const matchesSearch = title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            message.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesStatus = statusFilter === 'all' || notification.status === statusFilter;
         const matchesType = typeFilter === 'all' || notification.type === typeFilter;
         const matchesPriority = priorityFilter === 'all' || notification.priority === priorityFilter;

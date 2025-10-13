@@ -21,7 +21,7 @@ export default function AdminHeader({ onToggleSidebar, onToggleRightSidebar, isM
     const [globalHideRightSidebar, setGlobalHideRightSidebar] = useState(false);
     const page = usePage<SharedData>();
     const { auth } = page.props;
-    const { state: notificationState, setDropdownOpen } = useNotifications();
+    const { state: notificationState } = useNotifications();
     // Check for saved theme preference or default to light mode
     useEffect(() => {
         const savedTheme = localStorage.getItem('theme');
@@ -132,7 +132,7 @@ export default function AdminHeader({ onToggleSidebar, onToggleRightSidebar, isM
                                 onClick={() => {
                                     const newState = !notificationOpen;
                                     setNotificationOpen(newState);
-                                    setDropdownOpen(newState);
+                                    // setDropdownOpen(newState);
                                 }}
                             >
                                 <Bell className={`${screenSize === 'mobile' ? 'h-4 w-4' : 'h-5 w-5'}`} />
@@ -150,7 +150,7 @@ export default function AdminHeader({ onToggleSidebar, onToggleRightSidebar, isM
                                 isOpen={notificationOpen} 
                                 onClose={() => {
                                     setNotificationOpen(false);
-                                    setDropdownOpen(false);
+                                    // setDropdownOpen(false);
                                 }} 
                             />
                         </div>

@@ -46,21 +46,14 @@ class ProductReviewController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Review submitted successfully.',
+                'message' => 'Review submitted successfully!',
                 'review' => $review->load('user')
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
-            $errors = $e->errors();
-            $errorMessage = 'Validation failed: ';
-            
-            foreach ($errors as $field => $messages) {
-                $errorMessage .= implode(', ', $messages) . ' ';
-            }
-            
             return response()->json([
                 'success' => false,
-                'message' => trim($errorMessage),
-                'errors' => $errors
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
             return response()->json([
@@ -88,7 +81,7 @@ class ProductReviewController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Review updated successfully.',
+            'message' => 'Review updated successfully!',
             'review' => $review->load('user')
         ]);
     }
@@ -106,7 +99,7 @@ class ProductReviewController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Review deleted successfully.'
+            'message' => 'Review deleted successfully!'
         ]);
     }
 

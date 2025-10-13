@@ -35,14 +35,21 @@ return [
         ],
     ],
 
-    'easypost' => [
-        'api_key' => env('EASYPOST_API_KEY'),
-        'test_mode' => env('EASYPOST_TEST_MODE', true),
-        'base_url' => env('EASYPOST_TEST_MODE', true) 
-            ? 'https://api.easypost.com/v2' 
-            : 'https://api.easypost.com/v2',
-        'timeout' => env('EASYPOST_TIMEOUT', 30),
-        'verify_ssl' => env('EASYPOST_VERIFY_SSL', true),
-    ],
+            'easypost' => [
+                'api_key' => env('EASYPOST_API_KEY'),
+                'test_mode' => env('EASYPOST_TEST_MODE', true),
+                'base_url' => env('EASYPOST_TEST_MODE', true) 
+                    ? 'https://api.easypost.com/v2' 
+                    : 'https://api.easypost.com/v2',
+                'timeout' => env('EASYPOST_TIMEOUT', 30),
+                'verify_ssl' => env('EASYPOST_VERIFY_SSL', true),
+            ],
+
+            'stripe' => [
+                'secret_key' => env('STRIPE_SECRET_KEY'),
+                'publishable_key' => env('STRIPE_PUBLISHABLE_KEY'),
+                'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
+                'test_mode' => env('STRIPE_TEST_MODE', true),
+            ],
 
 ];

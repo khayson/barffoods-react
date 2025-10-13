@@ -37,3 +37,16 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 
 // Anonymous cart routes moved to web.php for session support
+
+// Payment routes
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/payments/create-intent', [App\Http\Controllers\PaymentTransactionController::class, 'createPaymentIntent'])->name('api.payments.create-intent');
+    Route::post('/payments/confirm', [App\Http\Controllers\PaymentTransactionController::class, 'confirmPayment'])->name('api.payments.confirm');
+    Route::post('/payments/process', [App\Http\Controllers\PaymentTransactionController::class, 'processPayment'])->name('api.payments.process');
+    Route::get('/payments/status', [App\Http\Controllers\PaymentTransactionController::class, 'getPaymentStatus'])->name('api.payments.status');
+    Route::post('/payments/refund', [App\Http\Controllers\PaymentTransactionController::class, 'refundPayment'])->name('api.payments.refund');
+    Route::get('/payments/publishable-key', [App\Http\Controllers\PaymentTransactionController::class, 'getPublishableKey'])->name('api.payments.publishable-key');
+});
+
+// Stripe webhook route (no auth required)
+Route::post('/stripe/webhook', [App\Http\Controllers\StripeWebhookController::class, 'handle'])->name('api.stripe.webhook');

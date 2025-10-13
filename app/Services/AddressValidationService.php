@@ -185,11 +185,26 @@ class AddressValidationService
     }
 
     /**
-     * Check if address is within delivery zones (basic implementation)
+     * Check if address is within delivery zones (configurable implementation)
      */
     public function isWithinDeliveryZone(array $addressData): bool
     {
-        // Basic delivery zone check based on ZIP code ranges
+        // Check if delivery zone validation is enabled
+        $validationEnabled = \App\Models\SystemSetting::get('delivery_zone_validation_enabled', false);
+        
+        // If validation is disabled, allow all addresses
+        if (!$validationEnabled) {
+            return true;
+        }
+        
+        // Get delivery zones from system settings
+        $deliveryZones = $this->getDeliveryZonesFromSettings();
+        
+        // If no zones configured, allow all addresses (for testing/development)
+        if (empty($deliveryZones)) {
+            return true;
+        }
+        
         $zipCode = $addressData['zip_code'];
         
         // Remove any dashes from ZIP code
@@ -198,22 +213,45 @@ class AddressValidationService
         // Convert to integer for range checking
         $zipInt = (int) substr($zipCode, 0, 5);
         
-        // Define delivery zones by ZIP code ranges (example for NYC area)
-        $deliveryZones = [
-            [10001, 10299], // Manhattan
-            [10301, 10314], // Staten Island
-            [10451, 10475], // Bronx
-            [11001, 11005], // Queens
-            [11201, 11256], // Brooklyn
-        ];
-        
+        // Check against configured delivery zones
         foreach ($deliveryZones as $zone) {
-            if ($zipInt >= $zone[0] && $zipInt <= $zone[1]) {
-                return true;
+            if (isset($zone['min_zip']) && isset($zone['max_zip'])) {
+                if ($zipInt >= $zone['min_zip'] && $zipInt <= $zone['max_zip']) {
+                    return true;
+                }
             }
         }
         
         return false;
+    }
+
+    /**
+     * Get delivery zones from system settings
+     */
+    protected function getDeliveryZonesFromSettings(): array
+    {
+        try {
+            $deliveryZones = \App\Models\SystemSetting::get('delivery_zones', '[]');
+            
+            if (is_string($deliveryZones)) {
+                $deliveryZones = json_decode($deliveryZones, true);
+            }
+            
+            return is_array($deliveryZones) ? $deliveryZones : [];
+        } catch (\Exception $e) {
+            Log::warning('Failed to get delivery zones from settings', [
+                'error' => $e->getMessage()
+            ]);
+            
+            // Fallback to default NYC zones if settings fail
+            return [
+                ['min_zip' => 10001, 'max_zip' => 10299, 'name' => 'Manhattan'],
+                ['min_zip' => 10301, 'max_zip' => 10314, 'name' => 'Staten Island'],
+                ['min_zip' => 10451, 'max_zip' => 10475, 'name' => 'Bronx'],
+                ['min_zip' => 11001, 'max_zip' => 11005, 'name' => 'Queens'],
+                ['min_zip' => 11201, 'max_zip' => 11256, 'name' => 'Brooklyn'],
+            ];
+        }
     }
 
     /**

@@ -133,8 +133,10 @@ export default function CheckoutPage({
                 delivery_method: selectedDeliveryMethod,
                 carrier: selectedCarrier,
                 discount_code: discountCode,
+                payment_intent_id: '',
                 // Only keep delivery instructions
                 shipping_instructions: '',
+                save_address: false, // New field to control address saving
             });
 
     // Calculate delivery methods when address changes
@@ -396,25 +398,56 @@ export default function CheckoutPage({
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         
+        // Validate required fields
+        if (!data.street_address || !data.city || !data.state || !data.zip_code) {
+            toast.error('Please fill in all address fields');
+            return;
+        }
+
+        if (selectedDeliveryMethod === 'shipping' && !selectedCarrier) {
+            toast.error('Please select a carrier');
+            return;
+        }
+
+        // Create Stripe Checkout Session and redirect
         setIsProcessing(true);
-        
         try {
-            await post('/checkout', {
-                onSuccess: (page) => {
-                    toast.success('Order placed successfully!');
-                    // Redirect to order confirmation page
-                    window.location.href = `/orders/${page.props.order_id}`;
+            const response = await fetch('/checkout/create-session', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
                 },
-                onError: (errors) => {
-                    toast.error('Failed to place order. Please try again.');
-                }
+                body: JSON.stringify({
+                    type: data.type,
+                    street_address: data.street_address,
+                    city: data.city,
+                    state: data.state,
+                    zip_code: data.zip_code,
+                    delivery_instructions: data.delivery_instructions,
+                    shipping_method: selectedDeliveryMethod,
+                    discount_code: discountCode,
+                    save_address: data.save_address,
+                }),
             });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                // Redirect to Stripe Checkout
+                window.location.href = result.checkout_url;
+            } else {
+                toast.error(result.error || 'Failed to create checkout session');
+            }
         } catch (error) {
+            console.error('Checkout session error:', error);
             toast.error('An error occurred. Please try again.');
         } finally {
             setIsProcessing(false);
         }
     };
+
 
     const applyDiscountCode = () => {
         if (discountCode.trim()) {
@@ -434,7 +467,7 @@ export default function CheckoutPage({
             <div className="min-h-screen bg-gray-50">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-0">
                     {/* Breadcrumb Navigation */}
-                    <div className="mb-8">
+                    {/* <div className="mb-8">
                         <nav className="flex items-center space-x-2 text-sm text-gray-600">
                             <Link href="/cart" className="hover:text-gray-900">Cart</Link>
                             <ChevronRight className="w-4 h-4" />
@@ -442,7 +475,7 @@ export default function CheckoutPage({
                             <ChevronRight className="w-4 h-4" />
                             <span className="text-gray-400">Payment</span>
                         </nav>
-                    </div>
+                    </div> */}
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                         {/* Left Column - Shipping Details */}
@@ -711,6 +744,20 @@ export default function CheckoutPage({
                                             <p className="text-red-500 text-sm mt-1">{errors.delivery_instructions}</p>
                                         )}
                                     </div>
+
+                                    {/* Save Address Checkbox */}
+                                    <div className="flex items-center space-x-2">
+                                        <input
+                                            type="checkbox"
+                                            id="save_address"
+                                            checked={data.save_address}
+                                            onChange={(e) => setData('save_address', e.target.checked)}
+                                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                        />
+                                        <Label htmlFor="save_address" className="text-sm text-gray-700">
+                                            Save this address for future orders
+                                        </Label>
+                                    </div>
                                 </form>
                             </div>
 
@@ -944,7 +991,10 @@ export default function CheckoutPage({
                                         className="w-full bg-black hover:bg-gray-800 text-white font-semibold py-3 text-base rounded-lg mt-6"
                                     >
                                         {processing || isProcessing ? (
-                                            'Processing...'
+                                            <div className="flex items-center justify-center gap-2">
+                                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                                Creating Checkout...
+                                            </div>
                                         ) : (
                                             'Continue to Payment'
                                         )}
@@ -955,6 +1005,7 @@ export default function CheckoutPage({
                     </div>
                 </div>
             </div>
+
         </CustomerLayout>
     );
 }

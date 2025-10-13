@@ -63,7 +63,7 @@ export default function CustomerHeader({ onToggleMobileMenu, isMobile }: Custome
     const { auth } = page.props;
     const getInitials = useInitials();
     const currentPath = window.location.pathname;
-    const { state: notificationState, setDropdownOpen } = useNotifications();
+    const { state: notificationState } = useNotifications();
     const { wishlistCount } = useWishlist();
     const { totalItems } = useCart();
     const wishlistButtonRef = useRef<HTMLButtonElement>(null);
@@ -206,9 +206,7 @@ export default function CustomerHeader({ onToggleMobileMenu, isMobile }: Custome
                                 className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 relative"
                                 data-notification-button
                                 onClick={() => {
-                                    const newState = !notificationOpen;
-                                    setNotificationOpen(newState);
-                                    setDropdownOpen(newState);
+                                    setNotificationOpen(!notificationOpen);
                                 }}
                             >
                                 <Bell className="h-5 w-5" />
@@ -226,7 +224,6 @@ export default function CustomerHeader({ onToggleMobileMenu, isMobile }: Custome
                                 isOpen={notificationOpen} 
                                 onClose={() => {
                                     setNotificationOpen(false);
-                                    setDropdownOpen(false);
                                 }} 
                             />
                         </div>

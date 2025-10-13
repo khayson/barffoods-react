@@ -93,5 +93,57 @@ class SystemSettingsSeeder extends Seeder
             'json',
             'Store address used as shipping origin for all orders'
         );
+
+        // Delivery zone validation setting
+        SystemSetting::set(
+            'delivery_zone_validation_enabled',
+            false, // Set to false for testing - allows all addresses
+            'boolean',
+            'Enable/disable delivery zone validation for addresses'
+        );
+
+        // Delivery zones configuration
+        SystemSetting::set(
+            'delivery_zones',
+            json_encode([
+                [
+                    'name' => 'Manhattan',
+                    'min_zip' => 10001,
+                    'max_zip' => 10299,
+                    'delivery_fee' => 4.99,
+                    'delivery_time' => '30-45 minutes'
+                ],
+                [
+                    'name' => 'Brooklyn',
+                    'min_zip' => 11201,
+                    'max_zip' => 11256,
+                    'delivery_fee' => 5.99,
+                    'delivery_time' => '45-60 minutes'
+                ],
+                [
+                    'name' => 'Queens',
+                    'min_zip' => 11001,
+                    'max_zip' => 11005,
+                    'delivery_fee' => 6.99,
+                    'delivery_time' => '60-75 minutes'
+                ],
+                [
+                    'name' => 'Bronx',
+                    'min_zip' => 10451,
+                    'max_zip' => 10475,
+                    'delivery_fee' => 6.99,
+                    'delivery_time' => '60-75 minutes'
+                ],
+                [
+                    'name' => 'Staten Island',
+                    'min_zip' => 10301,
+                    'max_zip' => 10314,
+                    'delivery_fee' => 7.99,
+                    'delivery_time' => '75-90 minutes'
+                ]
+            ]),
+            'json',
+            'Delivery zones configuration with ZIP code ranges and pricing'
+        );
     }
 }

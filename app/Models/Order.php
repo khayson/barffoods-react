@@ -10,6 +10,7 @@ class Order extends Model
 {
     protected $fillable = [
         'order_number',
+        'order_group_id',
         'user_id',
         'store_id',
         'user_address_id',
@@ -23,6 +24,9 @@ class Order extends Model
         'carrier',
         'service',
         'shipping_cost',
+        'priority',
+        'is_ready_for_delivery',
+        'ready_at',
     ];
 
     protected $casts = [
@@ -31,6 +35,14 @@ class Order extends Model
         'delivery_time_estimate' => 'integer',
         'shipping_cost' => 'decimal:2',
     ];
+
+    /**
+     * Get the order group that owns the order.
+     */
+    public function orderGroup(): BelongsTo
+    {
+        return $this->belongsTo(OrderGroup::class);
+    }
 
     /**
      * Get the user that owns the order.

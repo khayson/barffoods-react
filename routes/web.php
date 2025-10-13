@@ -11,6 +11,7 @@ use App\Http\Controllers\StoreController;
 use App\Http\Controllers\WelcomeController;
 use App\Http\Controllers\WishlistItemController;
 use App\Http\Controllers\CartItemController;
+use App\Http\Controllers\OrderController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -18,6 +19,24 @@ Route::get('/', [WelcomeController::class, 'index'])->name('home');
 
 // Product routes
 Route::get('/products/{id}', [ProductController::class, 'show'])->name('products.show');
+
+// Order routes (authenticated users only)
+Route::middleware(['auth'])->group(function () {
+    Route::get('/orders/{id}', [OrderController::class, 'show'])->name('orders.show');
+    
+    // Admin order management routes
+    Route::prefix('admin')->middleware(['auth', 'role:super_admin'])->group(function () {
+        Route::get('/orders', [App\Http\Controllers\Admin\OrderManagementController::class, 'index'])->name('admin.orders.index');
+        Route::get('/orders/groups', [App\Http\Controllers\Admin\OrderManagementController::class, 'groups'])->name('admin.orders.groups');
+        Route::get('/orders/groups/{id}', [App\Http\Controllers\Admin\OrderManagementController::class, 'showGroup'])->name('admin.orders.groups.show');
+        Route::patch('/orders/{id}/status', [App\Http\Controllers\Admin\OrderManagementController::class, 'updateStatus'])->name('admin.orders.update-status');
+        Route::patch('/orders/{id}/priority', [App\Http\Controllers\Admin\OrderManagementController::class, 'updatePriority'])->name('admin.orders.update-priority');
+        Route::patch('/orders/{id}/ready', [App\Http\Controllers\Admin\OrderManagementController::class, 'markAsReady'])->name('admin.orders.mark-ready');
+        Route::get('/orders/groups/{id}/readiness', [App\Http\Controllers\Admin\OrderManagementController::class, 'getGroupReadiness'])->name('admin.orders.groups.readiness');
+        Route::patch('/orders/bulk-priority', [App\Http\Controllers\Admin\OrderManagementController::class, 'bulkUpdatePriority'])->name('admin.orders.bulk-priority');
+        Route::patch('/orders/groups/{id}/status', [App\Http\Controllers\Admin\OrderManagementController::class, 'updateGroupStatus'])->name('admin.orders.groups.update-status');
+    });
+});
 
 // Review routes (authenticated users only)
 Route::middleware(['auth'])->group(function () {
@@ -42,6 +61,8 @@ Route::get('/cart', [CartItemController::class, 'show'])->name('cart.show');
 // Checkout routes (auth required)
 Route::middleware(['auth'])->group(function () {
     Route::get('/checkout', [App\Http\Controllers\CheckoutController::class, 'index'])->name('checkout.index');
+        Route::post('/checkout/create-session', [App\Http\Controllers\CheckoutController::class, 'createCheckoutSession'])->name('checkout.create-session');
+    Route::get('/checkout/success', [App\Http\Controllers\CheckoutController::class, 'success'])->name('checkout.success');
     Route::post('/checkout', [App\Http\Controllers\CheckoutController::class, 'store'])->name('checkout.store');
     
     // Sanctum token endpoint
@@ -50,6 +71,11 @@ Route::middleware(['auth'])->group(function () {
             'token' => session('sanctum_token')
         ]);
     })->name('api.sanctum.token');
+    
+    // Notification routes
+    Route::get('/api/notifications', [App\Http\Controllers\NotificationController::class, 'index'])->name('api.notifications.index');
+    Route::post('/api/notifications/{notification}/read', [App\Http\Controllers\NotificationController::class, 'markAsRead'])->name('api.notifications.read');
+    Route::post('/api/notifications/mark-all-read', [App\Http\Controllers\NotificationController::class, 'markAllAsRead'])->name('api.notifications.mark-all-read');
 });
 
         // Address management routes (auth required)
