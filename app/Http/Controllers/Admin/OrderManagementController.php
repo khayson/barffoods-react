@@ -23,7 +23,7 @@ class OrderManagementController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Order::with(['user', 'orderItems.product', 'orderItems.store']);
+        $query = Order::with(['user', 'orderItems.product', 'orderItems.store', 'paymentTransactions']);
 
         // Filter by status
         if ($request->has('status') && $request->status !== 'all') {
@@ -50,10 +50,14 @@ class OrderManagementController extends Controller
 
         $orders = $query->orderBy('created_at', 'desc')->paginate(20);
 
-        // Transform orders to include store information
+        // Transform orders to include additional data for the new design
         $orders->getCollection()->transform(function ($order) {
             $order->store_names = $order->orderItems->pluck('store.name')->unique()->values()->toArray();
             $order->is_multi_store = $order->orderItems->pluck('store.name')->unique()->count() > 1;
+            
+            // Add payment transaction data
+            $order->payment_transactions = $order->paymentTransactions()->orderBy('created_at', 'desc')->get();
+            
             return $order;
         });
 
@@ -557,5 +561,44 @@ class OrderManagementController extends Controller
         }
 
         return $latestTransaction->status;
+    }
+
+    /**
+     * Delete an order
+     */
+    public function destroy($id)
+    {
+        try {
+            $order = Order::findOrFail($id);
+            
+            // Check if order can be deleted (e.g., not already shipped/delivered)
+            if (in_array($order->status, ['shipped', 'delivered'])) {
+            return redirect()->route('admin.orders.index')->with('error', 'Cannot delete orders that have been shipped or delivered');
+            }
+            
+            // Delete related records first (due to foreign key constraints)
+            $order->orderItems()->delete();
+            $order->paymentTransactions()->delete();
+            $order->statusHistory()->delete();
+            
+            // Delete the order
+            $order->delete();
+            
+            \Log::info("Order deleted", [
+                'order_id' => $id,
+                'deleted_by' => auth()->user()->name ?? 'Admin'
+            ]);
+            
+            return redirect()->route('admin.orders.index')->with('success', 'Order deleted successfully');
+            
+        } catch (\Exception $e) {
+            \Log::error("Order deletion failed", [
+                'order_id' => $id,
+                'error' => $e->getMessage(),
+                'deleted_by' => auth()->user()->name ?? 'Admin'
+            ]);
+            
+            return redirect()->route('admin.orders.index')->with('error', 'Failed to delete order');
+        }
     }
 }

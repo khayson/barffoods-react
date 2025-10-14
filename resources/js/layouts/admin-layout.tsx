@@ -1,6 +1,5 @@
 import { type ReactNode, useState, useEffect } from 'react';
 import AdminSidebar from '@/layouts/admin/admin-sidebar';
-import AdminRightSidebar from '@/layouts/admin/admin-right-sidebar';
 import AdminHeader from '@/layouts/admin/admin-header';
 import { NotificationProvider } from '@/contexts/NotificationContext';
 import { usePage } from '@inertiajs/react';
@@ -108,7 +107,7 @@ function AdminLayoutContent({ children, hideRightSidebar = false }: AdminLayoutP
                     ${isMobile ? 'absolute z-30 h-full w-80' : ''}
                     ${isTablet ? 'absolute z-30 h-full w-80' : ''}
                     ${isDesktop ? 'pl-20 pt-4' : ''}
-                    ${isLarge ? 'pl-30 pt-4' : ''}
+                    ${isLarge ? 'pl-20 pt-0' : ''}
                     ${(isMobile || isTablet) && !showSidebar ? 'hidden' : 'block'}
                 `}>
                     <AdminSidebar 
@@ -130,26 +129,6 @@ function AdminLayoutContent({ children, hideRightSidebar = false }: AdminLayoutP
                 `}>
                     {children}
                 </main>
-
-                {/* Right Sidebar - Responsive positioning */}
-                {!hideRightSidebar && (
-                    <div className={`
-                        ${isMobile ? 'absolute z-30 h-full right-0 w-80' : ''}
-                        ${isTablet ? 'absolute z-30 h-full right-0 w-80' : ''}
-                        ${isDesktop ? 'pr-15 pt-4' : ''}
-                        ${isLarge ? 'pr-30 pt-4' : ''}
-                        ${(isMobile || isTablet) && !showRightSidebar ? 'hidden' : 'block'}
-                        scrollbar-hide
-                    `}>
-                        <AdminRightSidebar 
-                            isMobile={isMobile}
-                            onClose={closeRightSidebar}
-                            collapsed={rightSidebarCollapsed}
-                            onToggleCollapse={toggleRightSidebarCollapse}
-                            screenSize={screenSize}
-                        />
-                    </div>
-                )}
             </div>
 
             {/* Responsive overlay when sidebars are open */}

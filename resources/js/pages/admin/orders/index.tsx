@@ -1,412 +1,442 @@
 import React, { useState } from 'react';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { 
-    Package, 
-    Clock, 
-    CheckCircle, 
-    AlertCircle,
-    Store,
-    Calendar,
-    Search,
-    Filter,
-    Eye,
     Edit,
-    Star,
-    User,
-    Truck,
-    Home,
+    Copy,
+    Trash2,
+    ChevronLeft,
+    ChevronRight,
     ChevronDown,
-    ChevronUp,
-    ArrowUpDown
+    Search,
+    Plus,
+    Eye
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import AdminLayout from '@/layouts/admin-layout';
-
-interface OrderItem {
-    id: number;
-    product: {
-        id: string;
-        name: string;
-    };
-    store: {
-        id: string;
-        name: string;
-    };
-    quantity: number;
-    unit_price: number | string;
-    total_price: number | string;
-}
 
 interface Order {
     id: number;
     order_number: string;
     status: string;
     total_amount: number | string;
-    is_ready_for_delivery: boolean;
     created_at: string;
-    store_names: string[];
-    is_multi_store: boolean;
     user: {
         id: number;
         name: string;
         email: string;
+        avatar?: string;
     };
-    shipping_method?: 'shipping' | 'fast_delivery';
+    order_items: Array<{
+        id: number;
+        quantity: number;
+    }>;
+    payment_transactions: Array<{
+        id: number;
+        status: string;
+    }>;
 }
 
 interface OrdersPageProps {
     orders: {
         data: Order[];
         links: any[];
-        meta: any;
-    };
-    stores: Array<{
-        id: string;
-        name: string;
-    }>;
-    filters: {
-        status: string;
-        store_id: string;
-        search: string;
+        meta: {
+            total: number;
+            per_page: number;
+            current_page: number;
+            last_page: number;
+        };
     };
 }
 
-export default function OrdersPage({ orders, stores, filters }: OrdersPageProps) {
-    const [sortField, setSortField] = useState<string>('created_at');
-    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-    const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
+export default function OrdersPage({ orders }: OrdersPageProps) {
+    const [activeFilter, setActiveFilter] = useState('All');
+    const [searchTerm, setSearchTerm] = useState('');
+
+    const filterOptions = [
+        { key: 'All', label: 'All', color: 'bg-gray-900' },
+        { key: 'Pending', label: 'Pending', color: 'bg-orange-500' },
+        { key: 'In Transit', label: 'In Transit', color: 'bg-blue-500' },
+        { key: 'Completed', label: 'Completed', color: 'bg-green-500' },
+        { key: 'Canceled', label: 'Canceled', color: 'bg-red-500' },
+    ];
+
+    const handleFilterChange = (filter: string) => {
+        setActiveFilter(filter);
+        // Map filter to actual status values
+        let status = '';
+        switch (filter) {
+            case 'Pending':
+                status = 'confirmed';
+                break;
+            case 'In Transit':
+                status = 'processing';
+                break;
+            case 'Completed':
+                status = 'delivered';
+                break;
+            case 'Canceled':
+                status = 'refunded';
+                break;
+            default:
+                status = 'all';
+        }
+        
+        router.get('/admin/orders', { status }, {
+            preserveState: true,
+            preserveScroll: true,
+        });
+    };
+
+    const handleSearch = () => {
+        router.get('/admin/orders', { search: searchTerm }, {
+            preserveState: true,
+            preserveScroll: true,
+        });
+    };
+
+
+    const handleCreateOrder = () => {
+        // Navigate to create order page
+        router.visit('/admin/orders/create');
+    };
 
     const getStatusColor = (status: string) => {
         switch (status.toLowerCase()) {
-            case 'confirmed': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
-            case 'processing': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400';
-            case 'shipped': return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-400';
-            case 'delivered': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
-            default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
+            case 'pending_payment':
+            case 'confirmed':
+                return { bg: 'bg-orange-500', text: 'Pending' };
+            case 'processing':
+            case 'shipped':
+                return { bg: 'bg-blue-500', text: 'In Transit' };
+            case 'delivered':
+                return { bg: 'bg-green-500', text: 'Completed' };
+            case 'refunded':
+                return { bg: 'bg-red-500', text: 'Canceled' };
+            default:
+                return { bg: 'bg-gray-500', text: status };
         }
+    };
+
+    const getPaymentStatus = (order: Order) => {
+        const latestTransaction = order.payment_transactions?.[0];
+        if (!latestTransaction) return 'Unpaid';
+        return latestTransaction.status === 'completed' ? 'Paid' : 'Unpaid';
     };
 
     const formatPrice = (price: number | string) => {
         const numPrice = typeof price === 'string' ? parseFloat(price) : price;
-        return numPrice.toFixed(2);
+        return `$${numPrice.toFixed(2)}`;
     };
 
     const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
+        const date = new Date(dateString);
+        const month = date.toLocaleDateString('en-US', { month: 'short' });
+        const day = date.getDate();
+        const year = date.getFullYear();
+        const time = date.toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            hour12: true 
         });
+        return `${month} ${day}, ${year} at ${time}`;
     };
 
-    const toggleExpanded = (orderId: number) => {
-        const newExpanded = new Set(expandedRows);
-        if (newExpanded.has(orderId)) {
-            newExpanded.delete(orderId);
-        } else {
-            newExpanded.add(orderId);
-        }
-        setExpandedRows(newExpanded);
-    };
-
-    const handleSort = (field: string) => {
-        if (sortField === field) {
-            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-        } else {
-            setSortField(field);
-            setSortDirection('asc');
-        }
+    const getItemCount = (order: Order) => {
+        return order.order_items?.reduce((total, item) => total + item.quantity, 0) || 0;
     };
 
     return (
         <AdminLayout>
             <Head title="Orders Management" />
             
-            <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                    {/* Header */}
-                    <div className="mb-8">
+            <div className="min-h-screen bg-white">
+                <div className="max-w-7xl mx-auto px-6 py-8">
+                    {/* Filter and Action Bar */}
+                    <div className="mb-6">
                         <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-4">
-                                <div className="w-12 h-12 bg-green-100 dark:bg-green-900/20 rounded-xl flex items-center justify-center">
-                                    <Package className="w-6 h-6 text-green-600 dark:text-green-400" />
-                                </div>
-                                <div>
-                                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Orders</h1>
-                                    <p className="text-gray-600 dark:text-gray-400 mt-1">Manage all orders in one place</p>
-                                </div>
+                            {/* Left Section - Filter Container */}
+                            <div className="bg-gray-50 rounded-xl px-3 py-2 flex items-center space-x-0">
+                                {filterOptions.map((option, index) => (
+                                    <div key={option.key} className="flex items-center">
+                                        <button
+                                            onClick={() => handleFilterChange(option.key)}
+                                            className={`px-3 py-1.5 rounded-lg text-sm font-medium flex items-center ${
+                                                activeFilter === option.key
+                                                    ? 'bg-gray-800 text-white'
+                                                    : 'text-gray-600 hover:bg-gray-200'
+                                            }`}
+                                        >
+                                            {option.key === 'All' && activeFilter === 'All' && (
+                                                <ChevronDown className="w-3 h-3 mr-1 text-white" />
+                                            )}
+                                            <div className={`w-2 h-2 ${option.color} rounded-full mr-2`}></div>
+                                            {option.label}
+                                        </button>
+                                        {index < filterOptions.length - 1 && (
+                                            <div className="w-px h-4 bg-gray-300 mx-1"></div>
+                                        )}
+                                    </div>
+                                ))}
+                                <div className="w-px h-4 bg-gray-300 mx-1"></div>
+                                <button className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center hover:bg-gray-300">
+                                    <Plus className="w-3 h-3 text-gray-600" />
+                                </button>
                             </div>
+
+                            {/* Right Section - Action Buttons */}
                             <div className="flex items-center space-x-3">
-                                <Badge variant="outline" className="text-sm px-3 py-1">
-                                    {orders?.meta?.total || 0} total orders
-                                </Badge>
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                                    <input
+                                        type="text"
+                                        placeholder="Search Order..."
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                                        className="pl-10 pr-12 py-2 w-64 h-10 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    />
+                                    <button
+                                        onClick={handleSearch}
+                                        className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm font-medium cursor-pointer p-1 rounded-full border border-gray-200"
+                                    >
+                                        Search
+                                        {/* <Search className="w-4 h-4" /> */}
+                                    </button>
+                                </div>
+                                <button 
+                                    onClick={handleCreateOrder}
+                                    className="px-4 py-2 h-10 bg-green-500 hover:bg-green-600 text-white rounded-lg flex items-center text-sm font-medium"
+                                >
+                                    <Plus className="w-4 h-4 mr-2" />
+                                    Create Order
+                                </button>
                             </div>
                         </div>
                     </div>
 
-                    {/* Filters */}
-                    <Card className="mb-6 shadow-sm border-0 bg-white dark:bg-gray-800">
-                        <CardContent className="p-6">
-                            <div className="flex flex-col sm:flex-row gap-4">
-                                <div className="flex-1">
-                                    <div className="relative">
-                                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                                        <Input
-                                            placeholder="Search by order number, customer name, or email..."
-                                            defaultValue={filters.search}
-                                            className="pl-10 h-11 border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-green-500"
-                                        />
-                                    </div>
-                                </div>
-                                <Select defaultValue={filters.status}>
-                                    <SelectTrigger className="w-full sm:w-48 h-11 border-gray-200 dark:border-gray-700">
-                                        <SelectValue placeholder="Status" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">All Statuses</SelectItem>
-                                        <SelectItem value="confirmed">Confirmed</SelectItem>
-                                        <SelectItem value="processing">Processing</SelectItem>
-                                        <SelectItem value="shipped">Shipped</SelectItem>
-                                        <SelectItem value="delivered">Delivered</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <Select defaultValue={filters.store_id}>
-                                    <SelectTrigger className="w-full sm:w-48 h-11 border-gray-200 dark:border-gray-700">
-                                        <SelectValue placeholder="Store" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">All Stores</SelectItem>
-                                        {stores.map((store) => (
-                                            <SelectItem key={store.id} value={store.id}>
-                                                {store.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                <Button className="h-11 px-6 bg-green-600 hover:bg-green-700 text-white">
-                                    <Filter className="w-4 h-4 mr-2" />
-                                    Apply
-                                </Button>
-                            </div>
-                        </CardContent>
-                    </Card>
-
                     {/* Orders Table */}
-                    <Card className="shadow-sm border-0 bg-white dark:bg-gray-800">
-                        <CardContent className="p-0">
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead>
-                                        <tr className="border-gray-200 dark:border-gray-700">
-                                            <th className="w-12 px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"></th>
-                                            <th 
-                                                className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
-                                                onClick={() => handleSort('order_number')}
-                                            >
-                                                <div className="flex items-center space-x-2">
-                                                    <span>Order</span>
-                                                    <ArrowUpDown className="w-4 h-4" />
-                                                </div>
-                                            </th>
-                                            <th 
-                                                className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
-                                                onClick={() => handleSort('status')}
-                                            >
-                                                <div className="flex items-center space-x-2">
-                                                    <span>Status</span>
-                                                    <ArrowUpDown className="w-4 h-4" />
-                                                </div>
-                                            </th>
-                                            <th 
-                                                className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
-                                                onClick={() => handleSort('total_amount')}
-                                            >
-                                                <div className="flex items-center space-x-2">
-                                                    <span>Amount</span>
-                                                    <ArrowUpDown className="w-4 h-4" />
-                                                </div>
-                                            </th>
-                                            <th 
-                                                className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
-                                                onClick={() => handleSort('created_at')}
-                                            >
-                                                <div className="flex items-center space-x-2">
-                                                    <span>Date</span>
-                                                    <ArrowUpDown className="w-4 h-4" />
-                                                </div>
-                                            </th>
-                                            <th className="w-32 px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {orders?.data?.length ? orders.data.map((order) => {
-                                            const isExpanded = expandedRows.has(order.id);
-                                            
-                                            return (
-                                                <React.Fragment key={order.id}>
-                                                    <tr className="border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                                                        <td className="px-4 py-4 whitespace-nowrap">
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                onClick={() => toggleExpanded(order.id)}
-                                                                className="w-8 h-8 p-0"
-                                                            >
-                                                                {isExpanded ? (
-                                                                    <ChevronUp className="w-4 h-4" />
-                                                                ) : (
-                                                                    <ChevronDown className="w-4 h-4" />
-                                                                )}
-                                                            </Button>
-                                                        </td>
-                                                        <td className="px-4 py-4 whitespace-nowrap">
-                                                            <div className="flex items-center space-x-2">
-                                                                <div className="w-8 h-8 bg-green-100 dark:bg-green-900/20 rounded-lg flex items-center justify-center">
-                                                                    <Package className="w-4 h-4 text-green-600 dark:text-green-400" />
-                                                                </div>
-                                                                <div>
-                                                                    <div className="font-semibold text-gray-900 dark:text-white">
-                                                                        #{order.order_number}
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-4 py-4 whitespace-nowrap">
-                                                            <div className="flex items-center space-x-2">
-                                                                <Badge className={getStatusColor(order.status)}>
-                                                                    {order.status}
-                                                                </Badge>
-                                                                {order.is_ready_for_delivery ? (
-                                                                    <CheckCircle className="w-4 h-4 text-green-500" />
-                                                                ) : (
-                                                                    <Clock className="w-4 h-4 text-orange-500" />
-                                                                )}
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-4 py-4 whitespace-nowrap">
-                                                            <div className="font-semibold text-gray-900 dark:text-white">
-                                                                ${formatPrice(order.total_amount)}
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-4 py-4 whitespace-nowrap">
-                                                            <div className="text-sm text-gray-600 dark:text-gray-400">
-                                                                {formatDate(order.created_at)}
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-4 py-4 whitespace-nowrap">
-                                                            <Link href={`/admin/orders/${order.id}`}>
-                                                                <Button variant="outline" size="sm">
-                                                                    <Eye className="w-4 h-4 mr-2" />
-                                                                    View Details
-                                                                </Button>
-                                                            </Link>
-                                                        </td>
-                                                    </tr>
-                                                    
-                                                    {/* Expanded Row */}
-                                                    {isExpanded && (
-                                                        <tr className="border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                                                            <td colSpan={6}>
-                                                                <div className="p-4">
-                                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                                        <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
-                                                                            <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Order Details</h4>
-                                                                            <div className="space-y-2 text-sm">
-                                                                                <div className="flex justify-between">
-                                                                                    <span className="text-gray-600 dark:text-gray-400">Order ID:</span>
-                                                                                    <span className="text-gray-900 dark:text-white">{order.id}</span>
-                                                                                </div>
-                                                                                <div className="flex justify-between">
-                                                                                    <span className="text-gray-600 dark:text-gray-400">Ready Status:</span>
-                                                                                    <span className={order.is_ready_for_delivery ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400'}>
-                                                                                        {order.is_ready_for_delivery ? 'Ready' : 'Preparing'}
-                                                                                    </span>
-                                                                                </div>
-                                                                                {order.shipping_method && (
-                                                                                    <div className="flex justify-between">
-                                                                                        <span className="text-gray-600 dark:text-gray-400">Delivery:</span>
-                                                                                        <div className="flex items-center space-x-1">
-                                                                                            {order.shipping_method === 'shipping' ? (
-                                                                                                <Truck className="w-3 h-3 text-blue-500" />
-                                                                                            ) : (
-                                                                                                <Home className="w-3 h-3 text-green-500" />
-                                                                                            )}
-                                                                                            <span className="text-gray-900 dark:text-white">
-                                                                                                {order.shipping_method === 'shipping' ? 'Shipping' : 'Local Express'}
-                                                                                            </span>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                )}
-                                                                            </div>
-                                                                        </div>
-                                                                        
-                                                                        {/* Store Information */}
-                                                                        <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
-                                                                            <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Store Information</h4>
-                                                                            <div className="space-y-2 text-sm">
-                                                                                {order.store_names?.length > 0 ? (
-                                                                                    order.store_names.map((storeName, index) => (
-                                                                                        <div key={index} className="flex items-center space-x-2">
-                                                                                            <Store className="w-4 h-4 text-gray-400" />
-                                                                                            <span className="text-gray-900 dark:text-white">{storeName}</span>
-                                                                                        </div>
-                                                                                    ))
-                                                                                ) : (
-                                                                                    <span className="text-gray-500 dark:text-gray-400">No stores</span>
-                                                                                )}
-                                                                            </div>
-                                                                        </div>
-                                                                        
-                                                                    </div>
-                                                                </div>
-                                                            </td>
-                                                        </tr>
-                                                    )}
-                                                </React.Fragment>
-                                            );
-                                        }) : (
-                                            <tr>
-                                                <td colSpan={6} className="text-center py-12">
-                                                    <div className="flex flex-col items-center space-y-4">
-                                                        <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center">
-                                                            <Package className="w-8 h-8 text-gray-400" />
+                    <div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="w-12 px-4 py-3 text-left">
+                                            <input
+                                                type="checkbox"
+                                                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                            />
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Order ID
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Date
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Customer
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Item
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Total
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Status
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Payment
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Action
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {orders?.data?.map((order) => {
+                                        const statusInfo = getStatusColor(order.status);
+                                        const paymentStatus = getPaymentStatus(order);
+                                        const itemCount = getItemCount(order);
+                                        
+                                        return (
+                                            <tr key={order.id} className="hover:bg-gray-50">
+                                                <td className="px-4 py-4">
+                                                    <input
+                                                        type="checkbox"
+                                                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                                    />
+                                                </td>
+                                                <td className="px-4 py-4 whitespace-nowrap">
+                                                    <div className="text-sm font-medium text-gray-900">
+                                                        #{order.order_number}
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-4 whitespace-nowrap">
+                                                    <div className="text-sm text-gray-900">
+                                                        {formatDate(order.created_at)}
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-4 whitespace-nowrap">
+                                                    <div className="flex items-center">
+                                                        <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center mr-3">
+                                                            <span className="text-xs font-medium text-gray-600">
+                                                                {order.user.name.charAt(0).toUpperCase()}
+                                                            </span>
                                                         </div>
-                                                        <div>
-                                                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">No orders found</h3>
-                                                            <p className="text-gray-600 dark:text-gray-400">No orders have been created yet.</p>
+                                                        <div className="text-sm font-medium text-gray-900">
+                                                            {order.user.name}
                                                         </div>
                                                     </div>
                                                 </td>
+                                                <td className="px-4 py-4 whitespace-nowrap">
+                                                    <div className="text-sm text-gray-900">
+                                                        {itemCount}
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-4 whitespace-nowrap">
+                                                    <div className="text-sm font-medium text-gray-900">
+                                                        {formatPrice(order.total_amount)}
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-4 whitespace-nowrap">
+                                                    <div className="flex items-center">
+                                                        <div className={`w-1 h-6 ${statusInfo.bg} rounded-full mr-2`}></div>
+                                                        <span className="text-sm text-gray-900">{statusInfo.text}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-4 whitespace-nowrap">
+                                                    <span className={`text-sm font-medium ${
+                                                        paymentStatus === 'Paid' 
+                                                            ? 'text-green-600' 
+                                                            : 'text-red-600'
+                                                    }`}>
+                                                        {paymentStatus}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-4 whitespace-nowrap">
+                                                    <div className="flex items-center space-x-2">
+                                                        <Link href={`/admin/orders/${order.id}`}>
+                                                                <Eye className="w-4 h-4" />
+                                                        </Link>
+                                                        <AlertDialog>
+                                                            <AlertDialogTrigger asChild>
+                                                                <button className="p-1 text-gray-400 hover:text-gray-600">
+                                                                    <Trash2 className="w-4 h-4" />
+                                                                </button>
+                                                            </AlertDialogTrigger>
+                                                            <AlertDialogContent>
+                                                                <AlertDialogHeader>
+                                                                    <AlertDialogTitle>Delete Order</AlertDialogTitle>
+                                                                    <AlertDialogDescription>
+                                                                        Are you sure you want to delete order #{order.order_number}? 
+                                                                        This action cannot be undone and will permanently remove the order and all its data.
+                                                                    </AlertDialogDescription>
+                                                                </AlertDialogHeader>
+                                                                <AlertDialogFooter>
+                                                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                                    <AlertDialogAction
+                                                                        onClick={() => {
+                                                                            router.delete(`/admin/orders/${order.id}`, {
+                                                                                onSuccess: () => {
+                                                                                    // Order deleted successfully - page will redirect
+                                                                                },
+                                                                                onError: (errors) => {
+                                                                                    console.error('Delete failed:', errors);
+                                                                                }
+                                                                            });
+                                                                        }}
+                                                                        className="bg-red-600 hover:bg-red-700 text-white"
+                                                                    >
+                                                                        Delete Order
+                                                                    </AlertDialogAction>
+                                                                </AlertDialogFooter>
+                                                            </AlertDialogContent>
+                                                        </AlertDialog>
+                                                    </div>
+                                                </td>
                                             </tr>
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </CardContent>
-                    </Card>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
 
                     {/* Pagination */}
                     {orders?.links && orders.links.length > 3 && (
-                        <div className="mt-6 flex items-center justify-center">
+                        <div className="mt-6 flex items-center justify-between">
                             <div className="flex items-center space-x-2">
-                                {orders.links.map((link: any, index: number) => (
-                                    <Button
-                                        key={index}
-                                        variant={link.active ? "default" : "outline"}
-                                        size="sm"
-                                        disabled={!link.url}
-                                        onClick={() => link.url && (window.location.href = link.url)}
-                                        className="w-10 h-10"
-                                    >
-                                        {link.label}
-                                    </Button>
-                                ))}
+                                {orders.links.map((link: any, index: number) => {
+                                    if (index === 0) {
+                                        return (
+                                            <Button
+                                                key={index}
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-8"
+                                                disabled={!link.url}
+                                                onClick={() => link.url && (window.location.href = link.url)}
+                                            >
+                                                <ChevronLeft className="w-4 h-4 mr-1" />
+                                                Previous
+                                            </Button>
+                                        );
+                                    }
+                                    
+                                    if (index === orders.links.length - 1) {
+                                        return (
+                                            <Button
+                                                key={index}
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-8"
+                                                disabled={!link.url}
+                                                onClick={() => link.url && (window.location.href = link.url)}
+                                            >
+                                                Next
+                                                <ChevronRight className="w-4 h-4 ml-1" />
+                                            </Button>
+                                        );
+                                    }
+                                    
+                                    if (link.label === '...') {
+                                        return (
+                                            <span key={index} className="text-gray-500 px-2">
+                                                ...
+                                            </span>
+                                        );
+                                    }
+                                    
+                                    return (
+                                        <Button
+                                            key={index}
+                                            variant={link.active ? "default" : "outline"}
+                                            size="sm"
+                                            className={`h-8 w-8 ${link.active ? 'bg-gray-900 text-white' : ''}`}
+                                            disabled={!link.url}
+                                            onClick={() => link.url && (window.location.href = link.url)}
+                                        >
+                                            {link.label}
+                                        </Button>
+                                    );
+                                })}
+                            </div>
+                            <div className="text-sm text-gray-600">
+                                Showing {((orders.meta.current_page - 1) * orders.meta.per_page) + 1} to {Math.min(orders.meta.current_page * orders.meta.per_page, orders.meta.total)} of {orders.meta.total} entries
+                                <button className="ml-2 text-blue-600 hover:text-blue-800">Show All</button>
                             </div>
                         </div>
                     )}

@@ -33,6 +33,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/orders/{id}/csv', [App\Http\Controllers\Admin\OrderManagementController::class, 'downloadCsv'])->name('admin.orders.download-csv');
         Route::patch('/orders/{id}/ready', [App\Http\Controllers\Admin\OrderManagementController::class, 'markAsReady'])->name('admin.orders.mark-ready');
         Route::patch('/orders/{orderId}/items/{itemId}/status', [App\Http\Controllers\Admin\OrderManagementController::class, 'updateItemStatus'])->name('admin.orders.update-item-status');
+        Route::delete('/orders/{id}', [App\Http\Controllers\Admin\OrderManagementController::class, 'destroy'])->name('admin.orders.destroy');
     });
 });
 

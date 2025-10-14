@@ -84,18 +84,18 @@ export default function AdminSidebar({ isMobile = false, onClose, collapsed = fa
                                     className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 mx-auto"
                                     onClick={onToggleCollapse}
                                 >
-                                    {/* <ChevronRight className="h-4 w-4" /> */}
+                                    <ChevronRight className="h-4 w-4" />
                                 </button>
                             ) : (
                                 <div className="flex items-center justify-between w-full">
                                     <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                        Apps
+                                        Barffood Admin
                                     </h2>
                                     <button
                                         className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                                         onClick={onToggleCollapse}
                                     >
-                                        {/* <ChevronLeft className="h-4 w-4" /> */}
+                                        <ChevronLeft className="h-4 w-4" />
                                     </button>
                                 </div>
                             )}

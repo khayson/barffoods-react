@@ -74,7 +74,7 @@ export default function AdminHeader({ onToggleSidebar, onToggleRightSidebar, isM
         `}>
             <div className="mx-auto max-w-8xl">
                 <div className={`
-                    flex items-center justify-between bg-white dark:bg-gray-800 shadow-lg rounded-full border-2 border-gray-200 dark:border-gray-900
+                    flex items-center justify-between bg-white dark:bg-gray-800 shadow-lg rounded-xl border-2 border-gray-200 dark:border-gray-900
                     ${screenSize === 'mobile' ? 'h-12 px-3' : ''}
                     ${screenSize === 'tablet' ? 'h-14 px-4' : ''}
                     ${screenSize === 'desktop' ? 'h-16 px-6' : ''}
@@ -155,18 +155,6 @@ export default function AdminHeader({ onToggleSidebar, onToggleRightSidebar, isM
                             />
                         </div>
                         
-                        {/* Right Sidebar Toggle - Hidden on mobile and when showRightSidebar is false */}
-                        {screenSize !== 'mobile' && showRightSidebar && (
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                                onClick={onToggleRightSidebar}
-                            >
-                                <PanelRight className="h-5 w-5" />
-                            </Button>
-                        )}
-                        
                         {/* Theme Toggle */}
                         <Button
                             variant="ghost"
@@ -178,21 +166,6 @@ export default function AdminHeader({ onToggleSidebar, onToggleRightSidebar, isM
                                 <Sun className={`${screenSize === 'mobile' ? 'h-4 w-4' : 'h-5 w-5'}`} />
                             ) : (
                                 <Moon className={`${screenSize === 'mobile' ? 'h-4 w-4' : 'h-5 w-5'}`} />
-                            )}
-                        </Button>
-                        
-                        {/* Global Right Sidebar Toggle */}
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                            onClick={toggleGlobalRightSidebar}
-                            title={globalHideRightSidebar ? "Show Right Sidebar" : "Hide Right Sidebar"}
-                        >
-                            {globalHideRightSidebar ? (
-                                <PanelRightClose className={`${screenSize === 'mobile' ? 'h-4 w-4' : 'h-5 w-5'}`} />
-                            ) : (
-                                <PanelRight className={`${screenSize === 'mobile' ? 'h-4 w-4' : 'h-5 w-5'}`} />
                             )}
                         </Button>
                     </div>
