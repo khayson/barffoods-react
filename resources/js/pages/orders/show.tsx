@@ -34,6 +34,7 @@ interface OrderItem {
     quantity: number;
     unit_price: number | string;
     total_price: number | string;
+    status: string;
 }
 
 interface Payment {
@@ -52,55 +53,37 @@ interface StatusHistory {
     created_at: string;
 }
 
-interface RelatedOrder {
-    id: number;
-    order_number: string;
-    status: string;
-    total_amount: number | string;
-    is_ready_for_delivery: boolean;
-    ready_at: string | null;
-    shipping_method: 'shipping' | 'local_delivery';
+interface StoreGroup {
     store: {
         id: string;
         name: string;
         address: string;
     };
     items: OrderItem[];
+    store_subtotal: number;
 }
 
 interface Order {
     id: number;
     order_number: string;
-    order_group_id?: number;
-    order_group_number?: string;
     is_multi_store: boolean;
     status: string;
     total_amount: number | string;
+    subtotal: number;
+    tax: number;
     delivery_address: string;
     delivery_fee: number | string;
-    delivery_time_estimate: number;
     tracking_code: string | null;
     label_url: string | null;
     carrier: string | null;
     service: string | null;
     shipping_cost: number | string | null;
-    shipping_method: 'shipping' | 'local_delivery';
+    shipping_method: 'shipping' | 'fast_delivery';
     is_ready_for_delivery: boolean;
     ready_at: string | null;
-    tax: number;
-    subtotal: number;
-    group_subtotal: number;
-    group_delivery_fee: number;
-    group_tax: number;
-    group_total: number;
     created_at: string;
     updated_at: string;
-    store: {
-        id: string;
-        name: string;
-        address: string;
-    };
-    related_orders: RelatedOrder[];
+    items_by_store: StoreGroup[];
     user_address: {
         id: number;
         type: string;
@@ -111,16 +94,28 @@ interface Order {
         zip_code: string;
         delivery_instructions: string | null;
     } | null;
-    items: OrderItem[];
     payment: Payment | null;
     status_history: StatusHistory[];
 }
 
-interface OrderShowProps {
-    order: Order;
+interface ProgressData {
+    currentStatus: string;
+    currentStep: number;
+    currentPercentage: number;
+    completedSteps: { [key: string]: boolean };
+    statusHistory: StatusHistory[];
+    progressSteps: { [key: string]: { step: number; label: string; percentage: number; description: string } };
+    itemStatusCounts: { [key: string]: number };
+    totalItems: number;
+    overallProgress: string;
 }
 
-export default function OrderShow({ order }: OrderShowProps) {
+interface OrderShowProps {
+    order: Order;
+    progressData: ProgressData;
+}
+
+export default function OrderShow({ order, progressData }: OrderShowProps) {
     const { flash } = usePage().props as any;
 
     // Show success message if redirected from checkout
@@ -169,11 +164,11 @@ export default function OrderShow({ order }: OrderShowProps) {
         return numPrice.toFixed(2);
     };
 
-    // Use appropriate totals based on order type
-    const displaySubtotal = order.is_multi_store ? order.group_subtotal : order.subtotal;
-    const displayDeliveryFee = order.is_multi_store ? order.group_delivery_fee : order.delivery_fee;
-    const displayTax = order.is_multi_store ? order.group_tax : order.tax;
-    const displayTotal = order.is_multi_store ? order.group_total : order.total_amount;
+    // Use order totals (simplified structure)
+    const displaySubtotal = order.subtotal;
+    const displayDeliveryFee = order.delivery_fee;
+    const displayTax = order.tax;
+    const displayTotal = order.total_amount;
 
     return (
         <CustomerLayout>
@@ -235,7 +230,7 @@ export default function OrderShow({ order }: OrderShowProps) {
                                                 Multiple Stores
                                             </Badge>
                                             <span className="text-sm text-gray-600 dark:text-gray-400">
-                                                {order.related_orders.length + 1} stores
+                                                {order.items_by_store && Array.isArray(order.items_by_store) ? order.items_by_store.length : 0} stores
                                             </span>
                                         </div>
                                     )}
@@ -261,77 +256,45 @@ export default function OrderShow({ order }: OrderShowProps) {
                                             </div>
                                         </div>
 
-                                        {/* Current Store Shipment */}
-                                        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-                                            <div className="flex items-center space-x-2 mb-4">
-                                                <div className="w-5 h-5 bg-blue-100 dark:bg-blue-900/20 rounded flex items-center justify-center">
-                                                    <Package className="w-3 h-3 text-blue-600 dark:text-blue-400" />
-                                                </div>
-                                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                                                    Items in this {order.shipping_method === 'shipping' ? 'shipment' : 'delivery'}
-                                                </h3>
-                                            </div>
-                                            
-                                            <div className="space-y-4">
-                                                {order.items.map((item) => (
-                                                    <div key={item.id} className="flex items-center space-x-4">
-                                                        <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
-                                                            <span className="text-2xl">{item.product.image}</span>
-                                                        </div>
-                                                        <div className="flex-1">
-                                                            <h4 className="font-semibold text-gray-900 dark:text-white">{item.product.name}</h4>
-                                                            <p className="text-sm text-gray-600 dark:text-gray-400">Qty: {item.quantity}</p>
-                                                        </div>
-                                                        <div className="text-right">
-                                                            <p className="font-semibold text-gray-900 dark:text-white">${formatPrice(item.total_price)}</p>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                            
-                                            <Separator className="my-4" />
-                                            
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center space-x-3">
-                                                    <div className="w-8 h-8 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center">
-                                                        <span className="text-sm font-semibold text-gray-600 dark:text-gray-400">🏪</span>
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-semibold text-gray-900 dark:text-white">Sold by {order.store.name}</p>
-                                                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                                                            {order.is_ready_for_delivery ? '✅ Ready for delivery' : '⏳ Preparing items'}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                                <div className="text-right">
-                                                    <p className="font-semibold text-gray-900 dark:text-white">
-                                                        {order.shipping_method === 'shipping' ? 'Shipment' : 'Delivery'} Total: ${formatPrice(order.total_amount)}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Related Store Shipments */}
-                                        {order.related_orders.map((relatedOrder) => (
-                                            <div key={relatedOrder.id} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+                                        {/* Store Shipments */}
+                                        {order.items_by_store && Array.isArray(order.items_by_store) && order.items_by_store.map((storeGroup, index) => (
+                                            <div key={storeGroup.store.id} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
                                                 <div className="flex items-center space-x-2 mb-4">
                                                     <div className="w-5 h-5 bg-blue-100 dark:bg-blue-900/20 rounded flex items-center justify-center">
                                                         <Package className="w-3 h-3 text-blue-600 dark:text-blue-400" />
                                                     </div>
                                                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                                                        Items in this {relatedOrder.shipping_method === 'shipping' ? 'shipment' : 'delivery'}
+                                                        Items from {storeGroup.store.name}
                                                     </h3>
                                                 </div>
                                                 
                                                 <div className="space-y-4">
-                                                    {relatedOrder.items.map((item) => (
+                                                    {storeGroup.items.map((item) => (
                                                         <div key={item.id} className="flex items-center space-x-4">
                                                             <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
                                                                 <span className="text-2xl">{item.product.image}</span>
                                                             </div>
                                                             <div className="flex-1">
                                                                 <h4 className="font-semibold text-gray-900 dark:text-white">{item.product.name}</h4>
-                                                                <p className="text-sm text-gray-600 dark:text-gray-400">Qty: {item.quantity}</p>
+                                                                <div className="flex items-center space-x-2">
+                                                                    <p className="text-sm text-gray-600 dark:text-gray-400">Qty: {item.quantity}</p>
+                                                                    <Badge className={`text-xs ${
+                                                                        item.status === 'pending' ? 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300' :
+                                                                        item.status === 'ready' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300' :
+                                                                        item.status === 'collected' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-300' :
+                                                                        item.status === 'packaged' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300' :
+                                                                        item.status === 'shipped' ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-300' :
+                                                                        item.status === 'delivered' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300' :
+                                                                        'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                                                                    }`}>
+                                                                        {item.status === 'pending' && '⏳ Pending'}
+                                                                        {item.status === 'ready' && '✅ Ready'}
+                                                                        {item.status === 'collected' && '📦 Collected'}
+                                                                        {item.status === 'packaged' && '📋 Packaged'}
+                                                                        {item.status === 'shipped' && '🚚 Shipped'}
+                                                                        {item.status === 'delivered' && '✅ Delivered'}
+                                                                    </Badge>
+                                                                </div>
                                                             </div>
                                                             <div className="text-right">
                                                                 <p className="font-semibold text-gray-900 dark:text-white">${formatPrice(item.total_price)}</p>
@@ -348,15 +311,15 @@ export default function OrderShow({ order }: OrderShowProps) {
                                                             <span className="text-sm font-semibold text-gray-600 dark:text-gray-400">🏪</span>
                                                         </div>
                                                         <div>
-                                                            <p className="font-semibold text-gray-900 dark:text-white">Sold by {relatedOrder.store.name}</p>
+                                                            <p className="font-semibold text-gray-900 dark:text-white">Sold by {storeGroup.store.name}</p>
                                                             <p className="text-sm text-gray-600 dark:text-gray-400">
-                                                                {relatedOrder.is_ready_for_delivery ? '✅ Ready for delivery' : '⏳ Preparing items'}
+                                                                {order.is_ready_for_delivery ? '✅ Ready for delivery' : '⏳ Preparing items'}
                                                             </p>
                                                         </div>
                                                     </div>
                                                     <div className="text-right">
                                                         <p className="font-semibold text-gray-900 dark:text-white">
-                                                            {relatedOrder.shipping_method === 'shipping' ? 'Shipment' : 'Delivery'} Total: ${formatPrice(relatedOrder.total_amount)}
+                                                            Store Total: ${formatPrice(storeGroup.store_subtotal)}
                                                         </p>
                                                     </div>
                                                 </div>
@@ -376,14 +339,32 @@ export default function OrderShow({ order }: OrderShowProps) {
                                         </div>
                                         
                                         <div className="space-y-4">
-                                            {order.items.map((item) => (
+                                            {order.items_by_store && Array.isArray(order.items_by_store) && order.items_by_store[0]?.items?.map((item) => (
                                                 <div key={item.id} className="flex items-center space-x-4">
                                                     <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
                                                         <span className="text-2xl">{item.product.image}</span>
                                                     </div>
                                                     <div className="flex-1">
                                                         <h4 className="font-semibold text-gray-900 dark:text-white">{item.product.name}</h4>
-                                                        <p className="text-sm text-gray-600 dark:text-gray-400">Qty: {item.quantity}</p>
+                                                        <div className="flex items-center space-x-2">
+                                                            <p className="text-sm text-gray-600 dark:text-gray-400">Qty: {item.quantity}</p>
+                                                            <Badge className={`text-xs ${
+                                                                item.status === 'pending' ? 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300' :
+                                                                item.status === 'ready' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300' :
+                                                                item.status === 'collected' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-300' :
+                                                                item.status === 'packaged' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300' :
+                                                                item.status === 'shipped' ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-300' :
+                                                                item.status === 'delivered' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300' :
+                                                                'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                                                            }`}>
+                                                                {item.status === 'pending' && '⏳ Pending'}
+                                                                {item.status === 'ready' && '✅ Ready'}
+                                                                {item.status === 'collected' && '📦 Collected'}
+                                                                {item.status === 'packaged' && '📋 Packaged'}
+                                                                {item.status === 'shipped' && '🚚 Shipped'}
+                                                                {item.status === 'delivered' && '✅ Delivered'}
+                                                            </Badge>
+                                                        </div>
                                                     </div>
                                                     <div className="text-right">
                                                         <p className="font-semibold text-gray-900 dark:text-white">${formatPrice(item.total_price)}</p>
@@ -400,7 +381,7 @@ export default function OrderShow({ order }: OrderShowProps) {
                                                     <span className="text-sm font-semibold text-gray-600 dark:text-gray-400">🏪</span>
                                                 </div>
                                                 <div>
-                                                    <p className="font-semibold text-gray-900 dark:text-white">Sold by {order.store.name}</p>
+                                                    <p className="font-semibold text-gray-900 dark:text-white">Sold by {order.items_by_store && Array.isArray(order.items_by_store) && order.items_by_store[0]?.store?.name || 'Store'}</p>
                                                     <p className="text-sm text-gray-600 dark:text-gray-400">
                                                         {order.is_ready_for_delivery ? '✅ Ready for delivery' : '⏳ Preparing items'}
                                                     </p>
@@ -455,11 +436,6 @@ export default function OrderShow({ order }: OrderShowProps) {
                                                 <span className="font-semibold text-gray-900 dark:text-white">
                                                     Local Express
                                                 </span>
-                                                {order.delivery_time_estimate && (
-                                                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                                                        ~{order.delivery_time_estimate} min
-                                                    </span>
-                                                )}
                                             </>
                                         )}
                                     </div>
@@ -471,90 +447,111 @@ export default function OrderShow({ order }: OrderShowProps) {
                                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">Order status</h2>
                                 
                                 <div className="space-y-6">
-                                    {/* Created Status */}
+                                    {/* Created Status - Always completed */}
                                     <div className="flex items-start space-x-4">
                                         <div className="flex-shrink-0">
-                                            <div className="w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center">
+                                            <div className="w-6 h-6 bg-green-600 rounded-full flex items-center justify-center">
                                                 <CheckCircle className="w-4 h-4 text-white" />
                                             </div>
                                         </div>
                                         <div className="flex-1">
                                             <div className="flex items-center space-x-2 mb-1">
-                                                <Badge className="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">CREATED</Badge>
+                                                <Badge className="bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200">CREATED</Badge>
                                             </div>
                                             <p className="text-sm text-gray-600 dark:text-gray-400">
-                                                {order.items.length} items were bought on {order.created_at}
+                                                {order.items_by_store && Array.isArray(order.items_by_store) ? 
+                                                    order.items_by_store.reduce((total, storeGroup) => total + (storeGroup.items?.length || 0), 0) : 
+                                                    0
+                                                } items were bought on {order.created_at}
                                             </p>
                                         </div>
                                     </div>
 
-                                    {/* Processing Status */}
+                                    {/* Processing Status - Based on order status */}
                                     <div className="flex items-start space-x-4">
                                         <div className="flex-shrink-0">
-                                            <div className="w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center">
-                                                <Package className="w-4 h-4 text-white" />
+                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                                                order.status === 'confirmed' || order.status === 'processing' ? 'bg-purple-600' : 'bg-gray-300 dark:bg-gray-600'
+                                            }`}>
+                                                <Package className={`w-4 h-4 ${
+                                                    order.status === 'confirmed' || order.status === 'processing' ? 'text-white' : 'text-gray-600 dark:text-gray-400'
+                                                }`} />
                                             </div>
                                         </div>
                                         <div className="flex-1">
                                             <div className="flex items-center space-x-2 mb-1">
-                                                <Badge className="bg-gray-900 dark:bg-gray-600 text-white dark:text-gray-100">PROCESSING</Badge>
+                                                <Badge className={`${
+                                                    order.status === 'confirmed' || order.status === 'processing' 
+                                                        ? 'bg-purple-100 dark:bg-purple-900/20 text-purple-800 dark:text-purple-200' 
+                                                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                                                }`}>
+                                                    PROCESSING
+                                                </Badge>
                                             </div>
                                             <p className="text-sm text-gray-600 dark:text-gray-400">
-                                                Order is being prepared for shipment
+                                                {order.status === 'confirmed' || order.status === 'processing' 
+                                                    ? 'Order is being prepared for shipment' 
+                                                    : 'Order processing completed'}
                                             </p>
                                         </div>
                                     </div>
 
-                                    {/* Shipped Status (if applicable) */}
-                                    {order.tracking_code && (
+                                    {/* Shipped Status - Based on tracking code and order status */}
+                                    {(order.tracking_code || order.status === 'shipped' || order.status === 'delivered') && (
                                         <div className="flex items-start space-x-4">
                                             <div className="flex-shrink-0">
-                                                <div className="w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center">
-                                                    <Truck className="w-4 h-4 text-white" />
+                                                <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                                                    order.status === 'shipped' || order.status === 'delivered' ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
+                                                }`}>
+                                                    <Truck className={`w-4 h-4 ${
+                                                        order.status === 'shipped' || order.status === 'delivered' ? 'text-white' : 'text-gray-600 dark:text-gray-400'
+                                                    }`} />
                                                 </div>
                                             </div>
                                             <div className="flex-1">
                                                 <div className="flex items-center space-x-2 mb-1">
-                                                    <Badge className="bg-gray-900 dark:bg-gray-600 text-white dark:text-gray-100">SHIPPED</Badge>
+                                                    <Badge className={`${
+                                                        order.status === 'shipped' || order.status === 'delivered'
+                                                            ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200'
+                                                            : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                                                    }`}>
+                                                        SHIPPED
+                                                    </Badge>
                                                 </div>
                                                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                                                    Parcel shipped via {order.carrier} on {order.updated_at}
+                                                    {order.tracking_code 
+                                                        ? `Parcel shipped via ${order.carrier || 'carrier'} on ${order.updated_at}`
+                                                        : 'Items have been shipped'
+                                                    }
                                                 </p>
-                                                <Button variant="outline" size="sm" className="dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800">
-                                                    <ExternalLink className="w-4 h-4 mr-2" />
-                                                    Shipment tracking
-                                                </Button>
+                                                {order.tracking_code && (
+                                                    <Button variant="outline" size="sm" className="dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800">
+                                                        <ExternalLink className="w-4 h-4 mr-2" />
+                                                        Shipment tracking
+                                                    </Button>
+                                                )}
                                             </div>
                                         </div>
                                     )}
 
-                                    {/* In Transit Status */}
-                                    <div className="flex items-start space-x-4">
-                                        <div className="flex-shrink-0">
-                                            <div className="w-6 h-6 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center">
-                                                <Truck className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                                    {/* Delivered Status - Based on order status */}
+                                    {order.status === 'delivered' && (
+                                        <div className="flex items-start space-x-4">
+                                            <div className="flex-shrink-0">
+                                                <div className="w-6 h-6 bg-green-600 rounded-full flex items-center justify-center">
+                                                    <CheckCircle className="w-4 h-4 text-white" />
+                                                </div>
+                                            </div>
+                                            <div className="flex-1">
+                                                <div className="flex items-center space-x-2 mb-1">
+                                                    <Badge className="bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200">DELIVERED</Badge>
+                                                </div>
+                                                <p className="text-sm text-gray-600 dark:text-gray-400">
+                                                    Order has been successfully delivered
+                                                </p>
                                             </div>
                                         </div>
-                                        <div className="flex-1">
-                                            <div className="flex items-center space-x-2 mb-1">
-                                                <Badge className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">IN TRANSIT</Badge>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Delivered Status */}
-                                    <div className="flex items-start space-x-4">
-                                        <div className="flex-shrink-0">
-                                            <div className="w-6 h-6 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center">
-                                                <CheckCircle className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                                            </div>
-                                        </div>
-                                        <div className="flex-1">
-                                            <div className="flex items-center space-x-2 mb-1">
-                                                <Badge className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">DELIVERED</Badge>
-                                            </div>
-                                        </div>
-                                    </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -602,6 +599,52 @@ export default function OrderShow({ order }: OrderShowProps) {
                                             </span>
                                             <span className="text-gray-900 dark:text-white">${formatPrice(displayTotal)}</span>
                                         </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Order Status Section */}
+                            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+                                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Order Status</h2>
+                                <div className="space-y-4">
+                                    {/* Overall Progress */}
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-gray-600 dark:text-gray-400">Overall Progress</span>
+                                        <Badge className={`${
+                                            progressData.currentStatus === 'pending' ? 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300' :
+                                            progressData.currentStatus === 'ready' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300' :
+                                            progressData.currentStatus === 'collected' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-300' :
+                                            progressData.currentStatus === 'packaged' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300' :
+                                            progressData.currentStatus === 'shipped' ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-300' :
+                                            progressData.currentStatus === 'delivered' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300' :
+                                            'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                                        }`}>
+                                            {progressData.currentStatus === 'pending' && '⏳ Pending'}
+                                            {progressData.currentStatus === 'ready' && '✅ Ready'}
+                                            {progressData.currentStatus === 'collected' && '📦 Collected'}
+                                            {progressData.currentStatus === 'packaged' && '📋 Packaged'}
+                                            {progressData.currentStatus === 'shipped' && '🚚 Shipped'}
+                                            {progressData.currentStatus === 'delivered' && '✅ Delivered'}
+                                        </Badge>
+                                    </div>
+                                    
+                                    {/* Progress Description */}
+                                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                                        {progressData.overallProgress}
+                                    </div>
+                                    
+                                    {/* Item Status Breakdown */}
+                                    <div className="space-y-2">
+                                        <div className="text-sm font-medium text-gray-900 dark:text-white">Item Status Breakdown:</div>
+                                        {Object.entries(progressData.itemStatusCounts).map(([status, count]) => {
+                                            if (count === 0) return null;
+                                            return (
+                                                <div key={status} className="flex justify-between text-sm">
+                                                    <span className="text-gray-600 dark:text-gray-400 capitalize">{status}:</span>
+                                                    <span className="font-medium text-gray-900 dark:text-white">{count} items</span>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             </div>

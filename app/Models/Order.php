@@ -10,39 +10,34 @@ class Order extends Model
 {
     protected $fillable = [
         'order_number',
-        'order_group_id',
-        'user_id',
-        'store_id',
+          'user_id',
         'user_address_id',
         'status',
         'total_amount',
-        'delivery_address',
+        'subtotal',
+        'tax',
         'delivery_fee',
-        'delivery_time_estimate',
+        'delivery_address',
+        'shipping_method',
         'tracking_code',
         'label_url',
         'carrier',
         'service',
         'shipping_cost',
-        'priority',
         'is_ready_for_delivery',
         'ready_at',
     ];
 
     protected $casts = [
         'total_amount' => 'decimal:2',
+        'subtotal' => 'decimal:2',
+        'tax' => 'decimal:2',
         'delivery_fee' => 'decimal:2',
-        'delivery_time_estimate' => 'integer',
         'shipping_cost' => 'decimal:2',
+        'is_ready_for_delivery' => 'boolean',
+        'ready_at' => 'datetime',
     ];
 
-    /**
-     * Get the order group that owns the order.
-     */
-    public function orderGroup(): BelongsTo
-    {
-        return $this->belongsTo(OrderGroup::class);
-    }
 
     /**
      * Get the user that owns the order.
@@ -52,13 +47,6 @@ class Order extends Model
         return $this->belongsTo(User::class);
     }
 
-    /**
-     * Get the store that owns the order.
-     */
-    public function store(): BelongsTo
-    {
-        return $this->belongsTo(Store::class);
-    }
 
     /**
      * Get the user address for the order.

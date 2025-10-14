@@ -164,12 +164,12 @@ function AdminLayoutContent({ children, hideRightSidebar = false }: AdminLayoutP
             )}
 
             {/* Sonner Toast Notifications - Responsive positioning */}
-            <Toaster 
+            {/* <Toaster 
                 position={isMobile ? "top-center" : "top-right"}
                 expand={!isMobile}
                 richColors={true}
                 closeButton={true}
-            />
+            /> */}
         </div>
     );
 }

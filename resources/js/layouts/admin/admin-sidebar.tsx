@@ -11,7 +11,8 @@ import {
     ChevronRight,
     X,
     Bell,
-    MessageSquare
+    MessageSquare,
+    Package2
 } from 'lucide-react';
 import { type SharedData } from '@/types';
 import { Button } from '@/components/ui/button';

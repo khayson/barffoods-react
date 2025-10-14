@@ -183,7 +183,8 @@ export default function Navigation() {
                             'Home',
                             'About',
                             'Products',
-                            'Gaag',
+                            'Cart',
+                            'Wishlist',
                             'Blog',
                             'Career',
                             'Contact'
@@ -236,7 +237,8 @@ export default function Navigation() {
                                     'Home',
                                     'About',
                                     'Products',
-                                    'Gaag',
+                                    'Cart',
+                                    'Wishlist',
                                     'Blog',
                                     'Career',
                                     'Contact'

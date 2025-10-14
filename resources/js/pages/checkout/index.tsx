@@ -395,17 +395,101 @@ export default function CheckoutPage({
     
     const finalTotal = calculations.subtotal - calculations.discount + totalDeliveryCost + calculations.tax;
 
+    // Helper functions for validation display
+    const getFieldError = (fieldName: string) => {
+        const validationErrors = validateCheckoutForm();
+        return validationErrors.find(error => 
+            error.toLowerCase().includes(fieldName.toLowerCase())
+        );
+    };
+
+    const isFieldValid = (fieldName: string) => {
+        return !getFieldError(fieldName);
+    };
+
+    const getFieldClassName = (fieldName: string, baseClassName: string = '') => {
+        const hasError = !isFieldValid(fieldName);
+        return `${baseClassName} ${hasError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`;
+    };
+
+    // Comprehensive validation function
+    const validateCheckoutForm = () => {
+        const errors: string[] = [];
+
+        // 1. Address validation
+        if (!data.street_address?.trim()) {
+            errors.push('Street address is required');
+        }
+        if (!data.city?.trim()) {
+            errors.push('City is required');
+        }
+        if (!data.state?.trim()) {
+            errors.push('State is required');
+        }
+        if (!data.zip_code?.trim()) {
+            errors.push('ZIP code is required');
+        }
+
+        // 2. ZIP code format validation
+        if (data.zip_code && !/^\d{5}(-\d{4})?$/.test(data.zip_code.trim())) {
+            errors.push('Please enter a valid ZIP code (e.g., 12345 or 12345-6789)');
+        }
+
+        // 3. Delivery method validation
+        if (!selectedDeliveryMethod) {
+            errors.push('Please select a delivery method');
+        }
+
+        // 4. Shipping-specific validation
+        if (selectedDeliveryMethod === 'shipping') {
+            if (!selectedCarrier) {
+                errors.push('Please select a shipping carrier');
+            }
+            
+            // Check if address is complete for shipping calculation
+            if (!(data.street_address && data.city && data.state && data.zip_code)) {
+                errors.push('Complete address is required for shipping calculation');
+            }
+        }
+
+        // 5. Cart validation
+        if (!cartItems || cartItems.length === 0) {
+            errors.push('Your cart is empty. Please add items before checkout');
+        }
+
+        // 6. Total validation
+        if (finalTotal <= 0) {
+            errors.push('Invalid order total. Please refresh the page and try again');
+        }
+
+        // 7. Address type validation
+        if (!data.type || !['home', 'work', 'other'].includes(data.type)) {
+            errors.push('Please select a valid address type');
+        }
+
+        return errors;
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         
-        // Validate required fields
-        if (!data.street_address || !data.city || !data.state || !data.zip_code) {
-            toast.error('Please fill in all address fields');
+        // Comprehensive validation
+        const validationErrors = validateCheckoutForm();
+        
+        if (validationErrors.length > 0) {
+            // Show the first error as a toast
+            toast.error(validationErrors[0], {
+                description: validationErrors.length > 1 ? `${validationErrors.length - 1} more error${validationErrors.length > 2 ? 's' : ''} found` : undefined
+            });
+            
+            // Log all errors for debugging
+            console.error('Checkout validation errors:', validationErrors);
             return;
         }
 
-        if (selectedDeliveryMethod === 'shipping' && !selectedCarrier) {
-            toast.error('Please select a carrier');
+        // Additional checks before proceeding
+        if (isProcessing || processing) {
+            toast.error('Please wait, processing your order...');
             return;
         }
 
@@ -421,12 +505,14 @@ export default function CheckoutPage({
                 },
                 body: JSON.stringify({
                     type: data.type,
+                    label: data.label,
                     street_address: data.street_address,
                     city: data.city,
                     state: data.state,
                     zip_code: data.zip_code,
                     delivery_instructions: data.delivery_instructions,
                     shipping_method: selectedDeliveryMethod,
+                    carrier_id: selectedCarrier,
                     discount_code: discountCode,
                     save_address: data.save_address,
                 }),
@@ -435,14 +521,34 @@ export default function CheckoutPage({
             const result = await response.json();
 
             if (response.ok && result.success) {
-                // Redirect to Stripe Checkout
-                window.location.href = result.checkout_url;
+                // Show success message before redirect
+                toast.success('Redirecting to payment...', {
+                    description: 'Please complete your payment to confirm your order'
+                });
+                
+                // Small delay to show the toast
+                setTimeout(() => {
+                    window.location.href = result.checkout_url;
+                }, 1000);
             } else {
-                toast.error(result.error || 'Failed to create checkout session');
+                // Handle specific error messages from backend
+                const errorMessage = result.error || result.message || 'Failed to create checkout session';
+                toast.error('Checkout Error', {
+                    description: errorMessage
+                });
+                
+                // Log detailed error for debugging
+                console.error('Checkout session creation failed:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    result: result
+                });
             }
         } catch (error) {
             console.error('Checkout session error:', error);
-            toast.error('An error occurred. Please try again.');
+            toast.error('Network Error', {
+                description: 'Unable to connect to payment service. Please check your internet connection and try again.'
+            });
         } finally {
             setIsProcessing(false);
         }
@@ -464,7 +570,7 @@ export default function CheckoutPage({
         <CustomerLayout>
             <Head title="Checkout - BarfFoods" />
             
-            <div className="min-h-screen bg-gray-50">
+            <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-0">
                     {/* Breadcrumb Navigation */}
                     {/* <div className="mb-8">
@@ -481,16 +587,16 @@ export default function CheckoutPage({
                         {/* Left Column - Shipping Details */}
                         <div className="lg:col-span-2 space-y-8">
                             {/* Shipping Address */}
-                            <div className="bg-white rounded-lg border border-gray-200 p-6">
-                                <h2 className="text-2xl font-bold text-gray-900 mb-6">Shipping Address</h2>
+                            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+                                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Shipping Address</h2>
                                 
                                 {/* Address Selection */}
                                 {userAddresses.length > 0 && (
                                     <div className="mb-6">
-                                        <Label htmlFor="address_selection">Select Saved Address</Label>
+                                        <Label htmlFor="address_selection" className="text-gray-900 dark:text-white">Select Saved Address</Label>
                                         <select 
                                             id="address_selection"
-                                            className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            className="w-full mt-1 px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                             onChange={(e) => {
                                                 const selectedAddress = userAddresses.find(addr => addr.id === parseInt(e.target.value));
                                                 if (selectedAddress) {
@@ -504,9 +610,9 @@ export default function CheckoutPage({
                                                 }
                                             }}
                                         >
-                                            <option value="">Select a saved address...</option>
+                                            <option value="" className="bg-white dark:bg-gray-700 text-gray-900 dark:text-white">Select a saved address...</option>
                                             {userAddresses.map((address) => (
-                                                <option key={address.id} value={address.id}>
+                                                <option key={address.id} value={address.id} className="bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
                                                     {address.label} - {address.street_address}, {address.city}, {address.state} {address.zip_code}
                                                 </option>
                                             ))}
@@ -515,6 +621,23 @@ export default function CheckoutPage({
                                 )}
                                 
                                 <form onSubmit={handleSubmit} className="space-y-6">
+                                    {/* Validation Summary */}
+                                    {validateCheckoutForm().length > 0 && (
+                                        <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                                            <h3 className="text-sm font-medium text-red-800 dark:text-red-200 mb-2">
+                                                Please fix the following issues:
+                                            </h3>
+                                            <ul className="text-sm text-red-700 dark:text-red-300 space-y-1">
+                                                {validateCheckoutForm().map((error, index) => (
+                                                    <li key={index} className="flex items-center">
+                                                        <span className="mr-2">•</span>
+                                                        {error}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
+
                                     {/* Customer Info Display */}
                                     <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mb-6">
                                         <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-2">Customer Information</h3>
@@ -555,18 +678,18 @@ export default function CheckoutPage({
                                             
                                             {/* Street Address Suggestions */}
                                             {addressAutocomplete.showStreetDropdown && addressAutocomplete.streetSuggestions.length > 0 && (
-                                                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                                                <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto">
                                                     {addressAutocomplete.streetSuggestions.map((suggestion) => (
                                                         <div
                                                             key={suggestion.id}
-                                                            className="px-4 py-3 hover:bg-gray-100 cursor-pointer border-b border-gray-200 last:border-b-0"
+                                                            className="px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-200 dark:border-gray-600 last:border-b-0"
                                                             onClick={() => selectAddressSuggestion(suggestion)}
                                                         >
                                                             <div className="flex items-center space-x-2">
-                                                                <MapPinIcon className="w-4 h-4 text-gray-400" />
+                                                                <MapPinIcon className="w-4 h-4 text-gray-400 dark:text-gray-500" />
                                                                 <div>
-                                                                    <div className="font-medium text-gray-900">{suggestion.street_address}</div>
-                                                                    <div className="text-sm text-gray-500">
+                                                                    <div className="font-medium text-gray-900 dark:text-white">{suggestion.street_address}</div>
+                                                                    <div className="text-sm text-gray-500 dark:text-gray-400">
                                                                         {suggestion.city}, {suggestion.state} {suggestion.zip_code}
                                                                     </div>
                                                                 </div>
@@ -601,11 +724,11 @@ export default function CheckoutPage({
                                                 
                                                 {/* City Suggestions */}
                                                 {addressAutocomplete.showCityDropdown && addressAutocomplete.citySuggestions.length > 0 && (
-                                                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-40 overflow-y-auto">
+                                                    <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-40 overflow-y-auto">
                                                         {addressAutocomplete.citySuggestions.map((city, index) => (
                                                             <div
                                                                 key={index}
-                                                                className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                                                                className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-gray-900 dark:text-white"
                                                                 onClick={() => selectCitySuggestion(city)}
                                                             >
                                                                 {city}
@@ -638,11 +761,11 @@ export default function CheckoutPage({
                                                 
                                                 {/* State Suggestions */}
                                                 {addressAutocomplete.showStateDropdown && addressAutocomplete.stateSuggestions.length > 0 && (
-                                                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-40 overflow-y-auto">
+                                                    <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-40 overflow-y-auto">
                                                         {addressAutocomplete.stateSuggestions.map((state, index) => (
                                                             <div
                                                                 key={index}
-                                                                className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                                                                className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-gray-900 dark:text-white"
                                                                 onClick={() => selectStateSuggestion(state)}
                                                             >
                                                                 {state}
@@ -675,11 +798,11 @@ export default function CheckoutPage({
                                                 
                                                 {/* ZIP Suggestions */}
                                                 {addressAutocomplete.showZipDropdown && addressAutocomplete.zipSuggestions.length > 0 && (
-                                                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-40 overflow-y-auto">
+                                                    <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-40 overflow-y-auto">
                                                         {addressAutocomplete.zipSuggestions.map((zip, index) => (
                                                             <div
                                                                 key={index}
-                                                                className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                                                                className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-gray-900 dark:text-white"
                                                                 onClick={() => selectZipSuggestion(zip)}
                                                             >
                                                                 {zip}
@@ -754,7 +877,7 @@ export default function CheckoutPage({
                                             onChange={(e) => setData('save_address', e.target.checked)}
                                             className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                                         />
-                                        <Label htmlFor="save_address" className="text-sm text-gray-700">
+                                        <Label htmlFor="save_address" className="text-sm text-gray-700 dark:text-gray-300">
                                             Save this address for future orders
                                         </Label>
                                     </div>
@@ -762,8 +885,25 @@ export default function CheckoutPage({
                             </div>
 
                             {/* Delivery Method */}
-                            <div className="bg-white rounded-lg border border-gray-200 p-6">
-                                <h2 className="text-2xl font-bold text-gray-900 mb-6">Delivery Method</h2>
+                            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+                                <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">Delivery Method</h2>
+                                
+                                {/* Delivery Method Validation */}
+                                {!selectedDeliveryMethod && (
+                                    <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                                        <p className="text-yellow-800 dark:text-yellow-200 text-sm">
+                                            ⚠️ Please select a delivery method to continue
+                                        </p>
+                                    </div>
+                                )}
+                                
+                                {selectedDeliveryMethod === 'shipping' && !selectedCarrier && (
+                                    <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                                        <p className="text-yellow-800 dark:text-yellow-200 text-sm">
+                                            ⚠️ Please select a shipping carrier to continue
+                                        </p>
+                                    </div>
+                                )}
                                 
                                 {isCalculatingDelivery ? (
                                     <div className="flex items-center justify-center py-8">
@@ -780,16 +920,16 @@ export default function CheckoutPage({
                                         >
                                             {deliveryMethods.map((method) => (
                                                 <div key={method.id} className="flex items-center space-x-3 p-4 border rounded-lg hover:bg-gray-50 transition-all border-gray-200">
-                                                    <RadioGroupItem value={method.id} id={method.id} />
+                                                    <RadioGroupItem value={method.id} id={method.id} className="dark:bg-gray-700"/>
                                                     <Label htmlFor={method.id} className="flex-1 cursor-pointer">
                                                         <div className="flex items-center justify-between">
                                                             <div>
-                                                                <div className="font-medium text-gray-900">{method.name}</div>
-                                                                <div className="text-sm text-gray-600">{method.description}</div>
-                                                                <div className="text-sm text-gray-500">Delivery: {method.estimated_days}</div>
+                                                                <div className="font-medium text-gray-900 dark:text-gray-400">{method.name}</div>
+                                                                <div className="text-sm text-gray-600 dark:text-gray-400">{method.description}</div>
+                                                                <div className="text-sm text-gray-500 dark:text-gray-400">Delivery: {method.estimated_days}</div>
                                                             </div>
                                                             {method.cost && (
-                                                                <div className="font-medium text-gray-900">
+                                                                <div className="font-medium text-gray-900 dark:text-gray-400">
                                                                     ${method.cost.toFixed(2)}
                                                                 </div>
                                                             )}
@@ -801,8 +941,8 @@ export default function CheckoutPage({
 
                                         {/* Shipping Options (only for shipping method) */}
                                         {selectedDeliveryMethod === 'shipping' && !(data.street_address && data.city && data.state && data.zip_code) && (
-                                            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                                                <p className="text-blue-800 text-sm">
+                                            <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                                                <p className="text-blue-800 dark:text-blue-200 text-sm">
                                                     Please complete your delivery address above to see shipping options and carriers.
                                                 </p>
                                             </div>
@@ -812,7 +952,7 @@ export default function CheckoutPage({
                                             <div className="mt-6 space-y-6">
                                                 {/* Carrier Selection */}
                                                 <div>
-                                                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Select Carrier</h3>
+                                                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Select Carrier</h3>
                                                     {carriers.length > 0 ? (
                                                         <RadioGroup 
                                                             value={selectedCarrier} 
@@ -820,16 +960,16 @@ export default function CheckoutPage({
                                                             className="space-y-3"
                                                         >
                                                             {carriers.map((carrier) => (
-                                                                <div key={carrier.id} className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50 transition-all border-gray-200">
+                                                                <div key={carrier.id} className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all border-gray-200 dark:border-gray-600">
                                                                     <RadioGroupItem value={carrier.id} id={carrier.id} />
                                                                     <Label htmlFor={carrier.id} className="flex-1 cursor-pointer">
                                                                         <div className="flex items-center justify-between">
                                                                             <div>
-                                                                                <div className="font-medium text-gray-900">{carrier.name} - {carrier.service}</div>
-                                                                                <div className="text-sm text-gray-600">{carrier.description}</div>
-                                                                                <div className="text-sm text-gray-500">Delivery: {carrier.delivery_days}</div>
+                                                                                <div className="font-medium text-gray-900 dark:text-white">{carrier.name} - {carrier.service}</div>
+                                                                                <div className="text-sm text-gray-600 dark:text-gray-400">{carrier.description}</div>
+                                                                                <div className="text-sm text-gray-500 dark:text-gray-500">Delivery: {carrier.delivery_days}</div>
                                                                             </div>
-                                                                            <div className="font-medium text-gray-900">
+                                                                            <div className="font-medium text-gray-900 dark:text-white">
                                                                                 ${carrier.cost.toFixed(2)}
                                                                             </div>
                                                                         </div>
@@ -838,7 +978,7 @@ export default function CheckoutPage({
                                                             ))}
                                                         </RadioGroup>
                                                     ) : (
-                                                        <div className="text-center py-4 text-gray-500">
+                                                        <div className="text-center py-4 text-gray-500 dark:text-gray-400">
                                                             <p>Please enter your delivery address to see available carriers.</p>
                                                         </div>
                                                     )}
@@ -846,7 +986,7 @@ export default function CheckoutPage({
 
                                                 {/* Delivery Instructions */}
                                                 <div>
-                                                    <Label htmlFor="shipping_instructions" className="text-sm font-medium text-gray-700">
+                                                    <Label htmlFor="shipping_instructions" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                                                         Delivery Instructions (Optional)
                                                     </Label>
                                                     <Textarea
@@ -861,16 +1001,16 @@ export default function CheckoutPage({
                                         )}
                                     </div>
                                 ) : (
-                                    <div className="text-center py-8 text-gray-500">
+                                    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                                         {shippingConfigError && data.street_address && data.city && data.state && data.zip_code ? (
                                             <div className="space-y-4">
-                                                <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                                                    <p className="text-yellow-800 text-sm">
+                                                <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                                                    <p className="text-yellow-800 dark:text-yellow-200 text-sm">
                                                         <strong>Shipping Service Not Configured</strong><br/>
                                                         The shipping service is not currently available. Please contact support to enable shipping options.
                                                     </p>
                                                 </div>
-                                                <p className="text-gray-500 text-sm">
+                                                <p className="text-gray-500 dark:text-gray-400 text-sm">
                                                     You can still proceed with local delivery options if available.
                                                 </p>
                                             </div>
@@ -885,14 +1025,14 @@ export default function CheckoutPage({
                         {/* Right Column - Cart Summary */}
                         <div className="lg:col-span-1">
                             <div className="sticky top-8">
-                                <div className="bg-white rounded-lg border border-gray-200 p-6">
-                                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Your Cart</h2>
+                                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+                                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Your Cart</h2>
                                     
                                     {/* Cart Items */}
                                     <div className="space-y-4 mb-6">
                                         {cartItems.map((item) => (
                                             <div key={item.id} className="flex items-center space-x-3">
-                                                <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center">
+                                                <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
                                                     {item.product.image && item.product.image.startsWith('http') ? (
                                                         <img
                                                             src={item.product.image}
@@ -906,17 +1046,17 @@ export default function CheckoutPage({
                                                     )}
                                                 </div>
                                                 <div className="flex-1">
-                                                    <h4 className="font-medium text-gray-900 text-sm">
+                                                    <h4 className="font-medium text-gray-900 dark:text-white text-sm">
                                                         {item.product.name}
                                                     </h4>
-                                                    <p className="text-xs text-gray-600">
+                                                    <p className="text-xs text-gray-600 dark:text-gray-400">
                                                         {item.product.category?.name || 'Category'}
                                                     </p>
-                                                    <p className="font-medium text-gray-900">
+                                                    <p className="font-medium text-gray-900 dark:text-white">
                                                         ${typeof item.product.price === 'string' ? parseFloat(item.product.price) : item.product.price}
                                                     </p>
                                                 </div>
-                                                <div className="text-sm text-gray-600">
+                                                <div className="text-sm text-gray-600 dark:text-gray-400">
                                                     Qty: {item.quantity}
                                                 </div>
                                             </div>
@@ -925,7 +1065,7 @@ export default function CheckoutPage({
 
                                     {/* Discount Code */}
                                     <div className="mb-6">
-                                        <Label htmlFor="discount_code">Discount Code</Label>
+                                        <Label htmlFor="discount_code" className="text-gray-900 dark:text-white">Discount Code</Label>
                                         <div className="flex mt-1">
                                             <Input
                                                 id="discount_code"
@@ -949,20 +1089,20 @@ export default function CheckoutPage({
                                     {/* Order Summary */}
                                     <div className="space-y-3">
                                         <div className="flex justify-between">
-                                            <span className="text-gray-600">Subtotal</span>
-                                            <span className="font-medium">${calculations.subtotal.toFixed(2)}</span>
+                                            <span className="text-gray-600 dark:text-gray-400">Subtotal</span>
+                                            <span className="font-medium text-gray-900 dark:text-white">${calculations.subtotal.toFixed(2)}</span>
                                         </div>
                                         
                                         {calculations.discount > 0 && (
                                             <div className="flex justify-between">
-                                                <span className="text-gray-600">Discount</span>
-                                                <span className="font-medium text-green-600">-${calculations.discount.toFixed(2)}</span>
+                                                <span className="text-gray-600 dark:text-gray-400">Discount</span>
+                                                <span className="font-medium text-green-600 dark:text-green-400">-${calculations.discount.toFixed(2)}</span>
                                             </div>
                                         )}
                                         
                                         <div className="flex justify-between">
-                                            <span className="text-gray-600">Delivery</span>
-                                            <span className="font-medium">
+                                            <span className="text-gray-600 dark:text-gray-400">Delivery</span>
+                                            <span className="font-medium text-gray-900 dark:text-white">
                                                 {selectedDeliveryMethod === 'fast_delivery' ? `$${totalDeliveryCost.toFixed(2)}` : 
                                                  selectedDeliveryMethod === 'shipping' && selectedCarrierInfo ? `$${totalDeliveryCost.toFixed(2)}` : 
                                                  selectedDeliveryMethod === 'shipping' && !(data.street_address && data.city && data.state && data.zip_code) ? 'Enter address' :
@@ -972,29 +1112,35 @@ export default function CheckoutPage({
                                         
                                         
                                         <div className="flex justify-between">
-                                            <span className="text-gray-600">Tax</span>
-                                            <span className="font-medium">${calculations.tax.toFixed(2)}</span>
+                                            <span className="text-gray-600 dark:text-gray-400">Tax</span>
+                                            <span className="font-medium text-gray-900 dark:text-white">${calculations.tax.toFixed(2)}</span>
                                         </div>
                                         
                                         <Separator className="my-4" />
                                         
                                         <div className="flex justify-between text-lg font-bold">
-                                            <span>Total</span>
-                                            <span>${finalTotal.toFixed(2)}</span>
+                                            <span className="text-gray-900 dark:text-white">Total</span>
+                                            <span className="text-gray-900 dark:text-white">${finalTotal.toFixed(2)}</span>
                                         </div>
                                     </div>
 
                                     {/* Continue to Payment Button */}
                                     <Button
                                         onClick={handleSubmit}
-                                        disabled={processing || isProcessing}
-                                        className="w-full bg-black hover:bg-gray-800 text-white font-semibold py-3 text-base rounded-lg mt-6"
+                                        disabled={processing || isProcessing || validateCheckoutForm().length > 0}
+                                        className={`w-full font-semibold py-3 text-base rounded-lg mt-6 ${
+                                            validateCheckoutForm().length > 0 
+                                                ? 'bg-gray-400 hover:bg-gray-400 cursor-not-allowed' 
+                                                : 'bg-black hover:bg-gray-800'
+                                        } text-white`}
                                     >
                                         {processing || isProcessing ? (
                                             <div className="flex items-center justify-center gap-2">
                                                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                                                 Creating Checkout...
                                             </div>
+                                        ) : validateCheckoutForm().length > 0 ? (
+                                            `Fix ${validateCheckoutForm().length} Error${validateCheckoutForm().length > 1 ? 's' : ''} to Continue`
                                         ) : (
                                             'Continue to Payment'
                                         )}

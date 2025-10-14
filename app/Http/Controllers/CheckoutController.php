@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Order;
-use App\Models\OrderGroup;
 use App\Models\OrderItem;
 use App\Models\PaymentTransaction;
 use App\Models\CartItem;
@@ -256,10 +255,15 @@ class CheckoutController extends Controller
             'session_id' => $sessionId,
             'user_id' => Auth::id(),
             'has_session_data' => session()->has('checkout_data'),
+            'all_query_params' => $request->query(),
+            'request_url' => $request->fullUrl(),
         ]);
         
         if (!$sessionId) {
-            \Log::error('No session ID provided in checkout success');
+            \Log::error('No session ID provided in checkout success', [
+                'query_params' => $request->query(),
+                'request_url' => $request->fullUrl(),
+            ]);
             return redirect('/checkout')->with('error', 'Invalid checkout session');
         }
 
@@ -290,97 +294,51 @@ class CheckoutController extends Controller
 
             DB::beginTransaction();
 
-            // Group cart items by store
-            $itemsByStore = [];
+            // Create a single order with all items (simplified structure)
+            $order = Order::create([
+                'order_number' => Order::generateOrderNumber(),
+                'user_id' => Auth::id(),
+                'user_address_id' => $checkoutData['user_address_id'],
+                'status' => 'confirmed',
+                'total_amount' => $checkoutData['calculations']['total'],
+                'subtotal' => $checkoutData['calculations']['subtotal'],
+                'tax' => $checkoutData['calculations']['tax'],
+                'delivery_fee' => $checkoutData['calculations']['delivery_fee'],
+                'delivery_address' => $checkoutData['address_data']['street_address'] . ', ' . 
+                                     $checkoutData['address_data']['city'] . ', ' . 
+                                     $checkoutData['address_data']['state'] . ' ' . 
+                                     $checkoutData['address_data']['zip_code'],
+                'shipping_method' => $checkoutData['shipping_method'],
+                'is_ready_for_delivery' => false,
+            ]);
+
+            // Create order items for all cart items
             foreach ($checkoutData['cart_items'] as $cartItem) {
-                $storeId = $cartItem['product']['store_id'];
-                if (!isset($itemsByStore[$storeId])) {
-                    $itemsByStore[$storeId] = [];
-                }
-                $itemsByStore[$storeId][] = $cartItem;
-            }
-
-            // Determine if this is a multi-store order
-            $isMultiStore = count($itemsByStore) > 1;
-            $orderGroup = null;
-
-            // Create OrderGroup if multi-store
-            if ($isMultiStore) {
-                $deliveryAddress = $checkoutData['address_data']['street_address'] . ', ' . 
-                                 $checkoutData['address_data']['city'] . ', ' . 
-                                 $checkoutData['address_data']['state'] . ' ' . 
-                                 $checkoutData['address_data']['zip_code'];
-
-                $orderGroup = \App\Models\OrderGroup::create([
-                    'group_number' => \App\Models\OrderGroup::generateGroupNumber(),
-                    'user_id' => Auth::id(),
-                    'user_address_id' => $checkoutData['user_address_id'],
-                    'status' => 'confirmed',
-                    'delivery_preference' => 'as_ready', // Simple: deliver as ready
-                    'total_amount' => $checkoutData['calculations']['total'],
-                    'delivery_address' => $deliveryAddress,
-                    'delivery_fee' => $checkoutData['calculations']['delivery_fee'],
-                    'delivery_time_estimate' => 30,
-                ]);
-            }
-
-            $orders = [];
-            $deliveryAddress = $checkoutData['address_data']['street_address'] . ', ' . 
-                             $checkoutData['address_data']['city'] . ', ' . 
-                             $checkoutData['address_data']['state'] . ' ' . 
-                             $checkoutData['address_data']['zip_code'];
-
-            // Create individual orders for each store
-            foreach ($itemsByStore as $storeId => $storeItems) {
-                // Calculate store-specific totals
-                $storeSubtotal = array_sum(array_map(function($item) {
-                    return $item['quantity'] * $item['product']['price'];
-                }, $storeItems));
-
-                $storeDeliveryFee = $isMultiStore ? 0 : $checkoutData['calculations']['delivery_fee']; // Only charge delivery fee once for single-store orders
-                $taxRate = \App\Models\SystemSetting::get('global_tax_rate', 8.5);
-                $storeTax = $storeSubtotal * ($taxRate / 100);
-                $storeTotal = $storeSubtotal + $storeDeliveryFee + $storeTax;
-
-                $order = Order::create([
-                    'order_number' => Order::generateOrderNumber(),
-                    'order_group_id' => $orderGroup ? $orderGroup->id : null,
-                    'user_id' => Auth::id(),
-                    'store_id' => $storeId,
-                    'user_address_id' => $checkoutData['user_address_id'],
-                    'status' => 'confirmed',
-                    'total_amount' => $storeTotal,
-                    'delivery_address' => $deliveryAddress,
-                    'delivery_fee' => $storeDeliveryFee,
-                    'delivery_time_estimate' => 30,
-                ]);
-
-                // Create order items for this store
-                foreach ($storeItems as $cartItem) {
-                    OrderItem::create([
-                        'order_id' => $order->id,
-                        'product_id' => $cartItem['product']['id'],
-                        'quantity' => $cartItem['quantity'],
-                        'unit_price' => $cartItem['product']['price'],
-                        'total_price' => $cartItem['quantity'] * $cartItem['product']['price'],
-                    ]);
-                }
-
-                // Create payment transaction for this order (split payment proportionally)
-                $paymentAmount = $isMultiStore ? 
-                    ($storeTotal / $checkoutData['calculations']['total']) * $checkoutData['calculations']['total'] : 
-                    $checkoutData['calculations']['total'];
-
-                PaymentTransaction::create([
+                OrderItem::create([
                     'order_id' => $order->id,
-                    'amount' => $paymentAmount,
-                    'payment_method' => 'stripe',
-                    'transaction_id' => $session->payment_intent,
-                    'status' => 'completed',
+                    'product_id' => $cartItem['product']['id'],
+                    'store_id' => $cartItem['product']['store_id'], // Store is now on order items
+                    'quantity' => $cartItem['quantity'],
+                    'unit_price' => $cartItem['product']['price'],
+                    'total_price' => $cartItem['quantity'] * $cartItem['product']['price'],
                 ]);
-
-                $orders[] = $order;
             }
+
+            // Create payment transaction
+            PaymentTransaction::create([
+                'order_id' => $order->id,
+                'amount' => $checkoutData['calculations']['total'],
+                'payment_method' => 'stripe',
+                'transaction_id' => $session->payment_intent,
+                'status' => 'completed',
+            ]);
+
+            // Create initial status history
+            \App\Models\OrderStatusHistory::create([
+                'order_id' => $order->id,
+                'status' => 'confirmed',
+                'notes' => 'Order confirmed after successful payment',
+            ]);
 
             // Clear cart
             CartItem::where('user_id', Auth::id())->delete();
@@ -390,16 +348,18 @@ class CheckoutController extends Controller
 
             DB::commit();
 
-            // Redirect to the first order (or order group if multi-store)
-            $redirectOrder = $orders[0];
-            $successMessage = $isMultiStore ? 
-                "Multi-store order placed successfully! Group #{$orderGroup->group_number}" :
-                "Order placed successfully! Order #{$redirectOrder->order_number}";
+            $successMessage = "Order placed successfully! Order #{$order->order_number}";
 
-            return redirect('/orders/' . $redirectOrder->id)->with([
+            \Log::info('Order created successfully, redirecting to order page', [
+                'order_id' => $order->id,
+                'order_number' => $order->order_number,
+                'redirect_url' => '/orders/' . $order->id,
+            ]);
+
+            return redirect('/orders/' . $order->id)->with([
                 'success' => $successMessage,
                 'order_confirmed' => true,
-                'order_number' => $redirectOrder->order_number,
+                'order_number' => $order->order_number,
                 'toast_message' => $successMessage,
                 'toast_type' => 'success'
             ]);
@@ -457,90 +417,51 @@ class CheckoutController extends Controller
                 return response()->json(['error' => 'Cart is empty'], 400);
             }
 
-            // Group cart items by store
-            $itemsByStore = $cartItems->groupBy('product.store_id');
+            // Create a single order with all items (simplified structure)
+            $order = Order::create([
+                'order_number' => Order::generateOrderNumber(),
+                'user_id' => Auth::id(),
+                'user_address_id' => $checkoutData['user_address_id'],
+                'status' => 'confirmed',
+                'total_amount' => $checkoutData['calculations']['total'],
+                'subtotal' => $checkoutData['calculations']['subtotal'],
+                'tax' => $checkoutData['calculations']['tax'],
+                'delivery_fee' => $checkoutData['calculations']['delivery_fee'],
+                'delivery_address' => $checkoutData['address_data']['street_address'] . ', ' . 
+                                     $checkoutData['address_data']['city'] . ', ' . 
+                                     $checkoutData['address_data']['state'] . ' ' . 
+                                     $checkoutData['address_data']['zip_code'],
+                'shipping_method' => $checkoutData['shipping_method'],
+                'is_ready_for_delivery' => false,
+            ]);
 
-            // Determine if this is a multi-store order
-            $isMultiStore = count($itemsByStore) > 1;
-            $orderGroup = null;
-
-            // Create OrderGroup if multi-store
-            if ($isMultiStore) {
-                $deliveryAddress = $checkoutData['address_data']['street_address'] . ', ' . 
-                                 $checkoutData['address_data']['city'] . ', ' . 
-                                 $checkoutData['address_data']['state'] . ' ' . 
-                                 $checkoutData['address_data']['zip_code'];
-
-                $orderGroup = \App\Models\OrderGroup::create([
-                    'group_number' => \App\Models\OrderGroup::generateGroupNumber(),
-                    'user_id' => Auth::id(),
-                    'user_address_id' => $checkoutData['user_address_id'],
-                    'status' => 'confirmed',
-                    'delivery_preference' => 'as_ready', // Simple: deliver as ready
-                    'total_amount' => $checkoutData['calculations']['total'],
-                    'delivery_address' => $deliveryAddress,
-                    'delivery_fee' => $checkoutData['calculations']['delivery_fee'],
-                    'delivery_time_estimate' => 30,
-                ]);
-            }
-
-            $orders = [];
-            $deliveryAddress = $checkoutData['address_data']['street_address'] . ', ' . 
-                             $checkoutData['address_data']['city'] . ', ' . 
-                             $checkoutData['address_data']['state'] . ' ' . 
-                             $checkoutData['address_data']['zip_code'];
-
-            // Create individual orders for each store
-            foreach ($itemsByStore as $storeId => $storeItems) {
-                // Calculate store-specific totals
-                $storeSubtotal = $storeItems->sum(function($item) {
-                    return $item->quantity * $item->product->price;
-                });
-
-                $storeDeliveryFee = $isMultiStore ? 0 : $checkoutData['calculations']['delivery_fee']; // Only charge delivery fee once for single-store orders
-                $taxRate = \App\Models\SystemSetting::get('global_tax_rate', 8.5);
-                $storeTax = $storeSubtotal * ($taxRate / 100);
-                $storeTotal = $storeSubtotal + $storeDeliveryFee + $storeTax;
-
-                $order = Order::create([
-                    'order_number' => Order::generateOrderNumber(),
-                    'order_group_id' => $orderGroup ? $orderGroup->id : null,
-                    'user_id' => Auth::id(),
-                    'store_id' => $storeId,
-                    'user_address_id' => $checkoutData['user_address_id'],
-                    'status' => 'confirmed',
-                    'total_amount' => $storeTotal,
-                    'delivery_address' => $deliveryAddress,
-                    'delivery_fee' => $storeDeliveryFee,
-                    'delivery_time_estimate' => 30,
-                ]);
-
-                // Create order items for this store
-                foreach ($storeItems as $cartItem) {
-                    OrderItem::create([
-                        'order_id' => $order->id,
-                        'product_id' => $cartItem->product_id,
-                        'quantity' => $cartItem->quantity,
-                        'unit_price' => $cartItem->product->price,
-                        'total_price' => $cartItem->quantity * $cartItem->product->price,
-                    ]);
-                }
-
-                // Create payment transaction for this order (split payment proportionally)
-                $paymentAmount = $isMultiStore ? 
-                    ($storeTotal / $checkoutData['calculations']['total']) * $checkoutData['calculations']['total'] : 
-                    $checkoutData['calculations']['total'];
-
-                PaymentTransaction::create([
+            // Create order items for all cart items
+            foreach ($cartItems as $cartItem) {
+                OrderItem::create([
                     'order_id' => $order->id,
-                    'amount' => $paymentAmount,
-                    'payment_method' => 'stripe',
-                    'transaction_id' => $request->payment_intent_id,
-                    'status' => 'completed',
+                    'product_id' => $cartItem['product']['id'],
+                    'store_id' => $cartItem['product']['store_id'], // Store is now on order items
+                    'quantity' => $cartItem['quantity'],
+                    'unit_price' => $cartItem['product']['price'],
+                    'total_price' => $cartItem['quantity'] * $cartItem['product']['price'],
                 ]);
-
-                $orders[] = $order;
             }
+
+            // Create payment transaction
+            PaymentTransaction::create([
+                'order_id' => $order->id,
+                'amount' => $checkoutData['calculations']['total'],
+                'payment_method' => 'stripe',
+                'transaction_id' => $request->payment_intent_id,
+                'status' => 'completed',
+            ]);
+
+            // Create initial status history
+            \App\Models\OrderStatusHistory::create([
+                'order_id' => $order->id,
+                'status' => 'confirmed',
+                'notes' => 'Order confirmed after successful payment',
+            ]);
 
             // Clear cart
             CartItem::where('user_id', Auth::id())->delete();
@@ -550,15 +471,12 @@ class CheckoutController extends Controller
 
             DB::commit();
 
-            $redirectOrder = $orders[0];
-            $successMessage = $isMultiStore ? 
-                "Multi-store order placed successfully! Group #{$orderGroup->group_number}" :
-                "Order placed successfully! Order #{$redirectOrder->order_number}";
+            $successMessage = "Order placed successfully! Order #{$order->order_number}";
 
             $response = [
                 'success' => true,
-                'order_id' => $redirectOrder->id,
-                'order_number' => $redirectOrder->order_number,
+                'order_id' => $order->id,
+                'order_number' => $order->order_number,
                 'message' => $successMessage
             ];
 

@@ -96,8 +96,8 @@ class PaymentTransactionObserver
      */
     private function handlePaymentCompleted(PaymentTransaction $paymentTransaction, Order $order): void
     {
-        // Update order status to paid
-        $order->update(['status' => 'paid']);
+        // Update order status to confirmed (payment completed)
+        $order->update(['status' => 'confirmed']);
 
         // Send notification to customer
         if ($order->user) {

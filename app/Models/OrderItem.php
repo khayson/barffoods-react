@@ -10,9 +10,11 @@ class OrderItem extends Model
     protected $fillable = [
         'order_id',
         'product_id',
+        'store_id',
         'quantity',
         'unit_price',
         'total_price',
+        'status',
     ];
 
     protected $casts = [
@@ -35,5 +37,13 @@ class OrderItem extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    /**
+     * Get the store that owns the order item.
+     */
+    public function store(): BelongsTo
+    {
+        return $this->belongsTo(Store::class);
     }
 }

@@ -27,14 +27,12 @@ Route::middleware(['auth'])->group(function () {
     // Admin order management routes
     Route::prefix('admin')->middleware(['auth', 'role:super_admin'])->group(function () {
         Route::get('/orders', [App\Http\Controllers\Admin\OrderManagementController::class, 'index'])->name('admin.orders.index');
-        Route::get('/orders/groups', [App\Http\Controllers\Admin\OrderManagementController::class, 'groups'])->name('admin.orders.groups');
-        Route::get('/orders/groups/{id}', [App\Http\Controllers\Admin\OrderManagementController::class, 'showGroup'])->name('admin.orders.groups.show');
+        Route::get('/orders/{id}', [App\Http\Controllers\Admin\OrderManagementController::class, 'show'])->name('admin.orders.show');
         Route::patch('/orders/{id}/status', [App\Http\Controllers\Admin\OrderManagementController::class, 'updateStatus'])->name('admin.orders.update-status');
-        Route::patch('/orders/{id}/priority', [App\Http\Controllers\Admin\OrderManagementController::class, 'updatePriority'])->name('admin.orders.update-priority');
+        Route::get('/orders/{id}/transitions', [App\Http\Controllers\Admin\OrderManagementController::class, 'getAvailableTransitions'])->name('admin.orders.transitions');
+        Route::get('/orders/{id}/csv', [App\Http\Controllers\Admin\OrderManagementController::class, 'downloadCsv'])->name('admin.orders.download-csv');
         Route::patch('/orders/{id}/ready', [App\Http\Controllers\Admin\OrderManagementController::class, 'markAsReady'])->name('admin.orders.mark-ready');
-        Route::get('/orders/groups/{id}/readiness', [App\Http\Controllers\Admin\OrderManagementController::class, 'getGroupReadiness'])->name('admin.orders.groups.readiness');
-        Route::patch('/orders/bulk-priority', [App\Http\Controllers\Admin\OrderManagementController::class, 'bulkUpdatePriority'])->name('admin.orders.bulk-priority');
-        Route::patch('/orders/groups/{id}/status', [App\Http\Controllers\Admin\OrderManagementController::class, 'updateGroupStatus'])->name('admin.orders.groups.update-status');
+        Route::patch('/orders/{orderId}/items/{itemId}/status', [App\Http\Controllers\Admin\OrderManagementController::class, 'updateItemStatus'])->name('admin.orders.update-item-status');
     });
 });
 
@@ -64,6 +62,11 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/checkout/create-session', [App\Http\Controllers\CheckoutController::class, 'createCheckoutSession'])->name('checkout.create-session');
     Route::get('/checkout/success', [App\Http\Controllers\CheckoutController::class, 'success'])->name('checkout.success');
     Route::post('/checkout', [App\Http\Controllers\CheckoutController::class, 'store'])->name('checkout.store');
+    
+    // Debug route for testing checkout success
+    Route::get('/checkout/debug-success', function() {
+        return redirect('/orders/1')->with('success', 'Test redirect to order page');
+    })->name('checkout.debug-success');
     
     // Sanctum token endpoint
     Route::get('/api/sanctum/token', function () {

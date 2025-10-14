@@ -7,7 +7,6 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
-    ArrowLeft,
     Send,
     Clock,
     User,
@@ -23,6 +22,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { formatDistanceToNow } from 'date-fns';
 import Echo from 'laravel-echo';
 import Pusher from 'pusher-js';
+import { BackIcon } from '@/components/icons/back-icon';
 
 interface Message {
     id: number;
@@ -289,7 +289,7 @@ export default function AdminConversation({ conversation }: AdminConversationPro
                             href="/admin/messaging"
                             className="inline-flex items-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                         >
-                            <ArrowLeft className="h-4 w-4 mr-2" />
+                                <BackIcon className="h-4 w-4 mr-2" />
                             {/* Back to Conversations */}
                         </Link>
                         

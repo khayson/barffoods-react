@@ -15,12 +15,15 @@ return new class extends Migration
             $table->id();
             $table->foreignId('order_id')->constrained()->onDelete('cascade');
             $table->foreignId('product_id')->constrained()->onDelete('restrict');
+            $table->foreignId('store_id')->constrained()->onDelete('restrict');
             $table->integer('quantity');
             $table->decimal('unit_price', 8, 2);
             $table->decimal('total_price', 10, 2);
+            $table->enum('status', ['pending', 'ready', 'collected', 'packaged', 'shipped', 'delivered'])->default('pending');
             $table->timestamps();
             
             $table->index('order_id');
+            $table->index('store_id');
         });
     }
 

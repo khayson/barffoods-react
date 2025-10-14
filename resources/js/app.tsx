@@ -5,7 +5,7 @@ import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot } from 'react-dom/client';
 import { initializeTheme } from './hooks/use-appearance';
 import { configureEcho } from '@laravel/echo-react';
-import { Toaster } from 'sonner';
+import { Toaster } from '@/components/ui/sonner';
 import { WishlistProvider } from './contexts/WishlistContext';
 import { CartProvider } from './contexts/CartContext';
 import { type SharedData } from './types';
@@ -32,7 +32,12 @@ createInertiaApp({
             <WishlistProvider user={pageProps.auth?.user}>
                 <CartProvider user={pageProps.auth?.user}>
                     <App {...props} />
-                    <Toaster position="top-right" richColors />
+                    <Toaster 
+                position={pageProps.isMobile ? "top-center" : "top-right"}
+                expand={!pageProps.isMobile}
+                richColors={true}
+                closeButton={true}
+            />
                 </CartProvider>
             </WishlistProvider>
         );
