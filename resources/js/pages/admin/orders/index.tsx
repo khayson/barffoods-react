@@ -162,21 +162,21 @@ export default function OrdersPage({ orders }: OrdersPageProps) {
         <AdminLayout>
             <Head title="Orders Management" />
             
-            <div className="min-h-screen bg-white">
-                <div className="max-w-7xl mx-auto px-6 py-8">
+            <div className="min-h-screen bg-transparent">
+                <div className="max-w-7xl mx-auto px-6 py-8 text-gray-900 dark:text-gray-100">
                     {/* Filter and Action Bar */}
                     <div className="mb-6">
                         <div className="flex items-center justify-between">
                             {/* Left Section - Filter Container */}
-                            <div className="bg-gray-50 rounded-xl px-3 py-2 flex items-center space-x-0">
+                            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2 flex items-center space-x-0 border border-gray-200 dark:border-gray-700 rounded-lg">
                                 {filterOptions.map((option, index) => (
                                     <div key={option.key} className="flex items-center">
                                         <button
                                             onClick={() => handleFilterChange(option.key)}
-                                            className={`px-3 py-1.5 rounded-lg text-sm font-medium flex items-center ${
+                                            className={`px-3 py-1.5 rounded-lg text-sm font-medium flex items-center transition-colors ${
                                                 activeFilter === option.key
-                                                    ? 'bg-gray-800 text-white'
-                                                    : 'text-gray-600 hover:bg-gray-200'
+                                                    ? 'bg-gray-800 text-white dark:bg-gray-200 dark:text-gray-900'
+                                                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
                                             }`}
                                         >
                                             {option.key === 'All' && activeFilter === 'All' && (
@@ -186,12 +186,12 @@ export default function OrdersPage({ orders }: OrdersPageProps) {
                                             {option.label}
                                         </button>
                                         {index < filterOptions.length - 1 && (
-                                            <div className="w-px h-4 bg-gray-300 mx-1"></div>
+                                            <div className="w-px h-4 bg-gray-300 dark:bg-gray-600 mx-1"></div>
                                         )}
                                     </div>
                                 ))}
-                                <div className="w-px h-4 bg-gray-300 mx-1"></div>
-                                <button className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center hover:bg-gray-300">
+                                <div className="w-px h-4 bg-gray-300 dark:bg-gray-600 mx-1"></div>
+                                <button className="w-6 h-6 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center hover:bg-gray-300 dark:hover:bg-gray-600">
                                     <Plus className="w-3 h-3 text-gray-600" />
                                 </button>
                             </div>
@@ -206,11 +206,11 @@ export default function OrdersPage({ orders }: OrdersPageProps) {
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
                                         onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                                        className="pl-10 pr-12 py-2 w-64 h-10 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        className="pl-10 pr-12 py-2 w-64 h-10 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-400 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
                                     />
                                     <button
                                         onClick={handleSearch}
-                                        className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm font-medium cursor-pointer p-1 rounded-full border border-gray-200"
+                                        className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-gray-300 dark:hover:text-gray-100 text-sm font-medium cursor-pointer p-1 rounded-full border border-gray-200 dark:border-gray-700"
                                     >
                                         Search
                                         {/* <Search className="w-4 h-4" /> */}
@@ -230,49 +230,49 @@ export default function OrdersPage({ orders }: OrdersPageProps) {
                     {/* Orders Table */}
                     <div>
                         <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead className="bg-gray-50">
+                            <table className="w-full rounded-lg">
+                                <thead className="bg-gray-50 dark:bg-gray-800 rounded-lg">
                                     <tr>
                                         <th className="w-12 px-4 py-3 text-left">
                                             <input
                                                 type="checkbox"
-                                                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                                className="w-4 h-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500"
                                             />
                                         </th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                             Order ID
                                         </th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                             Date
                                         </th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                             Customer
                                         </th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                             Item
                                         </th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                             Total
                                         </th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                             Status
                                         </th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                             Payment
                                         </th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                             Action
                                         </th>
                                     </tr>
                                 </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
+                                <tbody className="bg-white dark:bg-transparent divide-y divide-gray-200 dark:divide-gray-700 rounded-lg">
                                     {orders?.data?.map((order) => {
                                         const statusInfo = getStatusColor(order.status);
                                         const paymentStatus = getPaymentStatus(order);
                                         const itemCount = getItemCount(order);
                                         
                                         return (
-                                            <tr key={order.id} className="hover:bg-gray-50">
+                                            <tr key={order.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-lg">
                                                 <td className="px-4 py-4">
                                                     <input
                                                         type="checkbox"
@@ -280,48 +280,48 @@ export default function OrdersPage({ orders }: OrdersPageProps) {
                                                     />
                                                 </td>
                                                 <td className="px-4 py-4 whitespace-nowrap">
-                                                    <div className="text-sm font-medium text-gray-900">
+                                                    <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
                                                         #{order.order_number}
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-4 whitespace-nowrap">
-                                                    <div className="text-sm text-gray-900">
+                                                    <div className="text-sm text-gray-900 dark:text-gray-100">
                                                         {formatDate(order.created_at)}
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-4 whitespace-nowrap">
                                                     <div className="flex items-center">
-                                                        <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center mr-3">
-                                                            <span className="text-xs font-medium text-gray-600">
+                                                        <div className="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center mr-3">
+                                                            <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
                                                                 {order.user.name.charAt(0).toUpperCase()}
                                                             </span>
                                                         </div>
-                                                        <div className="text-sm font-medium text-gray-900">
+                                                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
                                                             {order.user.name}
                                                         </div>
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-4 whitespace-nowrap">
-                                                    <div className="text-sm text-gray-900">
+                                                    <div className="text-sm text-gray-900 dark:text-gray-100">
                                                         {itemCount}
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-4 whitespace-nowrap">
-                                                    <div className="text-sm font-medium text-gray-900">
+                                                    <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
                                                         {formatPrice(order.total_amount)}
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-4 whitespace-nowrap">
                                                     <div className="flex items-center">
                                                         <div className={`w-1 h-6 ${statusInfo.bg} rounded-full mr-2`}></div>
-                                                        <span className="text-sm text-gray-900">{statusInfo.text}</span>
+                                                        <span className="text-sm text-gray-900 dark:text-gray-100">{statusInfo.text}</span>
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-4 whitespace-nowrap">
                                                     <span className={`text-sm font-medium ${
                                                         paymentStatus === 'Paid' 
                                                             ? 'text-green-600' 
-                                                            : 'text-red-600'
+                                                            : 'text-red-500 dark:text-red-400'
                                                     }`}>
                                                         {paymentStatus}
                                                     </span>
@@ -333,7 +333,7 @@ export default function OrdersPage({ orders }: OrdersPageProps) {
                                                         </Link>
                                                         <AlertDialog>
                                                             <AlertDialogTrigger asChild>
-                                                                <button className="p-1 text-gray-400 hover:text-gray-600">
+                                                                <button className="p-1 text-gray-400 hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-200">
                                                                     <Trash2 className="w-4 h-4" />
                                                                 </button>
                                                             </AlertDialogTrigger>

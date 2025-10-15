@@ -10,6 +10,48 @@ use Inertia\Inertia;
 class OrderController extends Controller
 {
     /**
+     * Display a listing of the user's orders
+     */
+    public function index(Request $request)
+    {
+        $user = Auth::user();
+
+        $query = Order::with(['orderItems', 'paymentTransactions'])
+            ->where('user_id', $user->id)
+            ->orderByDesc('created_at');
+
+        if ($request->filled('search')) {
+            $search = $request->string('search')->toString();
+            $query->where(function ($q) use ($search) {
+                $q->where('order_number', 'like', "%{$search}%")
+                  ->orWhere('status', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('status') && $request->status !== 'all') {
+            $query->where('status', $request->status);
+        }
+
+        $orders = $query->paginate(10)->withQueryString();
+
+        // Minimal transformation for frontend
+        $orders->getCollection()->transform(function ($order) {
+            return [
+                'id' => $order->id,
+                'order_number' => $order->order_number,
+                'status' => $order->status,
+                'total_amount' => $order->total_amount,
+                'created_at' => $order->created_at,
+                'items_count' => $order->orderItems->sum('quantity'),
+                'payment_status' => optional($order->paymentTransactions->first())->status ?? null,
+            ];
+        });
+
+        return Inertia::render('orders/index', [
+            'orders' => $orders,
+        ]);
+    }
+    /**
      * Display the specified order
      */
     public function show($id)

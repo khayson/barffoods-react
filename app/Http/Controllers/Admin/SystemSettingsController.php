@@ -20,9 +20,15 @@ class SystemSettingsController extends Controller
         $parsedSettings = [
             'global_delivery_fee' => $settings['global_delivery_fee'] ?? 4.99,
             'global_tax_rate' => $settings['global_tax_rate'] ?? 8.5,
-            'discount_rules' => isset($settings['discount_rules']) ? json_decode($settings['discount_rules'], true) : [],
-            'payment_methods' => isset($settings['payment_methods']) ? json_decode($settings['payment_methods'], true) : [],
-            'store_address' => isset($settings['store_address']) ? json_decode($settings['store_address'], true) : [
+            'discount_rules' => isset($settings['discount_rules'])
+                ? (is_string($settings['discount_rules']) ? json_decode($settings['discount_rules'], true) : (array) $settings['discount_rules'])
+                : [],
+            'payment_methods' => isset($settings['payment_methods'])
+                ? (is_string($settings['payment_methods']) ? json_decode($settings['payment_methods'], true) : (array) $settings['payment_methods'])
+                : [],
+            'store_address' => isset($settings['store_address'])
+                ? (is_string($settings['store_address']) ? json_decode($settings['store_address'], true) : (array) $settings['store_address'])
+                : [
                 'street_address' => '123 Main Street',
                 'city' => 'New York',
                 'state' => 'NY',

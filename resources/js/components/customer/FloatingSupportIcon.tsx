@@ -12,6 +12,13 @@ import { router } from '@inertiajs/react';
 import Echo from 'laravel-echo';
 import Pusher from 'pusher-js';
 
+declare global {
+    interface Window {
+        Echo: any;
+        Pusher: any;
+    }
+}
+
 interface Message {
     id: number;
     content: string;
@@ -63,6 +70,13 @@ export default function FloatingSupportIcon({ className = '' }: FloatingSupportI
         setIsOpen(true);
         await loadConversations();
     };
+
+    // Allow other components to open this modal via a custom event
+    useEffect(() => {
+        const openHandler = () => setIsOpen(true);
+        window.addEventListener('open-support-modal', openHandler);
+        return () => window.removeEventListener('open-support-modal', openHandler);
+    }, []);
 
     // Handle escape key to close modal
     useEffect(() => {

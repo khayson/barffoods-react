@@ -47,10 +47,11 @@ interface NavItem {
 
 const navigation: NavItem[] = [
     { name: 'Home', href: '/dashboard', icon: LayoutGrid },
-    // { name: 'Support', href: '/customer/messaging', icon: MessageCircle },
-    // { name: 'Products', href: '/products', icon: Package },
-    // { name: 'Profile', href: '/profile', icon: User },
-    // { name: 'Settings', href: '/settings', icon: Settings },
+    { name: 'Orders', href: '/orders', icon: Package },
+    // Messages opens support modal; href kept for accessibility but prevented
+    { name: 'Messages', href: '/customer/messaging', icon: MessageCircle },
+    { name: 'Profile', href: '/profile', icon: User },
+    { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
 export default function CustomerHeader({ onToggleMobileMenu, isMobile }: CustomerHeaderProps) {
@@ -114,7 +115,7 @@ export default function CustomerHeader({ onToggleMobileMenu, isMobile }: Custome
     }, []);
 
     const isActive = (href: string) => {
-        return currentPath === href;
+        return currentPath === href || currentPath.startsWith(href + '/');
     };
 
     return (
@@ -149,6 +150,12 @@ export default function CustomerHeader({ onToggleMobileMenu, isMobile }: Custome
                                         <Link
                                             key={item.name}
                                             href={item.href}
+                                            onClick={(e) => {
+                                                if (item.name === 'Messages') {
+                                                    e.preventDefault();
+                                                    window.dispatchEvent(new Event('open-support-modal'));
+                                                }
+                                            }}
                                             className={`
                                                 flex items-center space-x-2 px-3 py-2 rounded-full transition-colors duration-200
                                                 ${isActive(item.href)
@@ -156,6 +163,7 @@ export default function CustomerHeader({ onToggleMobileMenu, isMobile }: Custome
                                                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-700'
                                                 }
                                             `}
+                                            aria-current={isActive(item.href) ? 'page' : undefined}
                                         >
                                             <item.icon className="h-4 w-4" />
                                             <span className="text-sm font-medium">{item.name}</span>

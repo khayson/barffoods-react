@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Bell, Check, X, Package, Truck, CheckCircle, Clock, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -80,16 +81,16 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ isOpen, onC
 
     if (!isOpen) return null;
 
-    return (
+    return createPortal(
         <>
             {/* Backdrop */}
             <div 
-                className="fixed inset-0 z-40" 
+                className="fixed inset-0 z-[100]" 
                 onClick={onClose}
             />
             
             {/* Dropdown */}
-            <Card className="absolute right-0 top-full mt-2 w-96 z-50 shadow-lg dark:shadow-gray-800/20">
+            <Card className="fixed right-6 top-16 w-96 z-[110] shadow-lg dark:shadow-gray-800/20">
                 <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
                         <CardTitle className="text-lg text-gray-900 dark:text-white">Notifications</CardTitle>
@@ -176,7 +177,8 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ isOpen, onC
                     </ScrollArea>
                 </CardContent>
             </Card>
-        </>
+        </>,
+        document.body
     );
 };
 

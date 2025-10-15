@@ -22,6 +22,7 @@ Route::get('/products/{id}', [ProductController::class, 'show'])->name('products
 
 // Order routes (authenticated users only)
 Route::middleware(['auth'])->group(function () {
+    Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
     Route::get('/orders/{id}', [OrderController::class, 'show'])->name('orders.show');
     
     // Admin order management routes
