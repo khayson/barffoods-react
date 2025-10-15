@@ -23,8 +23,7 @@ class AdminController extends Controller
      */
     public function notifications(): Response
     {
-        $notifications = Notification::with('user')
-            ->orderBy('created_at', 'desc')
+        $notifications = Notification::orderBy('created_at', 'desc')
             ->limit(100)
             ->get();
 

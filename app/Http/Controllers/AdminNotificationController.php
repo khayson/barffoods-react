@@ -18,11 +18,12 @@ class AdminNotificationController extends Controller
     {
         $this->authorize('viewAny', Notification::class);
         
-        $query = Notification::with('user')->orderBy('created_at', 'desc');
+        $query = Notification::orderBy('created_at', 'desc');
 
         // Apply filters
         if ($request->has('status')) {
-            $query->where('status', $request->status);
+            if ($request->status === 'unread') $query->whereNull('read_at');
+            if ($request->status === 'read') $query->whereNotNull('read_at');
         }
 
         if ($request->has('type')) {
@@ -30,11 +31,12 @@ class AdminNotificationController extends Controller
         }
 
         if ($request->has('priority')) {
-            $query->where('priority', $request->priority);
+            $query->whereJsonContains('data->priority', $request->priority);
         }
 
         if ($request->has('user_id')) {
-            $query->where('user_id', $request->user_id);
+            $query->where('notifiable_type', \App\Models\User::class)
+                  ->where('notifiable_id', $request->user_id);
         }
 
         $notifications = $query->paginate(50);
@@ -68,12 +70,13 @@ class AdminNotificationController extends Controller
             'expires_at' => 'nullable|string|date',
         ]);
 
-        $notification = NotificationService::create(
-            userId: $request->user_id,
+        $notification = (new NotificationService())->create(
             type: $request->type,
-            priority: $request->priority,
             title: $request->title,
             message: $request->message,
+            userId: $request->user_id,
+            priority: $request->priority,
+            data: null,
             actionUrl: $request->action_url,
             actionText: $request->action_text,
             icon: $request->icon,
@@ -101,13 +104,19 @@ class AdminNotificationController extends Controller
             'expires_at' => 'nullable|string|date',
         ]);
 
-        $notification->update($request->only([
-            'type', 'priority', 'status', 'title', 'message',
-            'action_url', 'action_text', 'icon', 'color', 'expires_at'
-        ]));
+        $data = $notification->data ?? [];
+        if ($request->filled('priority')) $data['priority'] = $request->priority;
+        if ($request->filled('title')) $data['title'] = $request->title;
+        if ($request->filled('message')) $data['message'] = $request->message;
+        if ($request->filled('action_url')) $data['action_url'] = $request->action_url;
+        if ($request->filled('action_text')) $data['action_text'] = $request->action_text;
+        if ($request->filled('icon')) $data['icon'] = $request->icon;
+        if ($request->filled('color')) $data['color'] = $request->color;
 
-        // Broadcast the update
-        broadcast(new \App\Events\NotificationUpdated($notification))->toOthers();
+        $notification->update([
+            'type' => $request->input('type', $notification->type),
+            'data' => $data,
+        ]);
 
         return response()->json($notification);
     }

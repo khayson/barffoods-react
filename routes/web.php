@@ -124,6 +124,7 @@ Route::post('/api/stores/calculate-delivery', [StoreController::class, 'calculat
 // Customer routes (default authenticated users)
 Route::middleware(['auth', 'role:customer'])->group(function () {
     Route::get('/dashboard', [CustomerController::class, 'dashboard'])->name('customer.dashboard');
+    Route::get('/notifications', function () { return Inertia::render('notifications/index'); })->name('customer.notifications');
     // Add other customer routes here
 });
 

@@ -243,14 +243,21 @@ class MessagingController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
+            \Log::error('Customer Messaging: store failed', [
+                'user_id' => auth()->id(),
+                'request' => $request->only(['subject','message']),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
             
             if ($request->header('X-Inertia')) {
-                return back()->withErrors(['error' => 'Failed to create conversation']);
+                return back()->withErrors(['error' => 'Failed to create conversation: '.$e->getMessage()]);
             }
             
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to create conversation'
+                'message' => 'Failed to create conversation',
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -329,14 +336,22 @@ class MessagingController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
+            \Log::error('Customer Messaging: sendMessage failed', [
+                'user_id' => auth()->id(),
+                'conversation_id' => $conversation->id ?? null,
+                'request' => $request->only(['content']),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
             
             if ($request->header('X-Inertia')) {
-                return back()->withErrors(['error' => 'Failed to send message']);
+                return back()->withErrors(['error' => 'Failed to send message: '.$e->getMessage()]);
             }
             
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to send message'
+                'message' => 'Failed to send message',
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

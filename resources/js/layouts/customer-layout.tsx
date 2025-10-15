@@ -50,7 +50,7 @@ function CustomerLayoutContent({ children }: CustomerLayoutProps) {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
             {/* Header */}
             <CustomerHeader 
                 onToggleMobileMenu={toggleMobileMenu}
@@ -65,7 +65,7 @@ function CustomerLayoutContent({ children }: CustomerLayoutProps) {
             )}
 
             {/* Main Content */}
-            <main className="py-6 pt-20">
+            <main className="pt-6 pb-8">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     {children}
                 </div>

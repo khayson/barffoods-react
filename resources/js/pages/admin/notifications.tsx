@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import AdminLayout from '@/layouts/admin-layout';
 import { Notification } from '@/types/notification';
 import CreateNotificationModal from '@/components/admin/CreateNotificationModal';
+import NotificationModal from '@/components/notifications/NotificationModal';
 
 interface AdminNotificationsProps {
     notifications: Notification[];
@@ -21,23 +22,25 @@ export default function AdminNotifications({ notifications: initialNotifications
     const [statusFilter, setStatusFilter] = useState<string>('all');
     const [typeFilter, setTypeFilter] = useState<string>('all');
     const [priorityFilter, setPriorityFilter] = useState<string>('all');
-    const [selectedNotifications, setSelectedNotifications] = useState<number[]>([]);
+    const [selectedNotifications, setSelectedNotifications] = useState<string[]>([]);
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [viewOpen, setViewOpen] = useState(false);
+    const [selected, setSelected] = useState<any | null>(null);
 
     // Filter notifications
     const filteredNotifications = notifications.filter(notification => {
-        const title = notification.title || '';
-        const message = notification.message || '';
+        const title = (notification as any).data?.title || '';
+        const message = (notification as any).data?.message || '';
         const matchesSearch = title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             message.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesStatus = statusFilter === 'all' || notification.status === statusFilter;
+        const matchesStatus = statusFilter === 'all' || (statusFilter === 'unread' ? !notification.read_at : !!notification.read_at);
         const matchesType = typeFilter === 'all' || notification.type === typeFilter;
-        const matchesPriority = priorityFilter === 'all' || notification.priority === priorityFilter;
+        const matchesPriority = priorityFilter === 'all' || (notification as any).data?.priority === priorityFilter;
         
         return matchesSearch && matchesStatus && matchesType && matchesPriority;
     });
 
-    const handleSelectNotification = (id: number) => {
+    const handleSelectNotification = (id: string) => {
         setSelectedNotifications(prev => 
             prev.includes(id) 
                 ? prev.filter(nId => nId !== id)
@@ -75,7 +78,7 @@ export default function AdminNotifications({ notifications: initialNotifications
         }
     };
 
-    const handleDeleteNotification = async (id: number) => {
+    const handleDeleteNotification = async (id: string) => {
         try {
             const response = await fetch(`/api/admin/notifications/${id}`, {
                 method: 'DELETE',
@@ -222,7 +225,7 @@ export default function AdminNotifications({ notifications: initialNotifications
                     <CardContent>
                         <div className="space-y-4">
                             {filteredNotifications.map((notification) => (
-                                <div key={notification.id} className="flex items-center space-x-4 p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800">
+                                <div key={notification.id} className="flex items-center space-x-4 p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer" onClick={() => { setSelected(notification); setViewOpen(true); }}>
                                     <input
                                         type="checkbox"
                                         checked={selectedNotifications.includes(notification.id)}
@@ -232,37 +235,36 @@ export default function AdminNotifications({ notifications: initialNotifications
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center space-x-2 mb-2">
                                             <h3 className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                                                {notification.title}
+                                                {(notification as any).data?.title || 'Notification'}
                                             </h3>
-                                            <Badge className={getPriorityColor(notification.priority)}>
-                                                {notification.priority}
+                                            <Badge className={getPriorityColor((notification as any).data?.priority || 'low')}>
+                                                {(notification as any).data?.priority || 'low'}
                                             </Badge>
-                                            <Badge className={getStatusColor(notification.status)}>
-                                                {notification.status}
+                                            <Badge className={getStatusColor(notification.read_at ? 'read' : 'unread')}>
+                                                {notification.read_at ? 'read' : 'unread'}
                                             </Badge>
                                             <Badge variant="outline">
                                                 {notification.type}
                                             </Badge>
                                         </div>
                                         <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                                            {notification.message}
+                                            {(notification as any).data?.message}
                                         </p>
                                         <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
-                                            <span>User ID: {notification.user_id}</span>
                                             <span>Created: {new Date(notification.created_at).toLocaleDateString()}</span>
                                             {notification.read_at && (
                                                 <span>Read: {new Date(notification.read_at).toLocaleDateString()}</span>
                                             )}
                                         </div>
                                     </div>
-                                    <DropdownMenu>
+                                    <DropdownMenu onOpenChange={(open) => { /* prevent card click firing */ }}>
                                         <DropdownMenuTrigger asChild>
                                             <Button variant="ghost" size="sm">
                                                 <MoreHorizontal className="h-4 w-4" />
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
-                                            <DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => { setSelected(notification); setViewOpen(true); }}>
                                                 <Eye className="h-4 w-4 mr-2" />
                                                 View Details
                                             </DropdownMenuItem>
@@ -302,6 +304,7 @@ export default function AdminNotifications({ notifications: initialNotifications
                 users={users}
                 onSuccess={handleNotificationCreated}
             />
+            <NotificationModal isOpen={viewOpen} onClose={() => setViewOpen(false)} notification={selected} />
         </AdminLayout>
     );
 }

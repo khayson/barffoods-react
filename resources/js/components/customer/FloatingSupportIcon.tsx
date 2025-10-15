@@ -65,11 +65,93 @@ export default function FloatingSupportIcon({ className = '' }: FloatingSupportI
     });
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const echoRef = useRef<any>(null);
+    
+    // Drag state
+    const [position, setPosition] = useState<{ x: number; y: number }>(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('support-icon-position');
+            if (saved) {
+                return JSON.parse(saved);
+            }
+        }
+        return { x: 24, y: 24 }; // Default: 24px from right, 24px from bottom
+    });
+    const [isDragging, setIsDragging] = useState(false);
+    const [hasMoved, setHasMoved] = useState(false);
+    const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+    const iconRef = useRef<HTMLDivElement>(null);
+    const currentPositionRef = useRef(position);
 
     const handleOpenModal = async () => {
         setIsOpen(true);
         await loadConversations();
     };
+
+    // Keep ref in sync with position state
+    useEffect(() => {
+        currentPositionRef.current = position;
+    }, [position]);
+
+    // Drag handlers
+    const handleMouseDown = (e: React.MouseEvent) => {
+        e.preventDefault();
+        setIsDragging(true);
+        setHasMoved(false);
+        
+        // Calculate offset from current position
+        const rect = iconRef.current?.getBoundingClientRect();
+        if (rect) {
+            setDragStart({
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top
+            });
+        }
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+        if (!isDragging) return;
+        
+        e.preventDefault();
+        setHasMoved(true);
+        
+        // Calculate new position from right and bottom edges
+        const x = Math.max(24, Math.min(window.innerWidth - 80, window.innerWidth - (e.clientX - dragStart.x) - 56));
+        const y = Math.max(24, Math.min(window.innerHeight - 80, window.innerHeight - (e.clientY - dragStart.y) - 56));
+        
+        const newPosition = { x, y };
+        setPosition(newPosition);
+        currentPositionRef.current = newPosition;
+    };
+
+    const handleMouseUp = () => {
+        if (isDragging) {
+            setIsDragging(false);
+            
+            // Only open modal if user didn't drag
+            if (!hasMoved) {
+                handleOpenModal();
+            } else {
+                // Save position if dragged - use ref to get latest value
+                localStorage.setItem('support-icon-position', JSON.stringify(currentPositionRef.current));
+                console.log('Position saved:', currentPositionRef.current);
+            }
+            
+            setHasMoved(false);
+        }
+    };
+
+    // Drag event listeners
+    useEffect(() => {
+        if (isDragging) {
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+            
+            return () => {
+                document.removeEventListener('mousemove', handleMouseMove);
+                document.removeEventListener('mouseup', handleMouseUp);
+            };
+        }
+    }, [isDragging, dragStart]);
 
     // Allow other components to open this modal via a custom event
     useEffect(() => {
@@ -232,28 +314,41 @@ export default function FloatingSupportIcon({ className = '' }: FloatingSupportI
         }
 
         setIsLoading(true);
-        
-        router.post('/api/customer/messaging', {
-            subject: newConversation.subject.trim(),
-            message: newConversation.message.trim(),
-        }, {
-            preserveScroll: true,
-            onSuccess: async (data: any) => {
-                toast.success('Conversation created successfully!');
-                setNewConversation({ subject: '', message: '' });
-                await loadConversations();
-                if (data.conversation) {
-                    setSelectedConversation(data.conversation);
-                }
-            },
-            onError: (errors) => {
-                console.error('Failed to create conversation:', errors);
-                toast.error('Failed to create conversation');
-            },
-            onFinish: () => {
-                setIsLoading(false);
+        try {
+            const resp = await fetch('/api/customer/messaging', {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+                body: JSON.stringify({
+                    subject: newConversation.subject.trim(),
+                    message: newConversation.message.trim(),
+                }),
+            });
+
+            if (!resp.ok) {
+                const errorJson = await resp.json().catch(() => ({}));
+                console.error('Create conversation failed:', errorJson);
+                toast.error(errorJson.message || 'Failed to create conversation');
+                return;
             }
-        });
+
+            const data = await resp.json();
+            toast.success('Conversation created successfully!');
+            setNewConversation({ subject: '', message: '' });
+            await loadConversations();
+            if (data.conversation) {
+                setSelectedConversation(data.conversation);
+            }
+        } catch (err) {
+            console.error('Failed to create conversation:', err);
+            toast.error('Failed to create conversation');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const handleSendMessage = async (e: React.FormEvent) => {
@@ -261,38 +356,40 @@ export default function FloatingSupportIcon({ className = '' }: FloatingSupportI
         if (!selectedConversation || !newMessage.trim()) return;
 
         setIsLoading(true);
-        
-        router.post(`/api/customer/messaging/${selectedConversation.id}/messages`, {
-            content: newMessage.trim(),
-            type: 'text'
-        }, {
-            preserveScroll: true,
-            onSuccess: async () => {
-                toast.success('Message sent!');
-                setNewMessage('');
-                // Reset textarea height
-                if (textareaRef.current) {
-                    textareaRef.current.style.height = 'auto';
-                }
-                await loadConversations();
-                
-                // Reload messages for the current conversation
-                if (selectedConversation) {
-                    const messages = await loadMessages(selectedConversation.id);
-                    setSelectedConversation({
-                        ...selectedConversation,
-                        messages: messages
-                    });
-                }
-            },
-            onError: (errors) => {
-                console.error('Failed to send message:', errors);
-                toast.error('Failed to send message');
-            },
-            onFinish: () => {
-                setIsLoading(false);
+        try {
+            const resp = await fetch(`/api/customer/messaging/${selectedConversation.id}/messages`, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+                body: JSON.stringify({
+                    content: newMessage.trim(),
+                    type: 'text',
+                }),
+            });
+
+            if (!resp.ok) {
+                const errorJson = await resp.json().catch(() => ({}));
+                console.error('Send message failed:', errorJson);
+                toast.error(errorJson.message || 'Failed to send message');
+                return;
             }
-        });
+
+            toast.success('Message sent!');
+            setNewMessage('');
+            if (textareaRef.current) textareaRef.current.style.height = 'auto';
+            await loadConversations();
+            const messages = await loadMessages(selectedConversation.id);
+            setSelectedConversation({ ...selectedConversation, messages });
+        } catch (err) {
+            console.error('Failed to send message:', err);
+            toast.error('Failed to send message');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const formatTime = (dateString: string) => {
@@ -321,15 +418,32 @@ export default function FloatingSupportIcon({ className = '' }: FloatingSupportI
 
     return (
         <>
-            {/* Floating Support Icon */}
-            <div className={`fixed bottom-6 right-6 z-50 ${className}`}>
-                <Button
-                    onClick={handleOpenModal}
-                    className="h-14 w-14 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center group"
-                    size="lg"
-                >
-                    <MessageCircle className="h-6 w-6 group-hover:scale-110 transition-transform duration-200" />
-                </Button>
+            {/* Floating Support Icon - Draggable */}
+            <div 
+                ref={iconRef}
+                className={`fixed z-50 group ${isDragging ? 'cursor-grabbing' : 'cursor-grab'} ${className}`}
+                style={{
+                    right: `${position.x}px`,
+                    bottom: `${position.y}px`,
+                    touchAction: 'none',
+                    userSelect: 'none'
+                }}
+                onMouseDown={handleMouseDown}
+            >
+                <div className="relative">
+                    <div className="h-14 w-14 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center">
+                        <MessageCircle className="h-6 w-6 group-hover:scale-110 transition-transform duration-200 pointer-events-none" />
+                    </div>
+                    
+                    {/* Drag hint on hover */}
+                    {!isDragging && (
+                        <div className="absolute -top-10 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                            <div className="bg-gray-900 dark:bg-gray-700 text-white text-xs px-3 py-1.5 rounded-lg shadow-lg">
+                                Drag to move • Click to open
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* Support Modal */}

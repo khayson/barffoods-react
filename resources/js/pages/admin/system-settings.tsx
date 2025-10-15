@@ -52,10 +52,10 @@ interface FormData {
 
 export default function SystemSettings({ settings }: SystemSettingsProps) {
     // Debug: Log the settings received from backend
-    console.log('SystemSettings - Settings received from backend:', settings);
-    console.log('SystemSettings - Discount rules:', settings.discount_rules);
-    console.log('SystemSettings - Payment methods:', settings.payment_methods);
-    console.log('SystemSettings - Store address:', settings.store_address);
+    // console.log('SystemSettings - Settings received from backend:', settings);
+    // console.log('SystemSettings - Discount rules:', settings.discount_rules);
+    // console.log('SystemSettings - Payment methods:', settings.payment_methods);
+    // console.log('SystemSettings - Store address:', settings.store_address);
     
     const { data, setData, post, processing, errors } = useForm<FormData>({
         global_delivery_fee: settings.global_delivery_fee || 4.99,
@@ -105,7 +105,7 @@ export default function SystemSettings({ settings }: SystemSettingsProps) {
         <AdminLayout>
             <Head title="System Settings - BarfFoods Admin" />
             
-            <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+            <div className="min-h-screen scrollbar-hide overflow-hide">
                 <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                     {/* Header */}
                     <div className="mb-8">

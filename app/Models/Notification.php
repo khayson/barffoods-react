@@ -3,45 +3,34 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class Notification extends Model
 {
-    protected $fillable = [
-        'type',
-        'priority',
-        'status',
-        'title',
-        'message',
-        'data',
-        'user_id',
-        'read_at',
-        'expires_at',
-        'action_url',
-        'action_text',
-        'icon',
-        'color',
-    ];
+    // For default Laravel DB notifications, table uses UUID and guarded by default
+    protected $table = 'notifications';
+    public $incrementing = false;
+    protected $keyType = 'string';
+    protected $guarded = [];
 
     protected $casts = [
         'data' => 'array',
         'read_at' => 'datetime',
-        'expires_at' => 'datetime',
     ];
 
-    public function user(): BelongsTo
+    public function notifiable(): MorphTo
     {
-        return $this->belongsTo(User::class);
+        return $this->morphTo();
     }
 
     public function scopeUnread($query)
     {
-        return $query->where('status', 'unread');
+        return $query->whereNull('read_at');
     }
 
     public function scopeRead($query)
     {
-        return $query->where('status', 'read');
+        return $query->whereNotNull('read_at');
     }
 
     public function scopeByType($query, string $type)
@@ -49,26 +38,17 @@ class Notification extends Model
         return $query->where('type', $type);
     }
 
-    public function scopeByPriority($query, string $priority)
-    {
-        return $query->where('priority', $priority);
-    }
+    // priority is stored inside data for DB notifications; scope omitted
 
     public function scopeForUser($query, int $userId)
     {
-        return $query->where('user_id', $userId);
+        return $query->where('notifiable_type', User::class)->where('notifiable_id', $userId);
     }
 
     public function markAsRead(): void
     {
         $this->update([
-            'status' => 'read',
             'read_at' => now(),
         ]);
-    }
-
-    public function isExpired(): bool
-    {
-        return $this->expires_at && $this->expires_at->isPast();
     }
 }

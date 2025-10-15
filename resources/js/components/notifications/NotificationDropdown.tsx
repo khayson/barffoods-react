@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { Link } from '@inertiajs/react';
+import NotificationModal from '@/components/notifications/NotificationModal';
 
 interface NotificationDropdownProps {
     isOpen: boolean;
@@ -19,49 +20,41 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ isOpen, onC
     // Get notification icon and color
     const getNotificationIcon = (notification: any) => {
         const { data } = notification;
-        
-        switch (notification.type) {
-            case 'App\\Notifications\\NewOrderAdminNotification':
-                return { icon: Package, color: 'text-blue-600 dark:text-blue-400', bgColor: 'bg-blue-50 dark:bg-blue-900/20' };
-            case 'App\\Notifications\\OrderConfirmationNotification':
-                return { icon: CheckCircle, color: 'text-green-600 dark:text-green-400', bgColor: 'bg-green-50 dark:bg-green-900/20' };
-            case 'App\\Notifications\\OrderStatusUpdateNotification':
-                return { icon: Clock, color: 'text-yellow-600 dark:text-yellow-400', bgColor: 'bg-yellow-50 dark:bg-yellow-900/20' };
-            case 'App\\Notifications\\OrderShippedNotification':
-                return { icon: Truck, color: 'text-purple-600 dark:text-purple-400', bgColor: 'bg-purple-50 dark:bg-purple-900/20' };
+        const color = data?.color || 'text-gray-600 dark:text-gray-400';
+        const bgColor = data?.color
+            ? `bg-${data.color}-50 dark:bg-${data.color}-900/20`
+            : 'bg-gray-50 dark:bg-gray-900/20';
+        // Map basic types to icons; fallback to bell
+        switch ((notification.type || '').toLowerCase()) {
+            case 'order':
+                return { icon: Package, color: color, bgColor };
+            case 'message':
+                return { icon: CheckCircle, color: color, bgColor };
+            case 'delivery':
+                return { icon: Truck, color: color, bgColor };
             default:
-                return { icon: Bell, color: 'text-gray-600 dark:text-gray-400', bgColor: 'bg-gray-50 dark:bg-gray-900/20' };
+                return { icon: Bell, color: color, bgColor };
         }
     };
 
     // Get notification action URL
     const getNotificationUrl = (notification: any) => {
         const { data } = notification;
-        
-        switch (notification.type) {
-            case 'App\\Notifications\\NewOrderAdminNotification':
-            case 'App\\Notifications\\OrderConfirmationNotification':
-            case 'App\\Notifications\\OrderStatusUpdateNotification':
-            case 'App\\Notifications\\OrderShippedNotification':
-                return data.order_id ? `/orders/${data.order_id}` : null;
-            default:
-                return null;
-        }
+        if (data?.action_url) return data.action_url;
+        if (notification.type === 'order' && data?.order_id) return `/orders/${data.order_id}`;
+        return null;
     };
 
     // Format notification message
     const getNotificationMessage = (notification: any) => {
         const { data } = notification;
-        
-        switch (notification.type) {
-            case 'App\\Notifications\\NewOrderAdminNotification':
-                return `New order ${data.order_number} from ${data.customer_name} - $${data.total_amount}`;
-            case 'App\\Notifications\\OrderConfirmationNotification':
-                return `Order ${data.order_number} confirmed - $${data.total_amount}`;
-            case 'App\\Notifications\\OrderStatusUpdateNotification':
-                return `Order ${data.order_number} status updated`;
-            case 'App\\Notifications\\OrderShippedNotification':
-                return `Order ${data.order_number} has been shipped`;
+        if (typeof data?.message === 'string' && data.message.length) return data.message;
+        if (typeof data?.title === 'string' && data.title.length) return data.title;
+        switch ((notification.type || '').toLowerCase()) {
+            case 'order':
+                return `Order update`;
+            case 'message':
+                return 'New message';
             default:
                 return 'New notification';
         }
@@ -79,6 +72,9 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ isOpen, onC
         return `${Math.floor(diffInMinutes / 1440)}d ago`;
     };
 
+    const [openModal, setOpenModal] = React.useState(false);
+    const [selected, setSelected] = React.useState<any | null>(null);
+
     if (!isOpen) return null;
 
     return createPortal(
@@ -94,16 +90,19 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ isOpen, onC
                 <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
                         <CardTitle className="text-lg text-gray-900 dark:text-white">Notifications</CardTitle>
-                        {state.unreadCount > 0 && (
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={markAllAsRead}
-                                className="text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                            >
-                                Mark all read
-                            </Button>
-                        )}
+                        <div className="flex items-center gap-2">
+                            <Link href={location.pathname.startsWith('/admin') ? '/admin/notifications' : '/notifications'} className="text-xs text-green-600 dark:text-green-400 hover:underline">View all</Link>
+                            {state.unreadCount > 0 && (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={markAllAsRead}
+                                    className="text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                                >
+                                    Mark all read
+                                </Button>
+                            )}
+                        </div>
                     </div>
                 </CardHeader>
                 
@@ -125,9 +124,9 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ isOpen, onC
                                     const isClickable = url !== null;
                                     
                                     const NotificationContent = () => (
-                                        <div className={`p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${
+                                        <div className={`p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer ${
                                             !notification.read_at ? 'bg-blue-50 dark:bg-blue-900/10' : ''
-                                        } ${isClickable ? 'cursor-pointer' : ''}`}>
+                                        }`}>
                                             <div className="flex items-start space-x-3">
                                                 <div className={`flex-shrink-0 w-8 h-8 rounded-full ${bgColor} flex items-center justify-center`}>
                                                     <Icon className={`w-4 h-4 ${color}`} />
@@ -152,6 +151,11 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ isOpen, onC
                                         </div>
                                     );
                                     
+                                    const openDetail = () => {
+                                        setSelected(notification);
+                                        setOpenModal(true);
+                                    };
+
                                     return isClickable ? (
                                         <Link
                                             key={notification.id}
@@ -166,7 +170,10 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ isOpen, onC
                                     ) : (
                                         <div
                                             key={notification.id}
-                                            onClick={() => markAsRead(notification.id)}
+                                            onClick={() => {
+                                                markAsRead(notification.id);
+                                                openDetail();
+                                            }}
                                         >
                                             <NotificationContent />
                                         </div>
@@ -177,6 +184,7 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ isOpen, onC
                     </ScrollArea>
                 </CardContent>
             </Card>
+            <NotificationModal isOpen={openModal} onClose={() => setOpenModal(false)} notification={selected} onMarkRead={(id) => markAsRead(id)} />
         </>,
         document.body
     );

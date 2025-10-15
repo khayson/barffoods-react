@@ -67,248 +67,253 @@ function AdminLayoutContent({ children, hideRightSidebar = false }: AdminLayoutP
     };
 
     const currentPath = window.location.pathname;
+
+    // Close sidebar on route change (mobile)
+    useEffect(() => {
+        setShowSidebar(false);
+    }, [currentPath]);
+    
     const isActive = (href: string) => currentPath === href;
 
     return (
-        <div className="h-screen bg-gray-50 dark:bg-gray-900 flex">
+        <div className="h-screen bg-gray-50 dark:bg-gray-950 flex overflow-hidden">
+            {/* Mobile Overlay */}
+            {showSidebar && (
+                <div 
+                    className="lg:hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
+                    onClick={() => setShowSidebar(false)}
+                />
+            )}
+
             {/* Left Sidebar */}
-            <div className="w-64 bg-white dark:bg-gray-800 shadow-lg rounded-xl m-4 flex flex-col border border-gray-400 dark:border-gray-600">
-                {/* Sidebar Header */}
-                <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                    <div className="flex items-center justify-between">
-                        <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Barffoods Admin
-                        </h2>
-                        <button
-                            type="button"
-                            role="switch"
-                            aria-checked={isDarkMode}
-                            onClick={() => setIsDarkMode((v) => !v)}
-                            className={`relative inline-flex items-center transition-colors duration-200
-                                h-6 w-12 rounded-full border
-                                ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-100 border-gray-400'}`}
-                            aria-label="Toggle theme"
-                        >
-                            {/* Sun icon (left) */}
-                            <Sun className={`absolute left-1 h-3.5 w-3.5 transition-opacity duration-200
-                                ${isDarkMode ? 'opacity-40 text-yellow-400' : 'opacity-100 text-yellow-500'}`} />
-                            {/* Moon icon (right) */}
-                            <Moon className={`absolute right-1 h-3.5 w-3.5 transition-opacity duration-200
-                                ${isDarkMode ? 'opacity-100 text-gray-200' : 'opacity-40 text-gray-600'}`} />
-                            {/* Thumb */}
-                            <span
-                                className={`inline-block h-5 w-5 bg-white dark:bg-gray-200 rounded-full shadow-sm transform transition-transform duration-200
-                                    ${isDarkMode ? 'translate-x-6' : 'translate-x-1'}`}
-                                aria-hidden="true"
-                            />
-                        </button>
+            <aside className={`
+                ${showSidebar ? 'translate-x-0' : '-translate-x-full'}
+                lg:translate-x-0
+                fixed lg:static inset-y-0 left-0 z-50
+                w-72 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800
+                flex flex-col
+                transition-transform duration-300 ease-in-out
+            `}>
+                {/* Sidebar Header - Brand */}
+                <div className="h-16 px-6 flex items-center justify-between border-b border-gray-200 dark:border-gray-800">
+                    <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                            <span className="text-white font-bold text-sm">BF</span>
+                        </div>
+                        <div>
+                            <h1 className="text-sm font-semibold text-gray-900 dark:text-white">BarfFoods</h1>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Admin Panel</p>
+                        </div>
                     </div>
                 </div>
 
                 {/* Navigation */}
-                <nav className="flex-1 px-4 py-4 space-y-2 overflow-y-auto">
+                <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
                     {/* Dashboard */}
                     <Link
                         href="/admin/dashboard"
                         className={`
-                            group flex items-center rounded-lg transition-colors duration-200 px-4 py-3
+                            group flex items-center px-3 py-2.5 rounded-lg transition-all duration-200
                             ${isActive('/admin/dashboard')
-                                ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600'
-                                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'
+                                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
                             }
                         `}
                     >
-                        <div className={`
-                            flex-shrink-0 rounded-lg flex items-center justify-center w-6 h-6 mr-3
-                            ${isActive('/admin/dashboard')
-                                ? 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
-                                : 'bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-400 group-hover:bg-gray-200 dark:group-hover:bg-gray-500'
-                            }
-                        `}>
-                            <LayoutGrid className="h-3 w-3" />
-                        </div>
-                        <span className="truncate text-sm font-medium">Dashboard</span>
+                        <LayoutGrid className={`h-5 w-5 mr-3 ${isActive('/admin/dashboard') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'}`} />
+                        <span className="text-sm font-medium">Dashboard</span>
+                        {isActive('/admin/dashboard') && (
+                            <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-blue-400"></div>
+                        )}
                     </Link>
 
                     {/* Orders */}
                     <Link
                         href="/admin/orders"
                         className={`
-                            group flex items-center rounded-lg transition-colors duration-200 px-4 py-3
+                            group flex items-center px-3 py-2.5 rounded-lg transition-all duration-200
                             ${isActive('/admin/orders')
-                                ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600'
-                                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'
+                                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
                             }
                         `}
                     >
-                        <div className={`
-                            flex-shrink-0 rounded-lg flex items-center justify-center w-6 h-6 mr-3
-                            ${isActive('/admin/orders')
-                                ? 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
-                                : 'bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-400 group-hover:bg-gray-200 dark:group-hover:bg-gray-500'
-                            }
-                        `}>
-                            <ShoppingCart className="h-3 w-3" />
-                        </div>
-                        <span className="truncate text-sm font-medium">Orders</span>
+                        <ShoppingCart className={`h-5 w-5 mr-3 ${isActive('/admin/orders') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'}`} />
+                        <span className="text-sm font-medium">Orders</span>
+                        {isActive('/admin/orders') && (
+                            <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-blue-400"></div>
+                        )}
                     </Link>
 
                     {/* Notifications */}
                     <Link
                         href="/admin/notifications"
                         className={`
-                            group flex items-center rounded-lg transition-colors duration-200 px-4 py-3
+                            group flex items-center px-3 py-2.5 rounded-lg transition-all duration-200
                             ${isActive('/admin/notifications')
-                                ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600'
-                                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'
+                                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
                             }
                         `}
                     >
-                        <div className={`
-                            flex-shrink-0 rounded-lg flex items-center justify-center w-6 h-6 mr-3
-                            ${isActive('/admin/notifications')
-                                ? 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
-                                : 'bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-400 group-hover:bg-gray-200 dark:group-hover:bg-gray-500'
-                            }
-                        `}>
-                            <Bell className="h-3 w-3" />
-                        </div>
-                        <span className="truncate text-sm font-medium">Notifications</span>
+                        <Bell className={`h-5 w-5 mr-3 ${isActive('/admin/notifications') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'}`} />
+                        <span className="text-sm font-medium">Notifications</span>
+                        {isActive('/admin/notifications') && (
+                            <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-blue-400"></div>
+                        )}
                     </Link>
 
                     {/* Messages */}
                     <Link
                         href="/admin/messaging"
                         className={`
-                            group flex items-center rounded-lg transition-colors duration-200 px-4 py-3
+                            group flex items-center px-3 py-2.5 rounded-lg transition-all duration-200
                             ${isActive('/admin/messaging')
-                                ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600'
-                                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'
+                                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
                             }
                         `}
                     >
-                        <div className={`
-                            flex-shrink-0 rounded-lg flex items-center justify-center w-6 h-6 mr-3
-                            ${isActive('/admin/messaging')
-                                ? 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
-                                : 'bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-400 group-hover:bg-gray-200 dark:group-hover:bg-gray-500'
-                            }
-                        `}>
-                            <MessageSquare className="h-3 w-3" />
-                        </div>
-                        <span className="truncate text-sm font-medium">Messages</span>
+                        <MessageSquare className={`h-5 w-5 mr-3 ${isActive('/admin/messaging') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'}`} />
+                        <span className="text-sm font-medium">Messages</span>
+                        {isActive('/admin/messaging') && (
+                            <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-blue-400"></div>
+                        )}
                     </Link>
 
                     {/* System Settings */}
                     <Link
                         href="/admin/system-settings"
                         className={`
-                            group flex items-center rounded-lg transition-colors duration-200 px-4 py-3
+                            group flex items-center px-3 py-2.5 rounded-lg transition-all duration-200
                             ${isActive('/admin/system-settings')
-                                ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600'
-                                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'
+                                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
                             }
                         `}
                     >
-                <div className={`
-                            flex-shrink-0 rounded-lg flex items-center justify-center w-6 h-6 mr-3
-                            ${isActive('/admin/system-settings')
-                                ? 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
-                                : 'bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-400 group-hover:bg-gray-200 dark:group-hover:bg-gray-500'
-                            }
-                        `}>
-                            <Settings className="h-3 w-3" />
-                        </div>
-                        <span className="truncate text-sm font-medium">System Settings</span>
+                        <Settings className={`h-5 w-5 mr-3 ${isActive('/admin/system-settings') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'}`} />
+                        <span className="text-sm font-medium">Settings</span>
+                        {isActive('/admin/system-settings') && (
+                            <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-blue-400"></div>
+                        )}
                     </Link>
                 </nav>
 
-                {/* User Info Dropdown */}
-                <div className="px-4 py-4 border-t border-gray-200 dark:border-gray-700">
+                {/* Theme Toggle & User */}
+                <div className="p-4 border-t border-gray-200 dark:border-gray-800 space-y-3">
+                    {/* Theme Toggle */}
+                    <button
+                        onClick={() => setIsDarkMode(!isDarkMode)}
+                        className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    >
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Theme</span>
+                        <div className="flex items-center space-x-2">
+                            {isDarkMode ? (
+                                <Moon className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                            ) : (
+                                <Sun className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                            )}
+                        </div>
+                    </button>
+
+                    {/* User Dropdown */}
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <button className="flex w-full items-center rounded-lg px-3 py-3 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-700">
-                                <UserInfo user={auth.user} />
-                                <ChevronsUpDown className="ml-auto size-4" />
+                            <button className="flex w-full items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                                <Avatar className="h-9 w-9">
+                                    <AvatarImage src={auth.user?.avatar} />
+                                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-sm">
+                                        {getInitials(auth.user?.name || '')}
+                                    </AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1 text-left">
+                                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{auth.user?.name}</p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{auth.user?.email}</p>
+                                </div>
+                                <ChevronsUpDown className="h-4 w-4 text-gray-400" />
                             </button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent
-                            className="w-56 rounded-lg z-[60]"
-                            align="end"
-                            side="top"
-                            sideOffset={5}
-                        >
+                        <DropdownMenuContent className="w-64" align="end" side="top" sideOffset={8}>
                             <UserMenuContent user={auth.user} />
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
-            </div>
+            </aside>
 
             {/* Main Content Area */}
-            <div className="flex-1 flex flex-col">
-                {/* Top Row - icons, messages, search, datetime (no card background) */}
-                <div className="m-4 mb-2 h-12 flex items-center justify-between px-6 sticky top-0 z-50 bg-transparent overflow-visible">
-                    {/* Left side - Icons */}
-                    <div className="flex items-center space-x-6">
-                        {/* Bell icon */}
-                        <div className="relative z-50 overflow-visible">
+            <main className="flex-1 flex flex-col min-w-0 bg-gray-50 dark:bg-gray-950">
+                {/* Top Header Bar */}
+                <header className="h-16 px-4 sm:px-6 flex items-center justify-between border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+                    {/* Left Side - Mobile Menu + Search */}
+                    <div className="flex items-center space-x-3 flex-1 max-w-2xl">
+                        {/* Mobile Menu Button */}
+                        <button
+                            onClick={() => setShowSidebar(!showSidebar)}
+                            className="lg:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                        >
+                            <svg className="w-5 h-5 text-gray-700 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                            </svg>
+                        </button>
+
+                        {/* Search */}
+                        <div className="flex-1">
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                <input
+                                    type="text"
+                                    placeholder="Search..."
+                                    className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Right Actions */}
+                    <div className="flex items-center space-x-4 ml-6">
+                        {/* Date/Time */}
+                        <div className="hidden lg:flex items-center text-sm text-gray-600 dark:text-gray-400">
+                            {formatDateTime(currentDateTime)}
+                        </div>
+
+                        {/* Notifications */}
+                        <div className="relative">
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                className="p-0 h-6 w-6 text-gray-700 dark:text-gray-300 hover:bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 rounded relative"
+                                className="relative h-9 w-9 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
                                 onClick={() => setNotificationOpen(!notificationOpen)}
                             >
-                                <Bell className="h-5 w-5" />
+                                <Bell className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                                 {notificationState.unreadCount > 0 && (
-                                    <span className={`absolute -top-1 -right-1 bg-red-500 rounded-full text-xs text-white flex items-center justify-center ${
-                                        notificationState.unreadCount >= 9 
-                                            ? 'px-1.5 py-0.5 min-w-[1.5rem] h-4' 
-                                            : 'h-3 w-3'
-                                    }`}>
-                                        {notificationState.unreadCount >= 9 ? '9+' : notificationState.unreadCount}
+                                    <span className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 rounded-full flex items-center justify-center text-[10px] text-white font-medium">
+                                        {notificationState.unreadCount > 9 ? '9+' : notificationState.unreadCount}
                                     </span>
                                 )}
                             </Button>
                             <NotificationDropdown 
                                 isOpen={notificationOpen} 
                                 onClose={() => setNotificationOpen(false)} 
-                    />
-                </div>
+                            />
+                        </div>
 
-                        {/* Message icon */}
+                        {/* Messages */}
                         <Button
                             variant="ghost"
                             size="icon"
-                            className="p-0 h-6 w-6 text-gray-700 dark:text-gray-300 hover:bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 rounded"
+                            className="h-9 w-9 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
                         >
-                            <MessageSquare className="h-5 w-5" />
+                            <MessageSquare className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                         </Button>
-                        
-                        {/* Search bar with icon INSIDE */}
-                        <div className="relative">
-                            <input
-                                type="text"
-                                placeholder="Search..."
-                                className="pl-9 pr-4 h-9 border border-gray-300 dark:border-gray-600 rounded-full bg-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-400 transition w-[360px] md:w-[420px] lg:w-[460px] text-sm"
-                            />
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 h-4 w-4" />
                     </div>
-            </div>
+                </header>
 
-                    {/* Right side - Date/Time */}
-                    <div className="text-sm text-gray-900 dark:text-white font-medium">
-                        {formatDateTime(currentDateTime)}
-                    </div>
+                {/* Main Content */}
+                <div className="flex-1 overflow-auto p-6 scrollbar-hide">
+                    {children}
                 </div>
-
-                {/* Main Content Canvas */}
-                <div className="flex-1 ml-1 mr-6 mb-4 mt-0 rounded-[48px] border border-gray-300 dark:border-gray-600 bg-gray-50/80 dark:bg-gray-900/20 shadow-sm overflow-hidden">
-                    {/* Children wrapper keeps content inside frame and style */}
-                    <div className="h-full w-full overflow-auto p-6 bg-transparent [&>*]:max-w-full [&>*]:m-0 [&>*]:bg-transparent scrollbar-hide">
-                        {children}
-                    </div>
-                </div>
-            </div>
+            </main>
         </div>
     );
 }

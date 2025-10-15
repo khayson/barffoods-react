@@ -6,6 +6,7 @@ use App\Models\Notification;
 use App\Models\User;
 use App\Events\NotificationCreated;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class NotificationService
 {
@@ -25,20 +26,70 @@ class NotificationService
         ?string $color = null,
         ?\DateTime $expiresAt = null
     ): Notification {
-        $notification = Notification::create([
+        // If notifications table follows Laravel default (no "title"), store as Database Notification
+        $hasTitle = Schema::hasColumn('notifications', 'title');
+        $hasNotifiable = Schema::hasColumn('notifications', 'notifiable_type') && Schema::hasColumn('notifications', 'notifiable_id');
+
+        if (!$hasTitle && $hasNotifiable) {
+            $id = (string) \Illuminate\Support\Str::uuid();
+            $dataJson = [
+                'title' => $title,
+                'message' => $message,
+                'priority' => $priority,
+                'action_url' => $actionUrl,
+                'action_text' => $actionText,
+                'icon' => $icon,
+                'color' => $color,
+                'meta' => $data,
+            ];
+
+            \DB::table('notifications')->insert([
+                'id' => $id,
+                'type' => $type,
+                'notifiable_type' => User::class,
+                'notifiable_id' => $userId,
+                'data' => json_encode($dataJson),
+                'read_at' => null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            // Attempt to load via model for return type
+            return Notification::query()->where('id', $id)->firstOrFail();
+        }
+
+        $payload = [
             'type' => $type,
-            'priority' => $priority,
-            'status' => 'unread',
             'title' => $title,
             'message' => $message,
             'data' => $data,
             'user_id' => $userId,
-            'expires_at' => $expiresAt,
-            'action_url' => $actionUrl,
-            'action_text' => $actionText,
-            'icon' => $icon,
-            'color' => $color,
-        ]);
+        ];
+
+        if ($expiresAt) {
+            $payload['expires_at'] = $expiresAt;
+        }
+        if (Schema::hasColumn('notifications', 'status')) {
+            $payload['status'] = 'unread';
+        }
+        // Only include columns that exist on the notifications table
+        if (Schema::hasColumn('notifications', 'priority')) {
+            $payload['priority'] = $priority;
+        }
+        if (Schema::hasColumn('notifications', 'action_url')) {
+            $payload['action_url'] = $actionUrl;
+        }
+        if (Schema::hasColumn('notifications', 'action_text')) {
+            $payload['action_text'] = $actionText;
+        }
+        if (Schema::hasColumn('notifications', 'icon')) {
+            $payload['icon'] = $icon;
+        }
+        if (Schema::hasColumn('notifications', 'color')) {
+            $payload['color'] = $color;
+        }
+
+        $notification = Notification::create($payload);
 
         // Broadcast the notification
         try {

@@ -14,25 +14,24 @@ export type NotificationType =
 
 export type NotificationPriority = 'low' | 'medium' | 'high' | 'urgent';
 
-export type NotificationStatus = 'unread' | 'read' | 'archived';
-
 export interface Notification {
-    id: number;
-    type: string;
-    priority: NotificationPriority;
-    status: NotificationStatus;
-    title: string;
-    message: string;
-    data?: Record<string, any>;
-    user_id: number;
+    id: string; // uuid
+    type: string; // class or custom string
+    notifiable_type: string;
+    notifiable_id: number;
+    data: {
+        title?: string;
+        message?: string;
+        priority?: NotificationPriority;
+        action_url?: string;
+        action_text?: string;
+        icon?: string;
+        color?: string;
+        [key: string]: any;
+    };
+    read_at: string | null;
     created_at: string;
     updated_at: string;
-    read_at?: string;
-    expires_at?: string;
-    action_url?: string;
-    action_text?: string;
-    icon?: string;
-    color?: string;
 }
 
 export interface NotificationGroup {
@@ -55,7 +54,6 @@ export interface NotificationSettings {
 export interface NotificationFilters {
     types?: NotificationType[];
     priority?: NotificationPriority[];
-    status?: NotificationStatus[];
     dateRange?: {
         from: Date;
         to: Date;

@@ -194,30 +194,52 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     // Get notification message for display
     const getNotificationMessage = (notification: LaravelNotification): string => {
         const { data } = notification;
-        
+        // Prefer title/message inside DB notification data when present
+        if (data) {
+            if (typeof data.message === 'string' && data.message.length > 0) return data.message;
+            if (typeof data.title === 'string' && data.title.length > 0) return data.title;
+        }
+        // Fallbacks for known types (optional)
         switch (notification.type) {
-            case 'App\\Notifications\\NewOrderAdminNotification':
-                return `New order ${data.order_number} from ${data.customer_name} - $${data.total_amount}`;
-            case 'App\\Notifications\\OrderConfirmationNotification':
-                return `Order ${data.order_number} confirmed - $${data.total_amount}`;
-            case 'App\\Notifications\\OrderStatusUpdateNotification':
-                return `Order ${data.order_number} status updated`;
-            case 'App\\Notifications\\OrderShippedNotification':
-                return `Order ${data.order_number} has been shipped`;
+            case 'order':
+                return `Order ${data?.order_number ?? ''} update`;
+            case 'message':
+                return 'New message received';
             default:
                 return 'New notification';
         }
     };
 
-    // Initial fetch and polling
+    // Initial fetch, polling, and realtime subscription
     useEffect(() => {
         fetchNotifications();
-        
-        // Poll for new notifications every 30 seconds
         const interval = setInterval(fetchNotifications, 30000);
-        
-        return () => clearInterval(interval);
-    }, [fetchNotifications]);
+
+        // Real-time subscription using Echo if available
+        let channel: any = null;
+        try {
+            if ((window as any).Echo && userId) {
+                channel = (window as any).Echo.private(`notifications.${userId}`)
+                    .listen('.notification.created', (payload: any) => {
+                        if (payload && payload.notification) {
+                            addNotification(payload.notification);
+                        }
+                    });
+            }
+        } catch (err) {
+            // Silent fallback to polling
+            console.warn('Echo subscription failed, falling back to polling', err);
+        }
+
+        return () => {
+            clearInterval(interval);
+            try {
+                if (channel && (window as any).Echo && userId) {
+                    (window as any).Echo.leave(`private-notifications.${userId}`);
+                }
+            } catch {}
+        };
+    }, [fetchNotifications, userId, addNotification]);
 
     const value: NotificationContextType = {
         state,
