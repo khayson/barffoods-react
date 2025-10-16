@@ -47,6 +47,7 @@ interface Carrier {
     description: string;
 }
 
+
 interface AddressSuggestion {
     id: string;
     street_address: string;
@@ -382,15 +383,12 @@ export default function CheckoutPage({
     const selectedCarrierInfo = carriers.find(carrier => carrier.id === selectedCarrier);
     const baseDeliveryCost = selectedCarrierInfo ? selectedCarrierInfo.cost : 0;
     
-            // No shipping options costs - simplified checkout
-            const shippingOptionsCost = 0;
-    
     // Calculate total delivery cost based on method
     let totalDeliveryCost = 0;
     if (selectedDeliveryMethod === 'fast_delivery') {
         totalDeliveryCost = 12.99; // Fixed cost for fast delivery
     } else if (selectedDeliveryMethod === 'shipping' && selectedCarrierInfo && data.street_address && data.city && data.state && data.zip_code) {
-        totalDeliveryCost = baseDeliveryCost + shippingOptionsCost;
+        totalDeliveryCost = baseDeliveryCost;
     }
     
     const finalTotal = calculations.subtotal - calculations.discount + totalDeliveryCost + calculations.tax;
@@ -446,6 +444,11 @@ export default function CheckoutPage({
                 errors.push('Please select a shipping carrier');
             }
             
+            // Check if carriers are available
+            if (carriers.length === 0) {
+                errors.push('No shipping carriers available. Please try Local Express delivery instead.');
+            }
+            
             // Check if address is complete for shipping calculation
             if (!(data.street_address && data.city && data.state && data.zip_code)) {
                 errors.push('Complete address is required for shipping calculation');
@@ -495,6 +498,29 @@ export default function CheckoutPage({
 
         // Create Stripe Checkout Session and redirect
         setIsProcessing(true);
+        
+        // Debug what we're sending
+        const requestData = {
+            type: data.type,
+            label: data.label,
+            street_address: data.street_address,
+            city: data.city,
+            state: data.state,
+            zip_code: data.zip_code,
+            delivery_instructions: data.delivery_instructions,
+            shipping_method: selectedDeliveryMethod,
+            carrier_id: selectedCarrier,
+            carrier_name: selectedCarrierInfo?.name,
+            carrier_service: selectedCarrierInfo?.service,
+            carrier_cost: selectedCarrierInfo?.cost,
+            discount_code: discountCode,
+            save_address: data.save_address,
+        };
+        
+        console.log('Checkout request data:', requestData);
+        console.log('Selected carrier info:', selectedCarrierInfo);
+        console.log('Available carriers:', carriers);
+        
         try {
             const response = await fetch('/checkout/create-session', {
                 method: 'POST',
@@ -503,19 +529,7 @@ export default function CheckoutPage({
                     'Accept': 'application/json',
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
                 },
-                body: JSON.stringify({
-                    type: data.type,
-                    label: data.label,
-                    street_address: data.street_address,
-                    city: data.city,
-                    state: data.state,
-                    zip_code: data.zip_code,
-                    delivery_instructions: data.delivery_instructions,
-                    shipping_method: selectedDeliveryMethod,
-                    carrier_id: selectedCarrier,
-                    discount_code: discountCode,
-                    save_address: data.save_address,
-                }),
+                body: JSON.stringify(requestData),
             });
 
             const result = await response.json();
@@ -900,7 +914,10 @@ export default function CheckoutPage({
                                 {selectedDeliveryMethod === 'shipping' && !selectedCarrier && (
                                     <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
                                         <p className="text-yellow-800 dark:text-yellow-200 text-sm">
-                                            ⚠️ Please select a shipping carrier to continue
+                                            {carriers.length === 0 ? 
+                                                '⚠️ No shipping carriers available for this address. Please try Local Express delivery instead.' :
+                                                '⚠️ Please select a shipping carrier to continue'
+                                            }
                                         </p>
                                     </div>
                                 )}
@@ -979,7 +996,14 @@ export default function CheckoutPage({
                                                         </RadioGroup>
                                                     ) : (
                                                         <div className="text-center py-4 text-gray-500 dark:text-gray-400">
-                                                            <p>Please enter your delivery address to see available carriers.</p>
+                                                            {data.street_address && data.city && data.state && data.zip_code ? (
+                                                                <div>
+                                                                    <p className="text-red-600 dark:text-red-400 font-medium">No shipping carriers available for this address.</p>
+                                                                    <p className="text-sm mt-1">Please try Local Express delivery instead.</p>
+                                                                </div>
+                                                            ) : (
+                                                                <p>Please enter your delivery address to see available carriers.</p>
+                                                            )}
                                                         </div>
                                                     )}
                                                 </div>

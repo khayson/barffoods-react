@@ -83,7 +83,7 @@ class EasyPostService
 
             return [
                 'is_valid' => false,
-                'errors' => ['Address verification failed'],
+                'error' => 'Address verification failed: ' . ($response->json()['error']['message'] ?? 'Unknown error'),
                 'raw_response' => $response->json(),
             ];
 
@@ -95,7 +95,7 @@ class EasyPostService
 
             return [
                 'is_valid' => false,
-                'errors' => ['Address verification service unavailable'],
+                'error' => 'Address verification service unavailable: ' . $e->getMessage(),
             ];
         }
     }
@@ -111,7 +111,19 @@ class EasyPostService
                 throw new \Exception('EasyPost is not properly configured. Please set EASYPOST_API_KEY in your environment.');
             }
 
-            $fromAddressResponse = $this->getHttpClient()->post($this->baseUrl . '/addresses', $fromAddress);
+            // Convert fromAddress format to EasyPost format
+            $easyPostFromAddress = [
+                'street1' => $fromAddress['street_address'],
+                'city' => $fromAddress['city'],
+                'state' => $fromAddress['state'],
+                'zip' => $fromAddress['zip_code'],
+                'country' => $fromAddress['country'],
+                'company' => $fromAddress['company_name'] ?? null,
+                'phone' => $fromAddress['phone'] ?? null,
+                'email' => $fromAddress['email'] ?? null,
+            ];
+            
+            $fromAddressResponse = $this->getHttpClient()->post($this->baseUrl . '/addresses', $easyPostFromAddress);
 
             if (!$fromAddressResponse->successful()) {
                 throw new \Exception('Failed to create from address');
@@ -134,11 +146,13 @@ class EasyPostService
             }
             $parcelData = $parcelResponse->json();
 
-            // Create shipment
+            // Create shipment with full address and parcel objects (EasyPost API format)
             $shipmentResponse = $this->getHttpClient()->post($this->baseUrl . '/shipments', [
-                'to_address' => $toAddressData['id'],
-                'from_address' => $fromAddressData['id'],
-                'parcel' => $parcelData['id'],
+                'shipment' => [
+                    'to_address' => $toAddress,
+                    'from_address' => $easyPostFromAddress,
+                    'parcel' => $parcel,
+                ]
             ]);
 
             if ($shipmentResponse->successful()) {
@@ -153,7 +167,7 @@ class EasyPostService
 
             return [
                 'success' => false,
-                'errors' => ['Failed to get shipping rates'],
+                'error' => 'Failed to get shipping rates: ' . ($shipmentResponse->json()['error']['message'] ?? 'Unknown error'),
                 'raw_response' => $shipmentResponse->json(),
             ];
 
@@ -167,7 +181,7 @@ class EasyPostService
 
             return [
                 'success' => false,
-                'errors' => ['Shipping rates service unavailable'],
+                'error' => 'Shipping rates service unavailable: ' . $e->getMessage(),
             ];
         }
     }
@@ -194,12 +208,16 @@ class EasyPostService
                     'label_url' => $data['postage_label']['label_url'] ?? null,
                     'tracking_code' => $data['tracking_code'] ?? null,
                     'shipment_id' => $data['id'],
+                    'tracker_id' => $data['tracker']['id'] ?? null,
+                    'carrier' => $data['selected_rate']['carrier'] ?? null,
+                    'service' => $data['selected_rate']['service'] ?? null,
+                    'estimated_delivery_date' => $data['selected_rate']['est_delivery_days'] ?? null,
                 ];
             }
 
             return [
                 'success' => false,
-                'errors' => ['Failed to create shipping label'],
+                'error' => 'Failed to create shipping label: ' . ($response->json()['error']['message'] ?? 'Unknown error'),
                 'raw_response' => $response->json(),
             ];
 
@@ -212,7 +230,7 @@ class EasyPostService
 
             return [
                 'success' => false,
-                'errors' => ['Label creation service unavailable'],
+                'error' => 'Label creation service unavailable: ' . $e->getMessage(),
             ];
         }
     }
@@ -242,7 +260,7 @@ class EasyPostService
 
             return [
                 'success' => false,
-                'errors' => ['Failed to track shipment'],
+                'error' => 'Failed to track shipment: ' . ($response->json()['error']['message'] ?? 'Unknown error'),
                 'raw_response' => $response->json(),
             ];
 
@@ -254,7 +272,7 @@ class EasyPostService
 
             return [
                 'success' => false,
-                'errors' => ['Tracking service unavailable'],
+                'error' => 'Tracking service unavailable: ' . $e->getMessage(),
             ];
         }
     }

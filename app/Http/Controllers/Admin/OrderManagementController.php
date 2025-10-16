@@ -159,14 +159,91 @@ class OrderManagementController extends Controller
             'orderItems.product',
             'orderItems.store',
             'paymentTransactions',
-            'statusHistory'
+            'statusHistory',
+            'trackingEvents'
         ])->findOrFail($id);
+
+        // Log shipping information for debugging
+        \Log::info('Admin Order Show - Shipping Data', [
+            'order_id' => $order->id,
+            'shipping_method' => $order->shipping_method,
+            'carrier' => $order->carrier,
+            'service' => $order->service,
+            'shipping_cost' => $order->shipping_cost,
+            'tracking_code' => $order->tracking_code,
+            'label_url' => $order->label_url,
+        ]);
 
         // Structure progress data using both order status and status history
         $progressData = $this->getOrderProgressData($order);
 
+        // Format order for frontend (similar to customer controller)
+        $formattedOrder = [
+            'id' => $order->id,
+            'order_number' => $order->order_number,
+            'created_at' => $order->created_at,
+            'status' => $order->status,
+            'total_amount' => $order->total_amount,
+            'user' => [
+                'id' => $order->user->id,
+                'name' => $order->user->name,
+                'email' => $order->user->email,
+            ],
+            'order_items' => $order->orderItems->map(function ($item) {
+                return [
+                    'id' => $item->id,
+                    'order_id' => $item->order_id,
+                    'product_id' => $item->product_id,
+                    'store_id' => $item->store_id,
+                    'status' => $item->status,
+                    'product' => [
+                        'id' => $item->product->id,
+                        'name' => $item->product->name,
+                        'image' => $item->product->image,
+                        'price' => $item->product->price,
+                    ],
+                    'quantity' => $item->quantity,
+                    'unit_price' => $item->unit_price,
+                    'total_price' => $item->total_price,
+                    'store' => [
+                        'id' => $item->store->id,
+                        'name' => $item->store->name,
+                    ],
+                ];
+            }),
+            'statusHistory' => $order->statusHistory->map(function ($history) {
+                return [
+                    'id' => $history->id,
+                    'status' => $history->status,
+                    'created_at' => $history->created_at,
+                    'updated_at' => $history->updated_at,
+                ];
+            }),
+            'tracking_code' => $order->tracking_code,
+            'label_url' => $order->label_url,
+            'carrier' => $order->carrier,
+            'service' => $order->service,
+            'shipping_cost' => $order->shipping_cost,
+            'shipping_method' => $order->shipping_method,
+            'tracking_events' => $order->trackingEvents->map(function ($event) {
+                return [
+                    'id' => $event->id,
+                    'tracking_code' => $event->tracking_code,
+                    'status' => $event->status,
+                    'message' => $event->message,
+                    'location' => $event->location,
+                    'carrier' => $event->carrier,
+                    'occurred_at' => $event->occurred_at ? $event->occurred_at->toISOString() : null,
+                    'source' => $event->source,
+                ];
+            }),
+            'delivery_status' => $order->delivery_status,
+            'estimated_delivery_date' => $order->estimated_delivery_date ? $order->estimated_delivery_date->toISOString() : null,
+            'last_tracking_update' => $order->last_tracking_update ? $order->last_tracking_update->toISOString() : null,
+        ];
+
         return Inertia::render('admin/orders/show', [
-            'order' => $order,
+            'order' => $formattedOrder,
             'progressData' => $progressData
         ]);
     }
@@ -561,6 +638,154 @@ class OrderManagementController extends Controller
         }
 
         return $latestTransaction->status;
+    }
+
+    /**
+     * Create shipping label for an order
+     */
+    public function createLabel($id)
+    {
+        try {
+            $order = Order::with(['orderItems.product', 'orderItems.store', 'user'])->findOrFail($id);
+            
+            // Check if order is eligible for shipping label creation
+            if ($order->shipping_method !== 'shipping') {
+                return back()->with('error', 'Shipping labels can only be created for shipping orders');
+            }
+            
+            if ($order->tracking_code) {
+                return back()->with('error', 'Shipping label already exists for this order');
+            }
+            
+            // Check if order has carrier information
+            if (!$order->carrier) {
+                return back()->with('error', 'No carrier information found. Please ensure the order was placed with a shipping method.');
+            }
+            
+            // Use ShippingService to create the label
+            $shippingService = app(\App\Services\ShippingService::class);
+            
+            // Use the stored rate_id from the original order
+            $rateId = $order->rate_id;
+            if (!$rateId) {
+                return back()->with('error', 'No rate ID found for this order. Cannot create shipping label.');
+            }
+            $result = $shippingService->createShippingLabel($order, $rateId);
+            
+            if ($result['success']) {
+                // Refresh the order to get updated tracking information
+                $order->refresh();
+                
+                \Log::info("Shipping label created successfully", [
+                    'order_id' => $id,
+                    'tracking_code' => $order->tracking_code,
+                    'created_by' => auth()->user()->name ?? 'Admin'
+                ]);
+                
+                // Return updated order data for Inertia.js
+                $order = Order::with([
+                    'user',
+                    'orderItems.product',
+                    'orderItems.store',
+                    'paymentTransactions',
+                    'statusHistory',
+                    'trackingEvents'
+                ])->findOrFail($id);
+
+                // Structure progress data using both order status and status history
+                $progressData = $this->getOrderProgressData($order);
+
+                // Format order for frontend
+                $formattedOrder = [
+                    'id' => $order->id,
+                    'order_number' => $order->order_number,
+                    'created_at' => $order->created_at,
+                    'status' => $order->status,
+                    'total_amount' => $order->total_amount,
+                    'user' => [
+                        'id' => $order->user->id,
+                        'name' => $order->user->name,
+                        'email' => $order->user->email,
+                    ],
+                    'order_items' => $order->orderItems->map(function ($item) {
+                        return [
+                            'id' => $item->id,
+                            'order_id' => $item->order_id,
+                            'product_id' => $item->product_id,
+                            'store_id' => $item->store_id,
+                            'status' => $item->status,
+                            'product' => [
+                                'id' => $item->product->id,
+                                'name' => $item->product->name,
+                                'image' => $item->product->image,
+                                'price' => $item->product->price,
+                            ],
+                            'quantity' => $item->quantity,
+                            'unit_price' => $item->unit_price,
+                            'total_price' => $item->total_price,
+                            'store' => [
+                                'id' => $item->store->id,
+                                'name' => $item->store->name,
+                            ],
+                        ];
+                    }),
+                    'statusHistory' => $order->statusHistory->map(function ($history) {
+                        return [
+                            'id' => $history->id,
+                            'status' => $history->status,
+                            'created_at' => $history->created_at,
+                            'updated_at' => $history->updated_at,
+                        ];
+                    }),
+                    'tracking_code' => $order->tracking_code,
+                    'label_url' => $order->label_url,
+                    'carrier' => $order->carrier,
+                    'service' => $order->service,
+                    'shipping_cost' => $order->shipping_cost,
+                    'shipping_method' => $order->shipping_method,
+                    'tracking_events' => $order->trackingEvents->map(function ($event) {
+                        return [
+                            'id' => $event->id,
+                            'tracking_code' => $event->tracking_code,
+                            'status' => $event->status,
+                            'message' => $event->message,
+                            'location' => $event->location,
+                            'carrier' => $event->carrier,
+                            'occurred_at' => $event->occurred_at ? $event->occurred_at->toISOString() : null,
+                        ];
+                    }),
+                    'delivery_status' => $order->delivery_status,
+                    'estimated_delivery_date' => $order->estimated_delivery_date ? $order->estimated_delivery_date->toISOString() : null,
+                    'last_tracking_update' => $order->last_tracking_update ? $order->last_tracking_update->toISOString() : null,
+                ];
+
+                // Return to the show page with updated order data
+                return redirect()->route('admin.orders.show', $id)->with([
+                    'order' => $formattedOrder,
+                    'progressData' => $progressData,
+                    'success' => 'Shipping label created successfully!'
+                ]);
+            } else {
+                \Log::error("Shipping label creation failed", [
+                    'order_id' => $id,
+                    'error' => $result['error'] ?? 'Unknown error',
+                    'created_by' => auth()->user()->name ?? 'Admin'
+                ]);
+                
+                // Return to show page with error message
+                return back()->with('error', 'Failed to create shipping label: ' . ($result['error'] ?? 'Unknown error'));
+            }
+            
+        } catch (\Exception $e) {
+            \Log::error("Shipping label creation exception", [
+                'order_id' => $id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'created_by' => auth()->user()->name ?? 'Admin'
+            ]);
+            
+            return back()->with('error', 'Failed to create shipping label: ' . $e->getMessage());
+        }
     }
 
     /**

@@ -62,7 +62,8 @@ class OrderController extends Controller
             'orderItems.product',
             'orderItems.store', // Store is now on order items
             'paymentTransactions',
-            'statusHistory'
+            'statusHistory',
+            'trackingEvents'
         ])->findOrFail($id);
 
         // Check if user owns this order or is admin
@@ -164,6 +165,21 @@ class OrderController extends Controller
                     'created_at' => \Carbon\Carbon::parse($history->created_at)->format('M d, Y \a\t g:i A'),
                 ];
             }),
+            'tracking_events' => $order->trackingEvents->map(function ($event) {
+                return [
+                    'id' => $event->id,
+                    'tracking_code' => $event->tracking_code,
+                    'status' => $event->status,
+                    'message' => $event->message,
+                    'location' => $event->location,
+                    'carrier' => $event->carrier,
+                    'occurred_at' => $event->occurred_at->format('M d, Y \a\t g:i A'),
+                    'source' => $event->source,
+                ];
+            }),
+            'delivery_status' => $order->delivery_status,
+            'estimated_delivery_date' => $order->estimated_delivery_date,
+            'last_tracking_update' => $order->last_tracking_update ? \Carbon\Carbon::parse($order->last_tracking_update)->format('M d, Y \a\t g:i A') : null,
         ];
 
         // Structure progress data using both order status and status history

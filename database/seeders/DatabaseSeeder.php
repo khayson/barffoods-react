@@ -24,6 +24,7 @@ class DatabaseSeeder extends Seeder
             ProductSeeder::class,
             ProductReviewSeeder::class,
             SystemSettingsSeeder::class,
+            ZipCodeSeeder::class,
         ]);
     }
 }

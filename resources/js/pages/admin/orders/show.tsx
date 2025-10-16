@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { toast } from 'sonner';
-import { Trash2, Target, FileText, Package, Download } from 'lucide-react';
+import { useAdminTrackingUpdates } from '@/hooks/useTrackingUpdates';
+import { Trash2, Target, FileText, Package, Download, Navigation, ExternalLink, Calendar, Clock, MapPin, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AdminLayout from '@/layouts/admin-layout';
@@ -16,6 +17,17 @@ interface StatusHistory {
     status: string;
     created_at: string;
     updated_at: string;
+}
+
+interface TrackingEvent {
+    id: number;
+    tracking_code: string;
+    status: string;
+    message: string;
+    location: string | null;
+    carrier: string | null;
+    occurred_at: string;
+    source: string;
 }
 
 interface Order {
@@ -50,6 +62,16 @@ interface Order {
         };
     }>;
     statusHistory: StatusHistory[];
+    tracking_code: string | null;
+    label_url: string | null;
+    carrier: string | null;
+    service: string | null;
+    shipping_cost: number | string | null;
+    shipping_method: 'shipping' | 'fast_delivery';
+    tracking_events: TrackingEvent[];
+    delivery_status: string | null;
+    estimated_delivery_date: string | null;
+    last_tracking_update: string | null;
 }
 
 interface ProgressData {
@@ -71,6 +93,9 @@ interface OrderShowPageProps {
 
 export default function OrderShowPage({ order, progressData }: OrderShowPageProps) {
     const [localOrder, setLocalOrder] = useState(order);
+    
+    // Use real-time tracking updates for admin
+    useAdminTrackingUpdates();
     const formatDate = (dateString: string) => {
         return new Date(dateString).toLocaleDateString('en-US', {
             month: 'long',
@@ -92,6 +117,39 @@ export default function OrderShowPage({ order, progressData }: OrderShowPageProp
 
     // Use progress data from controller (now based on item statuses)
     const { currentStep, currentPercentage, itemStatusCounts, totalItems, overallProgress } = progressData;
+
+    // Handle creating shipping label
+    const handleCreateLabel = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('Create label button clicked for order:', localOrder.id);
+        console.log('Event details:', e);
+        console.log('Current URL:', window.location.href);
+        
+        toast.loading('Creating shipping label...', {
+            id: 'create-label'
+        });
+        
+        router.post(`/admin/orders/${localOrder.id}/create-label`, {}, {
+            preserveState: true,
+            preserveScroll: true,
+            onSuccess: (page) => {
+                console.log('Label creation successful');
+                console.log('Page props:', page.props);
+                toast.success('Shipping label created successfully!', {
+                    id: 'create-label'
+                });
+                // The page will be redirected and reloaded with updated data
+            },
+            onError: (errors) => {
+                console.error('Label creation failed:', errors);
+                toast.error('Failed to create shipping label', {
+                    description: errors.message || 'An error occurred',
+                    id: 'create-label'
+                });
+            }
+        });
+    };
 
     // Handle item status update with optimistic updates
     const handleItemStatusUpdate = (itemId: number, newStatus: string) => {
@@ -430,6 +488,210 @@ export default function OrderShowPage({ order, progressData }: OrderShowPageProp
                                     </table>
                                 </div>
                             </div>
+
+                            {/* Tracking Section - Only show for shipping orders */}
+                            {localOrder.shipping_method === 'shipping' && (
+                                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div>
+                                            <h2 className="text-base font-bold text-gray-900 dark:text-white">Shipping & Tracking</h2>
+                                            <p className="text-xs text-gray-600 dark:text-gray-400">Manage shipping labels and track packages</p>
+                                        </div>
+                                        <div className="flex items-center space-x-2">
+                                            {!localOrder.tracking_code && (
+                                                <Button 
+                                                    type="button"
+                                                    onClick={handleCreateLabel}
+                                                    size="sm"
+                                                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                                                >
+                                                    <Plus className="w-4 h-4 mr-2" />
+                                                    Create Label
+                                                </Button>
+                                            )}
+                                            {localOrder.label_url && (
+                                                <Button 
+                                                    variant="outline" 
+                                                    size="sm"
+                                                    onClick={() => localOrder.label_url && window.open(localOrder.label_url, '_blank')}
+                                                    className="dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                                                >
+                                                    <Download className="w-4 h-4 mr-2" />
+                                                    Download Label
+                                                </Button>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Shipping Info */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                        <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
+                                            <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Carrier</p>
+                                            <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                                                {localOrder.carrier || 'Not set'}
+                                            </p>
+                                        </div>
+                                        <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
+                                            <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Service</p>
+                                            <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                                                {localOrder.service || 'Not set'}
+                                            </p>
+                                        </div>
+                                        <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
+                                            <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Shipping Cost</p>
+                                            <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                                                ${localOrder.shipping_cost ? (typeof localOrder.shipping_cost === 'string' ? parseFloat(localOrder.shipping_cost).toFixed(2) : localOrder.shipping_cost.toFixed(2)) : '0.00'}
+                                            </p>
+                                        </div>
+                                        <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
+                                            <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Current Status</p>
+                                            <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                                                {localOrder.delivery_status?.replace('_', ' ').toUpperCase() || 'No tracking'}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Tracking Code */}
+                                    {localOrder.tracking_code && (
+                                        <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <p className="text-sm font-medium text-blue-900 dark:text-blue-100">Tracking Number</p>
+                                                    <p className="text-lg font-mono font-semibold text-blue-900 dark:text-blue-100">
+                                                        {localOrder.tracking_code}
+                                                    </p>
+                                                </div>
+                                                <Button 
+                                                    variant="outline" 
+                                                    size="sm"
+                                                    onClick={() => window.open(`https://www.google.com/search?q=${localOrder.carrier}+tracking+${localOrder.tracking_code}`, '_blank')}
+                                                    className="border-blue-300 text-blue-700 hover:bg-blue-100 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900/20"
+                                                >
+                                                    <ExternalLink className="w-4 h-4 mr-2" />
+                                                    Track with {localOrder.carrier}
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Estimated Delivery */}
+                                    {localOrder.estimated_delivery_date && (
+                                        <div className="bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800 rounded-lg p-4 mb-4">
+                                            <div className="flex items-center space-x-2">
+                                                <Calendar className="w-5 h-5 text-green-600 dark:text-green-400" />
+                                                <div>
+                                                    <p className="text-sm font-medium text-green-900 dark:text-green-100">Estimated Delivery</p>
+                                                    <p className="text-sm text-green-700 dark:text-green-300">
+                                                        {(() => {
+                                                            const date = new Date(localOrder.estimated_delivery_date);
+                                                            if (isNaN(date.getTime())) {
+                                                                return 'Date not available';
+                                                            }
+                                                            return date.toLocaleDateString('en-US', {
+                                                                weekday: 'long',
+                                                                year: 'numeric',
+                                                                month: 'long',
+                                                                day: 'numeric'
+                                                            });
+                                                        })()}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Tracking Events */}
+                                    {localOrder.tracking_events && localOrder.tracking_events.length > 0 ? (
+                                        <div>
+                                            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Tracking Events</h3>
+                                            <div className="space-y-3 max-h-64 overflow-y-auto">
+                                                {localOrder.tracking_events.map((event, index) => (
+                                                    <div key={event.id} className="flex items-start space-x-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                                        <div className="flex-shrink-0">
+                                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                                                                index === 0 ? 'bg-green-500' : 'bg-gray-400'
+                                                            }`}>
+                                                                <Navigation className={`w-3 h-3 ${
+                                                                    index === 0 ? 'text-white' : 'text-gray-600 dark:text-gray-400'
+                                                                }`} />
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex items-center space-x-2 mb-1">
+                                                                <span className="text-xs font-medium text-gray-900 dark:text-white">
+                                                                    {event.status.replace('_', ' ').toUpperCase()}
+                                                                </span>
+                                                                {index === 0 && (
+                                                                    <span className="text-xs bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-200 px-2 py-0.5 rounded">
+                                                                        Latest
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <p className="text-xs text-gray-700 dark:text-gray-300 mb-1">
+                                                                {event.message}
+                                                            </p>
+                                                            <div className="flex items-center space-x-3 text-xs text-gray-500 dark:text-gray-400">
+                                                                <div className="flex items-center space-x-1">
+                                                                    <Clock className="w-3 h-3" />
+                                                                    <span>
+                                                                        {(() => {
+                                                                            const date = new Date(event.occurred_at);
+                                                                            if (isNaN(date.getTime())) {
+                                                                                return 'Date not available';
+                                                                            }
+                                                                            return date.toLocaleString('en-US', {
+                                                                                month: 'short',
+                                                                                day: 'numeric',
+                                                                                hour: '2-digit',
+                                                                                minute: '2-digit'
+                                                                            });
+                                                                        })()}
+                                                                    </span>
+                                                                </div>
+                                                                {event.location && (
+                                                                    <div className="flex items-center space-x-1">
+                                                                        <MapPin className="w-3 h-3" />
+                                                                        <span>{event.location}</span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ) : localOrder.tracking_code ? (
+                                        <div className="text-center py-6">
+                                            <Navigation className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                                                No tracking events yet. Updates will appear here.
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-6">
+                                            <Package className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                                                Create a shipping label to enable tracking.
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {/* Last Update */}
+                                    {localOrder.last_tracking_update && (
+                                        <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-600">
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                Last updated: {(() => {
+                                                    const date = new Date(localOrder.last_tracking_update);
+                                                    if (isNaN(date.getTime())) {
+                                                        return 'Date not available';
+                                                    }
+                                                    return date.toLocaleString();
+                                                })()}
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         {/* Right Column - Sidebar */}

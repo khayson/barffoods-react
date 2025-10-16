@@ -12,6 +12,7 @@ use App\Services\CartCalculationService;
 use App\Services\DiscountService;
 use App\Services\AddressService;
 use App\Services\StripeService;
+use App\Services\ShippingService;
 use App\Jobs\ProcessStripePaymentJob;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -94,8 +95,22 @@ class CheckoutController extends Controller
             'zip_code' => 'required|string|max:20',
             'delivery_instructions' => 'nullable|string|max:1000',
             'shipping_method' => 'required|string',
+            'carrier_id' => 'nullable|string', // EasyPost rate_id
+            'carrier_name' => 'nullable|string',
+            'carrier_service' => 'nullable|string',
+            'carrier_cost' => 'nullable|numeric',
             'discount_code' => 'nullable|string|max:50',
             'save_address' => 'boolean',
+        ]);
+
+        // Debug what we're receiving
+        \Log::info('CreateCheckoutSession - Received Data', [
+            'shipping_method' => $request->shipping_method,
+            'carrier_id' => $request->carrier_id,
+            'carrier_name' => $request->carrier_name,
+            'carrier_service' => $request->carrier_service,
+            'carrier_cost' => $request->carrier_cost,
+            'all_request_data' => $request->all(),
         ]);
 
         try {
@@ -136,15 +151,28 @@ class CheckoutController extends Controller
             }
 
             // Store checkout data in session for later use
-            session([
-                'checkout_data' => [
-                    'address_data' => $addressData,
-                    'user_address_id' => $userAddress ? $userAddress->id : null,
-                    'cart_items' => $cartItems->toArray(),
-                    'calculations' => $calculations,
-                    'shipping_method' => $request->shipping_method,
-                    'discount_code' => $request->discount_code,
-                ]
+            $checkoutData = [
+                'address_data' => $addressData,
+                'user_address_id' => $userAddress ? $userAddress->id : null,
+                'cart_items' => $cartItems->toArray(),
+                'calculations' => $calculations,
+                'shipping_method' => $request->shipping_method,
+                'carrier_id' => $request->carrier_id, // EasyPost rate_id
+                'carrier_name' => $request->carrier_name,
+                'carrier_service' => $request->carrier_service,
+                'carrier_cost' => $request->carrier_cost,
+                'discount_code' => $request->discount_code,
+            ];
+            
+            session(['checkout_data' => $checkoutData]);
+            
+            // Debug what we're storing in session
+            \Log::info('CreateCheckoutSession - Storing in Session', [
+                'shipping_method' => $checkoutData['shipping_method'],
+                'carrier_id' => $checkoutData['carrier_id'],
+                'carrier_name' => $checkoutData['carrier_name'],
+                'carrier_service' => $checkoutData['carrier_service'],
+                'carrier_cost' => $checkoutData['carrier_cost'],
             ]);
 
             // Prepare line items for Stripe Checkout
@@ -192,17 +220,7 @@ class CheckoutController extends Controller
                 ];
             }
 
-            // Store checkout data in session for later use (instead of metadata)
-            session([
-                'checkout_data' => [
-                    'address_data' => $addressData,
-                    'user_address_id' => $userAddress ? $userAddress->id : null,
-                    'cart_items' => $cartItems,
-                    'calculations' => $calculations,
-                    'shipping_method' => $request->shipping_method,
-                    'discount_code' => $request->discount_code,
-                ]
-            ]);
+            // Session data already stored above with carrier information
 
             // Create Stripe Checkout Session with minimal metadata
             $checkoutData = [
@@ -221,6 +239,11 @@ class CheckoutController extends Controller
                     'user_id' => Auth::id(),
                     'cart_items_count' => count($cartItems),
                     'session_id' => session()->getId(),
+                    'shipping_method' => $request->shipping_method,
+                    'carrier_name' => $request->carrier_name,
+                    'carrier_service' => $request->carrier_service,
+                    'carrier_cost' => $request->carrier_cost,
+                    'carrier_id' => $request->carrier_id,
                 ],
             ];
 
@@ -288,9 +311,42 @@ class CheckoutController extends Controller
             // Get checkout data from session
             $checkoutData = session('checkout_data');
             
+            // If session data is missing, try to get carrier data from Stripe metadata as fallback
+            if (!$checkoutData || !isset($checkoutData['carrier_name'])) {
+                \Log::warning('Session data missing carrier info, checking Stripe metadata', [
+                    'session_has_data' => !empty($checkoutData),
+                    'session_carrier_name' => $checkoutData['carrier_name'] ?? 'NOT_SET',
+                ]);
+                
+                // Get carrier data from Stripe metadata as fallback
+                if (isset($session->metadata)) {
+                    $checkoutData = $checkoutData ?: [];
+                    $checkoutData['shipping_method'] = $session->metadata['shipping_method'] ?? 'shipping';
+                    $checkoutData['carrier_name'] = $session->metadata['carrier_name'] ?? null;
+                    $checkoutData['carrier_service'] = $session->metadata['carrier_service'] ?? null;
+                    $checkoutData['carrier_cost'] = $session->metadata['carrier_cost'] ?? null;
+                    $checkoutData['carrier_id'] = $session->metadata['carrier_id'] ?? null;
+                    
+                    \Log::info('Retrieved carrier data from Stripe metadata', [
+                        'carrier_name' => $checkoutData['carrier_name'],
+                        'carrier_service' => $checkoutData['carrier_service'],
+                        'carrier_cost' => $checkoutData['carrier_cost'],
+                    ]);
+                }
+            }
+            
             if (!$checkoutData) {
                 return redirect('/checkout')->with('error', 'Checkout data not found');
             }
+
+            // Debug shipping data in session
+            \Log::info('Checkout Success - Shipping Data', [
+                'shipping_method' => $checkoutData['shipping_method'] ?? 'NOT_SET',
+                'carrier_name' => $checkoutData['carrier_name'] ?? 'NOT_SET',
+                'carrier_service' => $checkoutData['carrier_service'] ?? 'NOT_SET',
+                'carrier_cost' => $checkoutData['carrier_cost'] ?? 'NOT_SET',
+                'carrier_id' => $checkoutData['carrier_id'] ?? 'NOT_SET',
+            ]);
 
             DB::beginTransaction();
 
@@ -309,6 +365,10 @@ class CheckoutController extends Controller
                                      $checkoutData['address_data']['state'] . ' ' . 
                                      $checkoutData['address_data']['zip_code'],
                 'shipping_method' => $checkoutData['shipping_method'],
+                'carrier' => $checkoutData['carrier_name'] ?? null,
+                'service' => $checkoutData['carrier_service'] ?? null,
+                'shipping_cost' => $checkoutData['carrier_cost'] ?? null,
+                'rate_id' => $checkoutData['carrier_id'] ?? null,
                 'is_ready_for_delivery' => false,
             ]);
 
@@ -339,6 +399,9 @@ class CheckoutController extends Controller
                 'status' => 'confirmed',
                 'notes' => 'Order confirmed after successful payment',
             ]);
+
+            // Note: Shipping labels are now created manually by admin via the admin panel
+            // This ensures proper control over when labels are generated and reduces costs
 
             // Clear cart
             CartItem::where('user_id', Auth::id())->delete();
@@ -411,6 +474,15 @@ class CheckoutController extends Controller
                 return response()->json(['error' => 'Checkout session expired'], 400);
             }
 
+            // Log shipping data for debugging
+            \Log::info('Checkout Store - Shipping Data', [
+                'shipping_method' => $checkoutData['shipping_method'] ?? 'NOT_SET',
+                'carrier_name' => $checkoutData['carrier_name'] ?? 'NOT_SET',
+                'carrier_service' => $checkoutData['carrier_service'] ?? 'NOT_SET',
+                'carrier_cost' => $checkoutData['carrier_cost'] ?? 'NOT_SET',
+                'carrier_id' => $checkoutData['carrier_id'] ?? 'NOT_SET',
+            ]);
+
             // Get cart items to verify they still exist
             $cartItems = $this->getAuthenticatedUserCartItems();
             if ($cartItems->isEmpty()) {
@@ -432,6 +504,10 @@ class CheckoutController extends Controller
                                      $checkoutData['address_data']['state'] . ' ' . 
                                      $checkoutData['address_data']['zip_code'],
                 'shipping_method' => $checkoutData['shipping_method'],
+                'carrier' => $checkoutData['carrier_name'] ?? null,
+                'service' => $checkoutData['carrier_service'] ?? null,
+                'shipping_cost' => $checkoutData['carrier_cost'] ?? null,
+                'rate_id' => $checkoutData['carrier_id'] ?? null,
                 'is_ready_for_delivery' => false,
             ]);
 
@@ -462,6 +538,9 @@ class CheckoutController extends Controller
                 'status' => 'confirmed',
                 'notes' => 'Order confirmed after successful payment',
             ]);
+
+            // Note: Shipping labels are now created manually by admin via the admin panel
+            // This ensures proper control over when labels are generated and reduces costs
 
             // Clear cart
             CartItem::where('user_id', Auth::id())->delete();

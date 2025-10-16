@@ -17,6 +17,8 @@ use Inertia\Inertia;
 
 Route::get('/', [WelcomeController::class, 'index'])->name('home');
 
+// Broadcasting authentication is handled by routes/channels.php
+
 // Product routes
 Route::get('/products/{id}', [ProductController::class, 'show'])->name('products.show');
 
@@ -34,6 +36,10 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/orders/{id}/csv', [App\Http\Controllers\Admin\OrderManagementController::class, 'downloadCsv'])->name('admin.orders.download-csv');
         Route::patch('/orders/{id}/ready', [App\Http\Controllers\Admin\OrderManagementController::class, 'markAsReady'])->name('admin.orders.mark-ready');
         Route::patch('/orders/{orderId}/items/{itemId}/status', [App\Http\Controllers\Admin\OrderManagementController::class, 'updateItemStatus'])->name('admin.orders.update-item-status');
+        Route::post('/orders/{id}/create-label', [App\Http\Controllers\Admin\OrderManagementController::class, 'createLabel'])->name('admin.orders.create-label');
+        Route::get('/orders/{id}/create-label', function($id) {
+            return redirect()->route('admin.orders.show', $id)->with('info', 'Please use the "Create Label" button to create shipping labels.');
+        });
         Route::delete('/orders/{id}', [App\Http\Controllers\Admin\OrderManagementController::class, 'destroy'])->name('admin.orders.destroy');
     });
 });

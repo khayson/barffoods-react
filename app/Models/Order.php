@@ -10,7 +10,7 @@ class Order extends Model
 {
     protected $fillable = [
         'order_number',
-          'user_id',
+        'user_id',
         'user_address_id',
         'status',
         'total_amount',
@@ -24,8 +24,15 @@ class Order extends Model
         'carrier',
         'service',
         'shipping_cost',
+        'rate_id',
+        'tracker_id',
+        'estimated_delivery_date',
+        'delivery_status',
+        'last_tracking_update',
         'is_ready_for_delivery',
         'ready_at',
+        'shipping_preference',
+        'additional_shipping_cost',
     ];
 
     protected $casts = [
@@ -34,8 +41,11 @@ class Order extends Model
         'tax' => 'decimal:2',
         'delivery_fee' => 'decimal:2',
         'shipping_cost' => 'decimal:2',
+        'additional_shipping_cost' => 'decimal:2',
         'is_ready_for_delivery' => 'boolean',
         'ready_at' => 'datetime',
+        'last_tracking_update' => 'datetime',
+        'estimated_delivery_date' => 'datetime',
     ];
 
 
@@ -78,6 +88,39 @@ class Order extends Model
     public function paymentTransactions(): HasMany
     {
         return $this->hasMany(PaymentTransaction::class);
+    }
+
+    /**
+     * Get the shipment tracking events for the order.
+     */
+    public function trackingEvents(): HasMany
+    {
+        return $this->hasMany(ShipmentTrackingEvent::class)->orderBy('occurred_at', 'desc');
+    }
+
+
+    /**
+     * Get the latest tracking event
+     */
+    public function latestTrackingEvent()
+    {
+        return $this->hasOne(ShipmentTrackingEvent::class)->latestOfMany('occurred_at');
+    }
+
+    /**
+     * Check if order has tracking information
+     */
+    public function hasTracking(): bool
+    {
+        return !empty($this->tracking_code);
+    }
+
+    /**
+     * Check if order is delivered based on tracking
+     */
+    public function isDelivered(): bool
+    {
+        return $this->delivery_status === 'delivered';
     }
 
     /**

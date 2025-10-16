@@ -50,3 +50,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
 // Stripe webhook route (no auth required)
 Route::post('/stripe/webhook', [App\Http\Controllers\StripeWebhookController::class, 'handle'])->name('api.stripe.webhook');
+
+// EasyPost webhook route (no auth required)
+Route::post('/webhooks/easypost', [App\Http\Controllers\Webhooks\EasyPostWebhookController::class, 'handle'])->name('api.webhooks.easypost');
+
+// EasyPost webhook test route (development only)
+Route::post('/webhooks/easypost/test', [App\Http\Controllers\Webhooks\EasyPostWebhookController::class, 'test'])->name('api.webhooks.easypost.test');

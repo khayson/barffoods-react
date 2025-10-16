@@ -28,8 +28,15 @@ return new class extends Migration
             $table->string('carrier')->nullable();
             $table->string('service')->nullable();
             $table->decimal('shipping_cost', 8, 2)->nullable();
+            $table->string('rate_id')->nullable()->comment('EasyPost rate ID for label creation');
+            $table->string('tracker_id')->nullable()->comment('EasyPost tracker ID');
+            $table->string('estimated_delivery_date')->nullable();
+            $table->string('delivery_status')->nullable()->comment('Latest tracking status from carrier');
+            $table->timestamp('last_tracking_update')->nullable();
             $table->boolean('is_ready_for_delivery')->default(false)->comment('All stores have prepared their items');
             $table->timestamp('ready_at')->nullable()->comment('When all stores marked items as ready');
+            $table->enum('shipping_preference', ['wait_for_all', 'ship_as_ready', 'ship_in_batches'])->default('wait_for_all')->comment('Customer shipping preference');
+            $table->decimal('additional_shipping_cost', 8, 2)->default(0.00)->comment('Additional shipping cost for faster delivery');
             $table->timestamps();
             
             $table->index('user_id');

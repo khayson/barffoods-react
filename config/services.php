@@ -37,6 +37,7 @@ return [
 
             'easypost' => [
                 'api_key' => env('EASYPOST_API_KEY'),
+                'webhook_secret' => env('EASYPOST_WEBHOOK_SECRET'),
                 'test_mode' => env('EASYPOST_TEST_MODE', true),
                 'base_url' => env('EASYPOST_TEST_MODE', true) 
                     ? 'https://api.easypost.com/v2' 
