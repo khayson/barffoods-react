@@ -172,29 +172,47 @@ class EasyPostWebhookController extends Controller
             return response()->json(['error' => 'Not available in production'], 403);
         }
 
-        // Simulate a tracking update
-        $testData = [
-            'description' => 'tracker.updated',
-            'result' => [
-                'tracking_code' => $request->input('tracking_code', 'TEST123456789'),
-                'status' => $request->input('status', 'in_transit'),
-                'carrier' => $request->input('carrier', 'USPS'),
-                'tracking_details' => [
-                    [
-                        'status' => $request->input('status', 'in_transit'),
-                        'message' => $request->input('message', 'Package is in transit'),
-                        'datetime' => now()->toIso8601String(),
-                        'city' => 'Los Angeles',
-                        'state' => 'CA',
-                        'zip' => '90001',
-                    ]
+        try {
+            // Simulate a tracking update
+            $testData = [
+                'description' => 'tracker.updated',
+                'result' => [
+                    'tracking_code' => $request->input('tracking_code', 'TEST123456789'),
+                    'status' => $request->input('status', 'in_transit'),
+                    'carrier' => $request->input('carrier', 'USPS'),
+                    'tracking_details' => [
+                        [
+                            'status' => $request->input('status', 'in_transit'),
+                            'message' => $request->input('message', 'Package is in transit'),
+                            'datetime' => now()->toIso8601String(),
+                            'city' => 'Los Angeles',
+                            'state' => 'CA',
+                            'zip' => '90001',
+                        ]
+                    ],
+                    'updated_at' => now()->toIso8601String(),
                 ],
-                'updated_at' => now()->toIso8601String(),
-            ],
-        ];
+            ];
 
-        // Process the test webhook
-        $request->merge($testData);
-        return $this->handle($request);
+            // Process tracking update directly (bypass signature verification)
+            $this->handleTrackerUpdated($testData['result']);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Test webhook processed successfully',
+                'data' => $testData
+            ], 200);
+
+        } catch (\Exception $e) {
+            Log::error('Test webhook processing failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Test webhook failed: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }
