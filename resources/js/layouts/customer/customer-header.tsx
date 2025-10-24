@@ -121,10 +121,11 @@ export default function CustomerHeader({ onToggleMobileMenu, isMobile }: Custome
 
     return (
         <header className="sticky top-0 z-50 w-full bg-white/80 dark:bg-gray-900/80 backdrop-blur-lg border-b border-gray-200 dark:border-gray-800">
-            <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex h-16 items-center justify-between">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="flex h-16 items-center justify-between gap-4">
                     {/* Left Section - Logo and Mobile Menu */}
-                    <div className="flex items-center space-x-4">
+                    <div className="flex items-center gap-3">
+                        {/* Mobile Menu Button - Only show on mobile (< 1024px) */}
                         <Button
                             variant="ghost"
                             size="sm"
@@ -134,74 +135,69 @@ export default function CustomerHeader({ onToggleMobileMenu, isMobile }: Custome
                             <Menu className="h-5 w-5 text-gray-700 dark:text-gray-300" />
                         </Button>
                         
-                        <Link href="/" className="flex items-center space-x-3">
-                            <div className="w-9 h-9 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
+                        {/* Logo */}
+                        <Link href="/" className="flex items-center gap-2">
+                            <div className="w-9 h-9 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center shrink-0">
                                 <AppLogoIcon className="w-6 h-6 text-white" />
                             </div>
-                            <span className="text-xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent hidden sm:block">
+                            <span className="text-xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent hidden sm:inline">
                                 BarfFoods
                             </span>
                         </Link>
                     </div>
 
                     {/* Center Section - Navigation Links (Desktop Only) */}
-                    {!isMobile && (
-                        <nav className="flex-1 flex justify-center">
-                            <div className="flex items-center space-x-1 bg-gray-100 dark:bg-gray-800 rounded-full p-1">
-                                {navigation.slice(0, 4).map((item) => (
-                                    <Link
-                                        key={item.name}
-                                        href={item.href}
-                                        onClick={(e) => {
-                                            if (item.name === 'Messages') {
-                                                e.preventDefault();
-                                                window.dispatchEvent(new Event('open-support-modal'));
-                                            }
-                                        }}
-                                        className={`
-                                            flex items-center space-x-2 px-4 py-2 rounded-full transition-all duration-200
-                                            ${isActive(item.href)
-                                                ? 'bg-white dark:bg-gray-900 text-green-600 dark:text-green-500 shadow-sm'
-                                                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                                            }
-                                        `}
-                                        aria-current={isActive(item.href) ? 'page' : undefined}
-                                    >
-                                        <item.icon className="h-4 w-4" />
-                                        <span className="text-sm font-medium">{item.name}</span>
-                                    </Link>
-                                ))}
-                            </div>
-                        </nav>
-                    )}
+                    <nav className="hidden lg:flex flex-1 justify-center">
+                        <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-full p-1">
+                            {navigation.slice(0, 4).map((item) => (
+                                <Link
+                                    key={item.name}
+                                    href={item.href}
+                                    onClick={(e) => {
+                                        if (item.name === 'Messages') {
+                                            e.preventDefault();
+                                            window.dispatchEvent(new Event('open-support-modal'));
+                                        }
+                                    }}
+                                    className={`
+                                        flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full transition-all duration-200
+                                        ${isActive(item.href)
+                                            ? 'bg-white dark:bg-gray-900 text-green-600 dark:text-green-500 shadow-sm'
+                                            : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                                        }
+                                    `}
+                                    aria-current={isActive(item.href) ? 'page' : undefined}
+                                >
+                                    <item.icon className="h-4 w-4" />
+                                    <span className="text-sm font-medium">{item.name}</span>
+                                </Link>
+                            ))}
+                        </div>
+                    </nav>
 
-                    {/* Right Section - Search and Actions */}
-                    <div className="flex items-center space-x-2">
-                        {/* Search - Desktop Only */}
-                        {!isMobile && (
-                            <button
-                                onClick={() => setSearchOpen(true)}
-                                className="flex items-center space-x-2 px-4 py-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors group"
-                            >
-                                <Search className="h-4 w-4 text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300" />
-                                <span className="text-sm text-gray-500 dark:text-gray-400">Search...</span>
-                                <kbd className="ml-auto px-2 py-0.5 text-xs font-semibold text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded">
-                                    {navigator.platform.toLowerCase().includes('mac') ? '⌘K' : 'Ctrl+K'}
-                                </kbd>
-                            </button>
-                        )}
+                    {/* Right Section - Actions */}
+                    <div className="flex items-center gap-1 sm:gap-2">
+                        {/* Search - Show full on lg+, icon only on sm-md, icon on mobile */}
+                        <button
+                            onClick={() => setSearchOpen(true)}
+                            className="hidden lg:flex items-center gap-2 px-3 xl:px-4 py-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors group"
+                        >
+                            <Search className="h-4 w-4 text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300" />
+                            <span className="text-sm text-gray-500 dark:text-gray-400 hidden xl:inline">Search...</span>
+                            <kbd className="hidden xl:inline-block px-2 py-0.5 text-xs font-semibold text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded">
+                                {navigator.platform.toLowerCase().includes('mac') ? '⌘K' : 'Ctrl+K'}
+                            </kbd>
+                        </button>
 
-                        {/* Mobile Search */}
-                        {isMobile && (
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
-                                onClick={() => setSearchOpen(true)}
-                            >
-                                <Search className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                            </Button>
-                        )}
+                        {/* Mobile Search Icon */}
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="lg:hidden p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+                            onClick={() => setSearchOpen(true)}
+                        >
+                            <Search className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                        </Button>
 
                         {/* Notifications */}
                         <div className="relative">
@@ -225,12 +221,12 @@ export default function CustomerHeader({ onToggleMobileMenu, isMobile }: Custome
                             />
                         </div>
 
-                        {/* Wishlist */}
+                        {/* Wishlist - Hide on smallest screens */}
                         <Button
                             ref={wishlistButtonRef}
                             variant="ghost"
                             size="sm"
-                            className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+                            className="hidden xs:flex relative p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
                             onClick={() => auth.user ? setWishlistOpen(!wishlistOpen) : toast.error('Please log in to view wishlist')}
                         >
                             <Heart className="h-5 w-5 text-gray-600 dark:text-gray-400" />
@@ -257,11 +253,11 @@ export default function CustomerHeader({ onToggleMobileMenu, isMobile }: Custome
                             )}
                         </Button>
 
-                        {/* Theme Toggle */}
+                        {/* Theme Toggle - Hide on smallest screens */}
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+                            className="hidden sm:flex p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
                             onClick={toggleTheme}
                         >
                             {isDarkMode ? (
@@ -271,33 +267,31 @@ export default function CustomerHeader({ onToggleMobileMenu, isMobile }: Custome
                             )}
                         </Button>
 
-                        {/* User Menu - Desktop Only */}
-                        {!isMobile && (
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <button className="flex items-center space-x-2 ml-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-                                        <Avatar className="h-8 w-8">
-                                            <AvatarImage src={auth.user?.avatar} alt={auth.user?.name} />
-                                            <AvatarFallback className="bg-gradient-to-br from-green-500 to-emerald-600 text-white text-sm">
-                                                {getInitials(auth.user?.name || '')}
-                                            </AvatarFallback>
-                                        </Avatar>
-                                        <div className="text-left hidden xl:block">
-                                            <p className="text-sm font-medium text-gray-900 dark:text-white">
-                                                {auth.user?.name}
-                                            </p>
-                                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                                                Customer
-                                            </p>
-                                        </div>
-                                        <ChevronsUpDown className="h-4 w-4 text-gray-400" />
-                                    </button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent className="w-64" align="end" side="bottom" sideOffset={8}>
-                                    <UserMenuContent user={auth.user} />
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        )}
+                        {/* User Menu - Desktop Only (lg+) */}
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <button className="hidden lg:flex items-center gap-2 px-2 xl:px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                                    <Avatar className="h-8 w-8">
+                                        <AvatarImage src={auth.user?.avatar} alt={auth.user?.name} />
+                                        <AvatarFallback className="bg-gradient-to-br from-green-500 to-emerald-600 text-white text-sm">
+                                            {getInitials(auth.user?.name || '')}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                    <div className="text-left hidden xl:block">
+                                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate max-w-[120px]">
+                                            {auth.user?.name}
+                                        </p>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                                            Customer
+                                        </p>
+                                    </div>
+                                    <ChevronsUpDown className="h-4 w-4 text-gray-400 hidden xl:block" />
+                                </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent className="w-64" align="end" side="bottom" sideOffset={8}>
+                                <UserMenuContent user={auth.user} />
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </div>
                 </div>
             </div>

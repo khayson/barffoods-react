@@ -14,15 +14,29 @@ interface CustomerLayoutProps {
 function CustomerLayoutContent({ children }: CustomerLayoutProps) {
     const [isMobile, setIsMobile] = useState(false);
     const [showMobileMenu, setShowMobileMenu] = useState(false);
+    const [conversationId, setConversationId] = useState<number | null>(null);
     const page = usePage<SharedData>();
     const { auth } = page.props;
 
-    // Handle responsive behavior
+    // Check for conversation ID from URL (e.g., from notifications)
+    useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const openParam = urlParams.get('open');
+        
+        if (openParam) {
+            setConversationId(parseInt(openParam));
+            // Clean up URL without reloading
+            window.history.replaceState({}, '', window.location.pathname);
+        }
+    }, []);
+
+    // Handle responsive behavior - simple mobile check
     useEffect(() => {
         const handleResize = () => {
             const mobile = window.innerWidth < 1024;
             setIsMobile(mobile);
-            // Hide mobile menu on desktop
+            
+            // Hide mobile menu when switching to desktop
             if (!mobile) {
                 setShowMobileMenu(false);
             }
@@ -72,7 +86,7 @@ function CustomerLayoutContent({ children }: CustomerLayoutProps) {
             </main>
 
             {/* Floating Support Icon */}
-            <FloatingSupportIcon />
+            <FloatingSupportIcon initialConversationId={conversationId} />
 
             {/* Mobile overlay when menu is open */}
             {isMobile && showMobileMenu && (

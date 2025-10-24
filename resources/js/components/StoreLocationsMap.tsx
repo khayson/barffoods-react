@@ -4,6 +4,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import axios from 'axios';
 import { router } from '@inertiajs/react';
+import { toast } from 'sonner';
 
 // Fix for default markers in Leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -45,12 +46,15 @@ export default function StoreLocationsMap() {
   const [leafletMap, setLeafletMap] = useState<L.Map | null>(null);
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [locationInput, setLocationInput] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [savedLocationInfo, setSavedLocationInfo] = useState<any>(null);
   const mapRef = useRef<HTMLDivElement>(null);
   const markersRef = useRef<L.Marker[]>([]);
   const userMarkerRef = useRef<L.Marker | null>(null);
 
   // Fetch stores from API
-  const fetchNearbyStores = async (userCoords: [number, number]) => {
+  const fetchNearbyStores = async (userCoords: [number, number], mapInstance?: L.Map) => {
     try {
       const response = await axios.get('/api/stores/nearby', {
         params: {
@@ -75,15 +79,122 @@ export default function StoreLocationsMap() {
       }));
       
       setNearbyStores(stores);
-      if (leafletMap) {
-        addStoreMarkers(stores, leafletMap);
+      
+      // Use provided map instance or fallback to state
+      const targetMap = mapInstance || leafletMap;
+      if (targetMap) {
+        // Ensure map is ready before adding markers
+        targetMap.whenReady(() => {
+          addStoreMarkers(stores, targetMap);
+        });
       }
     } catch (error) {
       console.error('Error fetching stores:', error);
+      toast.error('Failed to load nearby stores. Please try again.');
     }
   };
 
   const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]);
+
+  // Load saved location info on mount
+  useEffect(() => {
+    const savedLocation = localStorage.getItem('barffoods_user_location');
+    if (savedLocation) {
+      setSavedLocationInfo(JSON.parse(savedLocation));
+    }
+  }, []);
+
+  // Function to search location by address using Nominatim (OpenStreetMap geocoding)
+  const searchLocation = async () => {
+    if (!locationInput.trim()) {
+      toast.error('Please enter a location');
+      return;
+    }
+
+    setIsSearching(true);
+    setLocationError(null);
+
+    try {
+      // Use Nominatim API for geocoding (free, no API key needed)
+      const response = await axios.get('https://nominatim.openstreetmap.org/search', {
+        params: {
+          q: locationInput,
+          format: 'json',
+          limit: 1,
+          addressdetails: 1
+        },
+        headers: {
+          'User-Agent': 'BarfFoods-Store-Locator'
+        }
+      });
+
+      if (response.data && response.data.length > 0) {
+        const location = response.data[0];
+        const lat = parseFloat(location.lat);
+        const lng = parseFloat(location.lon);
+        const userCoords: [number, number] = [lat, lng];
+
+        setUserLocation(userCoords);
+
+        if (leafletMap) {
+          leafletMap.setView(userCoords, 13);
+
+          // Update URL with searched location
+          router.get('/', {
+            latitude: lat,
+            longitude: lng
+          }, {
+            preserveState: true,
+            preserveScroll: true,
+            replace: true
+          });
+
+          // Remove existing user marker
+          if (userMarkerRef.current) {
+            leafletMap.removeLayer(userMarkerRef.current);
+          }
+
+          // Add new user location marker
+          const userIcon = L.divIcon({
+            className: 'user-location-marker',
+            html: `
+              <div class="w-6 h-6 bg-green-500 rounded-full border-3 border-white shadow-lg animate-pulse">
+              </div>
+            `,
+            iconSize: [24, 24],
+            iconAnchor: [12, 12],
+          });
+
+          userMarkerRef.current = L.marker(userCoords, {
+            icon: userIcon,
+            title: 'Searched Location'
+          }).addTo(leafletMap);
+
+          userMarkerRef.current.bindPopup(`
+            <div class="p-2">
+              <h3 class="font-semibold text-green-600">📍 ${location.display_name}</h3>
+              <p class="text-sm text-gray-600">Lat: ${lat.toFixed(4)}</p>
+              <p class="text-sm text-gray-600">Lng: ${lng.toFixed(4)}</p>
+            </div>
+          `);
+
+          // Fetch nearby stores
+          fetchNearbyStores(userCoords);
+
+          toast.success(`Location found: ${location.display_name}`);
+        }
+      } else {
+        toast.error('Location not found. Please try a different address.');
+        setLocationError('Location not found');
+      }
+    } catch (error) {
+      console.error('Geocoding error:', error);
+      toast.error('Failed to search location. Please try again.');
+      setLocationError('Search failed');
+    } finally {
+      setIsSearching(false);
+    }
+  };
 
   // Function to manually detect user location (refresh location)
   const detectUserLocation = () => {
@@ -93,9 +204,24 @@ export default function StoreLocationsMap() {
     setLocationError(null);
 
     if (navigator.geolocation) {
+      // Check if we have permissions first
+      if (navigator.permissions) {
+        navigator.permissions.query({ name: 'geolocation' }).then((result) => {
+          if (result.state === 'denied') {
+            toast.error('Location access denied. Please enable location permissions in your browser settings.');
+            setLocationError('Location permissions denied');
+            setIsDetectingLocation(false);
+            return;
+          }
+        });
+      }
+
+      toast.info('Detecting your location...', { duration: 2000 });
+
+      // Try high accuracy first - NO CACHE for manual refresh
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          const { latitude, longitude } = position.coords;
+          const { latitude, longitude, accuracy } = position.coords;
           const userCoords: [number, number] = [latitude, longitude];
           
           setUserLocation(userCoords);
@@ -139,40 +265,136 @@ export default function StoreLocationsMap() {
               <h3 class="font-semibold text-blue-600">📍 Your Location</h3>
               <p class="text-sm text-gray-600">Lat: ${latitude.toFixed(4)}</p>
               <p class="text-sm text-gray-600">Lng: ${longitude.toFixed(4)}</p>
+              <p class="text-xs text-gray-500 mt-1">Accuracy: ${Math.round(accuracy)}m</p>
             </div>
           `);
 
           // Fetch nearby stores for the new location
           fetchNearbyStores(userCoords);
 
+          toast.success(`Location detected! Accuracy: ${Math.round(accuracy)}m`);
           setIsDetectingLocation(false);
         },
         (error) => {
           let errorMessage = 'Unable to detect your location';
+          
+          // Provide specific, helpful error messages
           switch (error.code) {
             case error.PERMISSION_DENIED:
-              errorMessage = 'Location access denied. Please allow location access in your browser.';
+              errorMessage = 'Location access denied. Please enable location permissions in your browser settings.';
+              toast.error(errorMessage);
               break;
             case error.POSITION_UNAVAILABLE:
-              errorMessage = 'Location information unavailable.';
+              errorMessage = 'Location unavailable. Please ensure location services are enabled on your device.';
+              toast.error(errorMessage);
               break;
             case error.TIMEOUT:
-              errorMessage = 'Location request timed out.';
-              break;
+              toast.warning('GPS taking too long, trying network location...', { duration: 2000 });
+              // Fallback to low accuracy mode
+              setTimeout(() => detectUserLocationLowAccuracy(), 500);
+              return;
           }
+          
+          console.warn('Geolocation error:', error.message);
           setLocationError(errorMessage);
           setIsDetectingLocation(false);
         },
         {
           enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 300000
+          timeout: 25000, // 25 seconds for GPS
+          maximumAge: 0 // NO CACHE - always get fresh location on manual refresh
         }
       );
     } else {
-      setLocationError('Geolocation is not supported by this browser.');
+      const errorMessage = 'Geolocation is not supported by this browser.';
+      toast.error(errorMessage);
+      setLocationError(errorMessage);
       setIsDetectingLocation(false);
     }
+  };
+
+  // Fallback method with lower accuracy for faster results (network/WiFi location)
+  const detectUserLocationLowAccuracy = () => {
+    if (!leafletMap || !navigator.geolocation) return;
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude, accuracy } = position.coords;
+        const userCoords: [number, number] = [latitude, longitude];
+        
+        setUserLocation(userCoords);
+        leafletMap.setView(userCoords, 13);
+        
+        router.get('/', {
+          latitude: latitude,
+          longitude: longitude
+        }, {
+          preserveState: true,
+          preserveScroll: true,
+          replace: true
+        });
+
+        // Remove existing user marker
+        if (userMarkerRef.current) {
+          leafletMap.removeLayer(userMarkerRef.current);
+        }
+
+        // Add new user location marker
+        const userIcon = L.divIcon({
+          className: 'user-location-marker',
+          html: `
+            <div class="w-6 h-6 bg-orange-500 rounded-full border-3 border-white shadow-lg animate-pulse">
+            </div>
+          `,
+          iconSize: [24, 24],
+          iconAnchor: [12, 12],
+        });
+
+        userMarkerRef.current = L.marker(userCoords, {
+          icon: userIcon,
+          title: 'Your Location (Network-based)'
+        }).addTo(leafletMap);
+
+        userMarkerRef.current.bindPopup(`
+          <div class="p-2">
+            <h3 class="font-semibold text-orange-600">📍 Your Location (Network-based)</h3>
+            <p class="text-sm text-gray-600">Lat: ${latitude.toFixed(4)}</p>
+            <p class="text-sm text-gray-600">Lng: ${longitude.toFixed(4)}</p>
+            <p class="text-xs text-gray-500 mt-1">Accuracy: ~${Math.round(accuracy)}m</p>
+          </div>
+        `);
+
+        fetchNearbyStores(userCoords);
+        setLocationError(null);
+        setIsDetectingLocation(false);
+        
+        toast.success(`Location detected using network. Accuracy: ~${Math.round(accuracy)}m`);
+      },
+      (error) => {
+        console.warn('Low accuracy geolocation also failed:', error.message);
+        
+        const errorMsg = 'Could not detect your location. Please ensure:\n• Location services are enabled\n• Browser has location permission\n• You have internet connection';
+        toast.error('Location detection failed', {
+          description: error.code === error.TIMEOUT 
+            ? 'Timeout expired. Location services may be disabled or unavailable.' 
+            : 'Using default location (New York). You can manually refresh when ready.',
+          duration: 5000
+        });
+        
+        setLocationError('Location detection failed. Using default location.');
+        setIsDetectingLocation(false);
+        
+        // Use default location as final fallback
+        const defaultLocation: [number, number] = [40.7128, -74.0060];
+        setUserLocation(defaultLocation);
+        fetchNearbyStores(defaultLocation);
+      },
+      {
+        enableHighAccuracy: false, // Network/WiFi location (faster, less accurate)
+        timeout: 15000, // Increased to 15 seconds
+        maximumAge: 0 // NO CACHE - fresh location
+      }
+    );
   };
 
   // Initialize Leaflet Map and get user location
@@ -191,73 +413,49 @@ export default function StoreLocationsMap() {
     setLeafletMap(map);
     setMapLoaded(true);
 
-    // Try to detect user location automatically
-    if (navigator.geolocation) {
-      setIsDetectingLocation(true);
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          const userCoords: [number, number] = [latitude, longitude];
-          
-          setUserLocation(userCoords);
-          map.setView(userCoords, 13);
-          
-          // Update URL with detected location to refresh page data
-          router.get('/', {
-            latitude: latitude,
-            longitude: longitude
-          }, {
-            preserveState: true,
-            preserveScroll: true,
-            replace: true
-          });
-          
-          // Add user location marker
-          const userIcon = L.divIcon({
-            className: 'user-location-marker',
-            html: `
-              <div class="w-6 h-6 bg-blue-500 rounded-full border-3 border-white shadow-lg animate-pulse">
-              </div>
-            `,
-            iconSize: [24, 24],
-            iconAnchor: [12, 12],
-          });
+    // Check for saved location from first-visit modal
+    const savedLocation = localStorage.getItem('barffoods_user_location');
+    
+    if (savedLocation) {
+      // Use saved location from localStorage
+      const locationData = JSON.parse(savedLocation);
+      const userCoords: [number, number] = [locationData.latitude, locationData.longitude];
+      
+      setUserLocation(userCoords);
+      map.setView(userCoords, 13);
+      
+      // Add user location marker
+      const userIcon = L.divIcon({
+        className: 'user-location-marker',
+        html: `
+          <div class="w-6 h-6 bg-green-500 rounded-full border-3 border-white shadow-lg animate-pulse">
+          </div>
+        `,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
+      });
 
-          const userMarker = L.marker(userCoords, {
-            icon: userIcon,
-            title: 'Your Location'
-          }).addTo(map);
+      userMarkerRef.current = L.marker(userCoords, {
+        icon: userIcon,
+        title: 'Your Saved Location'
+      }).addTo(map);
 
-          userMarker.bindPopup(`
-            <div class="p-2">
-              <h3 class="font-semibold text-blue-600">📍 Your Location</h3>
-              <p class="text-sm text-gray-600">Lat: ${latitude.toFixed(4)}</p>
-              <p class="text-sm text-gray-600">Lng: ${longitude.toFixed(4)}</p>
-            </div>
-          `);
+      userMarkerRef.current.bindPopup(`
+        <div class="p-2">
+          <h3 class="font-semibold text-green-600">📍 Your Saved Location</h3>
+          <p class="text-sm text-gray-600">${locationData.address}</p>
+          <p class="text-xs text-gray-500 mt-1">Click "Update" below to change</p>
+        </div>
+      `);
 
-          fetchNearbyStores(userCoords);
-          setIsDetectingLocation(false);
-        },
-        (error) => {
-          console.log('Geolocation failed, using default location:', error.message);
-          // Fallback to default location
-          const defaultLocation: [number, number] = [40.7128, -74.0060];
-          setUserLocation(defaultLocation);
-          fetchNearbyStores(defaultLocation);
-          setIsDetectingLocation(false);
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 300000
-        }
-      );
+      fetchNearbyStores(userCoords, map);
+      console.log(`Using saved location: ${locationData.address}`);
     } else {
-      // Fallback to default location if geolocation is not supported
+      // Use default location - user will be prompted by the first-visit modal
       const defaultLocation: [number, number] = [40.7128, -74.0060];
       setUserLocation(defaultLocation);
-      fetchNearbyStores(defaultLocation);
+      fetchNearbyStores(defaultLocation, map);
+      console.log('No saved location, using default (New York). First-visit modal will prompt user.');
     }
 
     // Cleanup function
@@ -283,59 +481,112 @@ export default function StoreLocationsMap() {
 
   // Add store markers to Leaflet Map
   const addStoreMarkers = (storesToMark: Store[], map: L.Map) => {
-    if (!map) return;
+    // Comprehensive map validation
+    if (!map) {
+      console.warn('Map instance is null');
+      return;
+    }
+
+    const container = map.getContainer();
+    if (!container) {
+      console.warn('Map container is null');
+      return;
+    }
+
+    // Check if container is in the DOM
+    if (!document.body.contains(container)) {
+      console.warn('Map container is not in the DOM');
+      return;
+    }
+
+    // Check if map is ready
+    if (!map.getPane('overlayPane')) {
+      console.warn('Map panes not initialized yet');
+      return;
+    }
 
     // Clear existing markers
     markersRef.current.forEach(marker => {
-      map.removeLayer(marker);
+      try {
+        if (map && marker) {
+          map.removeLayer(marker);
+        }
+      } catch (e) {
+        console.warn('Error removing marker:', e);
+      }
     });
     markersRef.current = [];
 
     storesToMark.forEach((store) => {
-      // Create custom icon
-      const customIcon = L.divIcon({
-        className: 'custom-store-marker',
-        html: `
-          <div class="w-8 h-8 rounded-full border-3 border-white shadow-lg flex items-center justify-center cursor-pointer transition-all duration-200 hover:scale-110 ${
-            selectedStore?.id === store.id ? 'bg-green-500' : 'bg-red-500'
-          }">
-            <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M10 2L3 7v11h4v-6h6v6h4V7l-7-5z"/>
-            </svg>
-          </div>
-        `,
-        iconSize: [32, 32],
-        iconAnchor: [16, 16],
-      });
+      try {
+        // Validate store coordinates
+        if (!store.coordinates || store.coordinates.length !== 2) {
+          console.warn('Invalid coordinates for store:', store.name);
+          return;
+        }
 
-      // Create marker
-      const marker = L.marker([store.coordinates[0], store.coordinates[1]], {
-        icon: customIcon,
-        title: store.name
-      }).addTo(map);
+        const lat = parseFloat(String(store.coordinates[0]));
+        const lng = parseFloat(String(store.coordinates[1]));
+        
+        if (isNaN(lat) || isNaN(lng)) {
+          console.warn('Invalid lat/lng for store:', store.name);
+          return;
+        }
 
-      // Create popup content
-      const popupContent = `
-        <div class="p-3">
-          <h3 class="font-semibold text-gray-900 mb-2">${store.name}</h3>
-          <div class="space-y-1 text-sm text-gray-600">
-            <p>📍 ${store.address}</p>
-            <p>📞 ${store.phone}</p>
-            <p>🕒 ${store.hours}</p>
-            <p class="font-medium text-blue-600">${store.distance ? store.distance.toFixed(1) : '0.0'} miles away</p>
-          </div>
-        </div>
-      `;
+        // Create custom icon
+        const customIcon = L.divIcon({
+          className: 'custom-store-marker',
+          html: `
+            <div class="w-8 h-8 rounded-full border-3 border-white shadow-lg flex items-center justify-center cursor-pointer transition-all duration-200 hover:scale-110 ${
+              selectedStore?.id === store.id ? 'bg-green-500' : 'bg-red-500'
+            }">
+              <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M10 2L3 7v11h4v-6h6v6h4V7l-7-5z"/>
+              </svg>
+            </div>
+          `,
+          iconSize: [32, 32],
+          iconAnchor: [16, 16],
+        });
 
-      marker.bindPopup(popupContent);
+        // Create marker
+        const marker = L.marker([lat, lng], {
+          icon: customIcon,
+          title: store.name
+        });
 
-      // Add click event
-      marker.on('click', () => {
-        setSelectedStore(store);
-      });
+        // Add marker to map only if map is still valid
+        if (map && map.getContainer() && document.body.contains(map.getContainer())) {
+          marker.addTo(map);
 
-      markersRef.current.push(marker);
+          // Create popup content
+          const popupContent = `
+            <div class="p-3">
+              <h3 class="font-semibold text-gray-900 mb-2">${store.name}</h3>
+              <div class="space-y-1 text-sm text-gray-600">
+                <p>📍 ${store.address}</p>
+                <p>📞 ${store.phone}</p>
+                <p>🕒 ${store.hours}</p>
+                <p class="font-medium text-blue-600">${store.distance ? store.distance.toFixed(1) : '0.0'} miles away</p>
+              </div>
+            </div>
+          `;
+
+          marker.bindPopup(popupContent);
+
+          // Add click event
+          marker.on('click', () => {
+            setSelectedStore(store);
+          });
+
+          markersRef.current.push(marker);
+        }
+      } catch (error) {
+        console.error('Error adding marker for store:', store.name, error);
+      }
     });
+
+    console.log(`Successfully added ${markersRef.current.length} store markers`);
   };
 
   // Check if user is in delivery zone based on nearby stores
@@ -535,32 +786,96 @@ export default function StoreLocationsMap() {
           </div>
         </div>
 
+        {/* Location Search Input - Above Store Information */}
+        <div className="bg-white dark:bg-gray-900 rounded-lg p-6 shadow-lg mb-6">
+          <div className="flex items-center space-x-3 mb-4">
+            <MapPin className="h-6 w-6 text-green-600" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Search Location</h3>
+          </div>
+          
+          {savedLocationInfo && (
+            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3 mb-4">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-green-800 dark:text-green-200">
+                    📍 Saved Location
+                  </p>
+                  <p className="text-xs text-green-600 dark:text-green-300 mt-1">
+                    {savedLocationInfo.address}
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    if (confirm('Are you sure you want to remove your saved location?')) {
+                      localStorage.removeItem('barffoods_user_location');
+                      setSavedLocationInfo(null);
+                      toast.info('Saved location removed. You can set a new one below.');
+                    }
+                  }}
+                  className="text-xs text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-200 font-medium"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+          )}
+          
+          <div className="flex gap-3">
+            <input
+              type="text"
+              value={locationInput}
+              onChange={(e) => setLocationInput(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && searchLocation()}
+              placeholder={savedLocationInfo ? "Update your location..." : "Enter address, city, or ZIP code..."}
+              className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              disabled={isSearching}
+            />
+            <button
+              onClick={searchLocation}
+              disabled={isSearching || !locationInput.trim()}
+              className="px-6 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-medium rounded-lg transition-colors flex items-center space-x-2"
+            >
+              {isSearching ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <span>Searching...</span>
+                </>
+              ) : (
+                <>
+                  <MapPin className="h-4 w-4" />
+                  <span>{savedLocationInfo ? 'Update' : 'Search'}</span>
+                </>
+              )}
+            </button>
+            <button
+              onClick={detectUserLocation}
+              disabled={isDetectingLocation}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-medium rounded-lg transition-colors flex items-center space-x-2"
+              title="Use my current location"
+            >
+              {isDetectingLocation ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              ) : (
+                <Navigation className="h-4 w-4" />
+              )}
+              <span className="hidden sm:inline">Auto-Detect</span>
+            </button>
+          </div>
+          
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+            {savedLocationInfo 
+              ? 'Update your saved location or use Auto-Detect to refresh'
+              : 'Enter an address or click "Auto-Detect" to use your current location'}
+          </p>
+        </div>
+
         {/* Store Information - Below Map */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* User Location Status */}
           <div className="bg-white dark:bg-gray-900 rounded-lg p-6 shadow-lg">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-3">
-                <Navigation className="h-6 w-6 text-green-600" />
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Your Location</h3>
-              </div>
-              <button
-                onClick={detectUserLocation}
-                disabled={isDetectingLocation}
-                className="px-3 py-1 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white text-sm rounded-md transition-colors flex items-center space-x-1"
-              >
-                {isDetectingLocation ? (
-                  <>
-                    <div className="animate-spin rounded-full h-3 w-3 border-b border-white"></div>
-                    <span>Detecting...</span>
-                  </>
-                ) : (
-                  <>
-                    <Navigation className="h-3 w-3" />
-                    <span>Refresh Location</span>
-                  </>
-                )}
-              </button>
+            <div className="flex items-center space-x-3 mb-4">
+              <Navigation className="h-6 w-6 text-green-600" />
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Your Location</h3>
             </div>
             
             {userLocation && (

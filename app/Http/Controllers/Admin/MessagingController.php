@@ -47,9 +47,9 @@ class MessagingController extends Controller
     }
 
     /**
-     * Show a specific conversation.
+     * Get conversation details as JSON (for off-canvas panel).
      */
-    public function show(Conversation $conversation): Response
+    public function showApi(Conversation $conversation): JsonResponse
     {
         $conversation->load([
             'participants',
@@ -63,7 +63,7 @@ class MessagingController extends Controller
         // Mark messages as read for the current admin
         $this->markMessagesAsRead($conversation, auth()->id());
 
-        return Inertia::render('admin/conversation', [
+        return response()->json([
             'conversation' => $conversation,
         ]);
     }
@@ -94,8 +94,13 @@ class MessagingController extends Controller
         // Send notification to other participants
         $this->notifyParticipants($conversation, $message->load('user'), auth()->id());
 
-        // Broadcast the message to all participants
-        broadcast(new MessageSent($message));
+        // Broadcast the message to all participants (only if broadcasting is enabled)
+        try {
+            broadcast(new MessageSent($message))->toOthers();
+        } catch (\Exception $e) {
+            // Log but don't fail the request if broadcasting fails
+            \Log::warning('Failed to broadcast message', ['error' => $e->getMessage()]);
+        }
 
         // Check if this is an Inertia request
         if ($request->header('X-Inertia')) {
@@ -243,7 +248,7 @@ class MessagingController extends Controller
                 message: "New message from " . ($message->user->name ?? 'Unknown User') . ": " . substr($message->content, 0, 100) . '...',
                 userId: $participant->id,
                 priority: $conversation->priority,
-                actionUrl: "/admin/messaging/{$conversation->id}",
+                actionUrl: "/admin/messaging?open={$conversation->id}",
                 actionText: 'View Message',
                 icon: 'message-square',
                 color: 'blue'
@@ -263,7 +268,7 @@ class MessagingController extends Controller
             message: "You have been assigned to a conversation with priority: {$conversation->priority}",
             userId: $admin->id,
             priority: $conversation->priority,
-            actionUrl: "/admin/messaging/{$conversation->id}",
+            actionUrl: "/admin/messaging?open={$conversation->id}",
             actionText: 'View Conversation',
             icon: 'user-check',
             color: 'green'

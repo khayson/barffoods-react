@@ -105,20 +105,19 @@ export default function SystemSettings({ settings }: SystemSettingsProps) {
         <AdminLayout>
             <Head title="System Settings - BarfFoods Admin" />
             
-            <div className="min-h-screen scrollbar-hide overflow-hide">
-                <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                    {/* Header */}
-                    <div className="mb-8">
-                        <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-                            <Settings className="w-8 h-8 text-blue-600 dark:text-blue-400" />
-                            System Settings
-                        </h1>
-                        <p className="text-gray-600 dark:text-gray-400 mt-2">
-                            Configure global system settings that apply to all stores
-                        </p>
-                    </div>
+            <div className="max-w-4xl mx-auto space-y-6">
+                {/* Header */}
+                <div className="mb-8">
+                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+                        <Settings className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                        System Settings
+                    </h1>
+                    <p className="text-gray-600 dark:text-gray-400 mt-2">
+                        Configure global system settings that apply to all stores
+                    </p>
+                </div>
 
-                    <form onSubmit={handleSubmit} className="space-y-6">
+                <form onSubmit={handleSubmit} className="space-y-6">
                         {/* Global Delivery Fee */}
                         <Card>
                             <CardHeader>
@@ -441,8 +440,7 @@ export default function SystemSettings({ settings }: SystemSettingsProps) {
                                 {processing ? 'Saving...' : 'Save Settings'}
                             </Button>
                         </div>
-                    </form>
-                </div>
+                </form>
             </div>
         </AdminLayout>
     );

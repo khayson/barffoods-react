@@ -15,6 +15,7 @@ import { useCart } from '@/contexts/CartContext';
 
 export default function Navigation() {
     const { auth } = usePage<SharedData>().props;
+    const { url } = usePage();
     const { wishlistCount } = useWishlist();
     const { totalItems } = useCart();
     const [isDarkMode, setIsDarkMode] = useState(false);
@@ -24,6 +25,17 @@ export default function Navigation() {
     const [cartOpen, setCartOpen] = useState(false);
     const wishlistButtonRef = useRef<HTMLButtonElement>(null);
     const cartButtonRef = useRef<HTMLButtonElement>(null);
+    
+    // Helper function to check if a path is active
+    const isActive = (path: string) => {
+        // Get current pathname
+        const currentPath = window.location.pathname;
+        
+        if (path === '/') {
+            return currentPath === '/';
+        }
+        return currentPath.startsWith(path);
+    };
 
     // Initialize theme from localStorage or system preference
     useEffect(() => {
@@ -72,45 +84,43 @@ export default function Navigation() {
     }, []);
 
     return (
-        <nav className="sticky top-0 z-50 bg-white dark:bg-gray-900 shadow-sm dark:shadow-gray-800/20 border-b border-gray-200 dark:border-gray-700 transition-colors pt-2 sm:pt-4">
+        <nav className="sticky top-0 z-50 bg-white dark:bg-gray-900 shadow-sm dark:shadow-gray-800/20 border-b border-gray-200 dark:border-gray-700 transition-colors">
             {/* Top Navigation Section */}
-            <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
-                <div className="flex items-center justify-between h-10 sm:h-12 border-b border-gray-400 dark:border-gray-700 transition-colors pb-1 sm:pb-2">
-
-                    {/* Middle Section - Search Bar */}
-                    <div className="flex-1 max-w-xs sm:max-w-md mx-2 sm:mx-8">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="flex items-center justify-between h-14 border-b border-gray-200 dark:border-gray-700">
+                    {/* Search Bar - Centered on mobile, flexible on desktop */}
+                    <div className="flex-1 max-w-2xl mx-auto lg:mx-8">
                         <div className="relative">
-                            <div className="absolute inset-y-0 left-0 pl-2 sm:pl-3 flex items-center pointer-events-none">
-                                <Search className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400 dark:text-gray-500" />
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <Search className="h-4 w-4 text-gray-400 dark:text-gray-500" />
                             </div>
                             <input
                                 type="text"
                                 placeholder="Search Products, Brands and More..."
-                                className="block w-full pl-7 sm:pl-10 pr-8 sm:pr-12 py-1 sm:py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs sm:text-sm"
+                                className="block w-full pl-10 pr-12 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm cursor-pointer"
                                 readOnly
                                 onClick={() => setSearchOpen(true)}
                             />
-                            <div className="absolute right-2 sm:right-3 top-1/2 transform -translate-y-1/2">
-                                <Kbd className="px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded">
+                            <div className="absolute right-3 top-1/2 transform -translate-y-1/2 hidden sm:block">
+                                <Kbd className="px-2 py-1 text-xs font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded">
                                     {navigator.platform.toLowerCase().includes('mac') ? '⌘K' : 'Ctrl+K'}
                                 </Kbd>
                             </div>
                         </div>
                     </div>
 
-                    {/* Right Section - Wishlist, Cart, Theme Toggle, and Login */}
-                    <div className="flex items-center space-x-1 sm:space-x-4">
+                    {/* Right Section - Actions */}
+                    <div className="flex items-center gap-2 ml-4">
                         {/* Wishlist */}
                         <button 
                             ref={wishlistButtonRef}
                             onClick={() => auth.user ? setWishlistOpen(!wishlistOpen) : toast.error('Please log in to view wishlist')}
-                            className="p-1.5 sm:p-2 bg-pink-50 dark:bg-pink-900 hover:bg-pink-100 dark:hover:bg-pink-800 rounded-md transition-colors relative"
+                            className="p-2 bg-pink-50 dark:bg-pink-900 hover:bg-pink-100 dark:hover:bg-pink-800 rounded-lg transition-colors relative"
                         >
-                            <Heart className="h-4 w-4 sm:h-5 sm:w-5 text-pink-600 dark:text-pink-400" />
-                            {/* Wishlist count badge */}
+                            <Heart className="h-5 w-5 text-pink-600 dark:text-pink-400" />
                             {wishlistCount > 0 && (
-                                <span className="absolute -top-1 -right-1 h-4 w-4 sm:h-5 sm:w-5 bg-pink-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
-                                    {wishlistCount}
+                                <span className="absolute -top-1 -right-1 h-5 w-5 bg-pink-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                                    {wishlistCount > 9 ? '9+' : wishlistCount}
                                 </span>
                             )}
                         </button>
@@ -119,36 +129,34 @@ export default function Navigation() {
                         <button 
                             ref={cartButtonRef}
                             onClick={() => setCartOpen(!cartOpen)}
-                            className="p-1.5 sm:p-2 bg-green-50 dark:bg-green-900 hover:bg-green-100 dark:hover:bg-green-800 rounded-md transition-colors relative"
+                            className="p-2 bg-green-50 dark:bg-green-900 hover:bg-green-100 dark:hover:bg-green-800 rounded-lg transition-colors relative"
                         >
-                            <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5 text-green-600 dark:text-green-400" />
-                            {/* Cart count badge */}
+                            <ShoppingCart className="h-5 w-5 text-green-600 dark:text-green-400" />
                             {totalItems > 0 && (
-                                <span className="absolute -top-1 -right-1 h-4 w-4 sm:h-5 sm:w-5 bg-green-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
-                                    {totalItems}
+                                <span className="absolute -top-1 -right-1 h-5 w-5 bg-green-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                                    {totalItems > 9 ? '9+' : totalItems}
                                 </span>
                             )}
                         </button>
 
-
-                        {/* Theme Toggle */}
+                        {/* Theme Toggle - Hide on smallest screens */}
                         <button
                             onClick={toggleTheme}
-                            className="p-1.5 sm:p-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md transition-colors"
+                            className="hidden sm:flex p-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
                             title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
                         >
                             {isDarkMode ? (
-                                <Sun className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-500" />
+                                <Sun className="h-5 w-5 text-yellow-500" />
                             ) : (
-                                <Moon className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600 dark:text-gray-300" />
+                                <Moon className="h-5 w-5 text-gray-600 dark:text-gray-300" />
                             )}
                         </button>
 
-                        {/* Login Button */}
+                        {/* Login/Dashboard Button */}
                         {auth.user ? (
                             <Link
                                 href={auth.user.role === 'super_admin' ? '/admin/dashboard' : '/dashboard'}
-                                className="px-2 sm:px-4 py-1 sm:py-2 bg-green-600 text-white text-xs sm:text-sm font-medium rounded-md hover:bg-green-700 transition-colors"
+                                className="px-3 sm:px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap"
                             >
                                 <span className="hidden sm:inline">Dashboard</span>
                                 <span className="sm:hidden">Dash</span>
@@ -156,10 +164,9 @@ export default function Navigation() {
                         ) : (
                             <Link
                                 href={login.url()}
-                                className="px-2 sm:px-4 py-1 sm:py-2 bg-green-600 text-white text-xs sm:text-sm font-medium rounded-md hover:bg-green-700 transition-colors"
+                                className="px-3 sm:px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
                             >
-                                <span className="hidden sm:inline">Login</span>
-                                <span className="sm:hidden">Login</span>
+                                Login
                             </Link>
                         )}
                     </div>
@@ -167,43 +174,85 @@ export default function Navigation() {
             </div>
 
             {/* Bottom Navigation Section */}
-            <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
-                <div className="flex items-center justify-between h-12 sm:h-16">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="flex items-center justify-between h-16">
                     {/* Logo */}
-                    <div className="flex items-center space-x-1 sm:space-x-2">
-                        <div className="w-6 h-6 sm:w-8 sm:h-8 bg-green-600 rounded-md flex items-center justify-center">
-                            <ShoppingCart className="h-3 w-3 sm:h-5 sm:w-5 text-white" />
+                    <Link href="/" className="flex items-center gap-2 shrink-0">
+                        <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
+                            <ShoppingCart className="h-5 w-5 text-white" />
                         </div>
-                        <span className="text-sm sm:text-xl font-bold text-gray-900 dark:text-white">Grocery Bazar</span>
-                    </div>
+                        <span className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">Grocery Bazar</span>
+                    </Link>
 
-                    {/* Main Navigation Links */}
-                    <div className="hidden lg:flex items-center space-x-6 xl:space-x-8">
+                    {/* Main Navigation Links - Desktop Only */}
+                    <nav className="hidden lg:flex items-center gap-6">
+                        <Link
+                            href="/"
+                            className={`text-sm font-medium transition-colors pb-1 inline-block ${
+                                isActive('/')
+                                    ? 'text-green-600 dark:text-green-500 font-bold border-b-2 border-green-600 dark:border-green-500'
+                                    : 'text-gray-900 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-500'
+                            }`}
+                        >
+                            Home
+                        </Link>
                         {[
-                            'Home',
                             'About',
                             'Products',
-                            'Cart',
-                            'Wishlist',
                             'Blog',
                             'Career',
                             'Contact'
                         ].map((item, index) => (
-                            <a
+                            <button
                                 key={index}
-                                href="#"
-                                className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-300 hover:text-green-600 transition-colors"
+                                onClick={() => toast.info(`${item} page coming soon! 🚀`, {
+                                    description: 'This feature is under development',
+                                    duration: 3000,
+                                })}
+                                className="text-sm font-medium text-gray-900 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-500 transition-colors"
                             >
                                 {item}
-                            </a>
+                            </button>
                         ))}
-                    </div>
+                    </nav>
 
-                    {/* Mobile Menu Button */}
-                    <div className="lg:hidden">
+                    {/* Right Section */}
+                    <div className="flex items-center gap-3">
+                        {/* Social Media Icons - Hidden on mobile */}
+                        <div className="hidden md:flex items-center gap-3">
+                            <button 
+                                onClick={() => toast.info('Facebook page coming soon! 📘', {
+                                    description: 'Follow us for updates',
+                                    duration: 3000,
+                                })}
+                                className="text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-500 transition-colors"
+                            >
+                                <Facebook className="h-5 w-5" />
+                            </button>
+                            <button 
+                                onClick={() => toast.info('Instagram page coming soon! 📸', {
+                                    description: 'Follow us for updates',
+                                    duration: 3000,
+                                })}
+                                className="text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-500 transition-colors"
+                            >
+                                <Instagram className="h-5 w-5" />
+                            </button>
+                            <button 
+                                onClick={() => toast.info('YouTube channel coming soon! 📺', {
+                                    description: 'Subscribe for updates',
+                                    duration: 3000,
+                                })}
+                                className="text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-500 transition-colors"
+                            >
+                                <Youtube className="h-5 w-5" />
+                            </button>
+                        </div>
+
+                        {/* Mobile Menu Button */}
                         <button
                             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                            className="p-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md transition-colors"
+                            className="lg:hidden p-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
                         >
                             {isMobileMenuOpen ? (
                                 <X className="h-5 w-5 text-gray-600 dark:text-gray-300" />
@@ -212,59 +261,75 @@ export default function Navigation() {
                             )}
                         </button>
                     </div>
-
-                    {/* Social Media Icons */}
-                    <div className="hidden sm:flex items-center space-x-3 xl:space-x-4">
-                        <a href="#" className="text-gray-600 dark:text-gray-400 hover:text-green-600 transition-colors">
-                            <Facebook className="h-4 w-4 xl:h-5 xl:w-5" />
-                        </a>
-                        <a href="#" className="text-gray-600 dark:text-gray-400 hover:text-green-600 transition-colors">
-                            <Instagram className="h-4 w-4 xl:h-5 xl:w-5" />
-                        </a>
-                        <a href="#" className="text-gray-600 dark:text-gray-400 hover:text-green-600 transition-colors">
-                            <Youtube className="h-4 w-4 xl:h-5 xl:w-5" />
-                        </a>
-                    </div>
                 </div>
 
                 {/* Mobile Menu */}
                 {isMobileMenuOpen && (
                     <div className="lg:hidden border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
-                        <div className="px-3 py-4 space-y-3">
+                        <div className="py-4 space-y-1">
                             {/* Navigation Links */}
-                            <div className="space-y-2">
-                                {[
-                                    'Home',
-                                    'About',
-                                    'Products',
-                                    'Cart',
-                                    'Wishlist',
-                                    'Blog',
-                                    'Career',
-                                    'Contact'
-                                ].map((item, index) => (
-                                    <a
-                                        key={index}
-                                        href="#"
-                                        className="block px-3 py-2 text-sm font-medium text-gray-900 dark:text-gray-300 hover:text-green-600 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-md transition-colors"
-                                        onClick={() => setIsMobileMenuOpen(false)}
-                                    >
-                                        {item}
-                                    </a>
-                                ))}
-                            </div>
+                            <Link
+                                href="/"
+                                className={`block px-4 py-2.5 text-sm font-medium transition-colors ${
+                                    isActive('/')
+                                        ? 'text-green-600 dark:text-green-500 bg-green-50 dark:bg-green-900/20 border-l-4 border-green-600 dark:border-green-500'
+                                        : 'text-gray-900 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-500 hover:bg-gray-50 dark:hover:bg-gray-800'
+                                }`}
+                                onClick={() => setIsMobileMenuOpen(false)}
+                            >
+                                Home
+                            </Link>
+                            {[
+                                'About',
+                                'Products',
+                                'Blog',
+                                'Career',
+                                'Contact'
+                            ].map((item, index) => (
+                                <button
+                                    key={index}
+                                    onClick={() => {
+                                        toast.info(`${item} page coming soon! 🚀`, {
+                                            description: 'This feature is under development',
+                                            duration: 3000,
+                                        });
+                                        setIsMobileMenuOpen(false);
+                                    }}
+                                    className="block w-full text-left px-4 py-2.5 text-sm font-medium text-gray-900 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-500 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                                >
+                                    {item}
+                                </button>
+                            ))}
 
-                            {/* Social Media Icons */}
-                            <div className="flex items-center justify-center space-x-4 pt-3 border-t border-gray-200 dark:border-gray-700">
-                                <a href="#" className="text-gray-600 dark:text-gray-400 hover:text-green-600 transition-colors">
+                            {/* Social Media Icons in Mobile Menu */}
+                            <div className="flex items-center justify-center gap-6 pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
+                                <button 
+                                    onClick={() => toast.info('Facebook page coming soon! 📘', {
+                                        description: 'Follow us for updates',
+                                        duration: 3000,
+                                    })}
+                                    className="text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-500 transition-colors"
+                                >
                                     <Facebook className="h-5 w-5" />
-                                </a>
-                                <a href="#" className="text-gray-600 dark:text-gray-400 hover:text-green-600 transition-colors">
+                                </button>
+                                <button 
+                                    onClick={() => toast.info('Instagram page coming soon! 📸', {
+                                        description: 'Follow us for updates',
+                                        duration: 3000,
+                                    })}
+                                    className="text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-500 transition-colors"
+                                >
                                     <Instagram className="h-5 w-5" />
-                                </a>
-                                <a href="#" className="text-gray-600 dark:text-gray-400 hover:text-green-600 transition-colors">
+                                </button>
+                                <button 
+                                    onClick={() => toast.info('YouTube channel coming soon! 📺', {
+                                        description: 'Subscribe for updates',
+                                        duration: 3000,
+                                    })}
+                                    className="text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-500 transition-colors"
+                                >
                                     <Youtube className="h-5 w-5" />
-                                </a>
+                                </button>
                             </div>
                         </div>
                     </div>

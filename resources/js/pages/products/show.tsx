@@ -395,10 +395,11 @@ export default function ProductPage({ product, reviews, relatedProducts, shippin
                 {isLoading ? (
                     <ProductSkeleton />
                 ) : (
-                    <main className="flex justify-center min-h-screen">
-                        {/* Left Column - Product Images */}
-                        <div className="w-[30%] p-8">
-                            <div className="space-y-6">
+                    <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+                        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-8">
+                            {/* Left Column - Product Images */}
+                            <div className="lg:col-span-2">
+                                <div className="sticky top-20 space-y-4 lg:space-y-6">
                                 {/* Main Image */}
                                 <div className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden">
                                     <div className="w-full h-full flex items-center justify-center">
@@ -426,18 +427,18 @@ export default function ProductPage({ product, reviews, relatedProducts, shippin
 
                                 {/* Thumbnail Gallery - Only show if multiple images exist */}
                                 {productImages.length > 1 && (
-                                    <div className="flex space-x-4">
+                                    <div className="flex gap-2 sm:gap-4 overflow-x-auto scrollbar-thin">
                                         {productImages.map((image, index) => (
                                             <button
                                                 key={index}
                                                 onClick={() => setSelectedImage(index)}
-                                                className={`relative w-20 h-20 rounded-lg overflow-hidden border-2 transition-colors ${selectedImage === index
+                                                className={`relative w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 rounded-lg overflow-hidden border-2 transition-colors ${selectedImage === index
                                                         ? 'border-green-500'
                                                         : 'border-gray-200 hover:border-gray-300'
                                                     }`}
                                             >
                                                 <div className="w-full h-full flex items-center justify-center">
-                                                    <span className="text-2xl">{image}</span>
+                                                    <span className="text-xl sm:text-2xl">{image}</span>
                                                 </div>
                                                 {index === 0 && (
                                                     <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
@@ -448,154 +449,155 @@ export default function ProductPage({ product, reviews, relatedProducts, shippin
                                         ))}
                                     </div>
                                 )}
+                                </div>
                             </div>
-                        </div>
 
-                        {/* Right Column - Product Information */}
-                        <div className="w-[40%] p-8 overflow-y-auto">
-                            <div className="space-y-6">
-                                {/* Top Section */}
-                                <div className="space-y-4">
-                                    {/* Category Badge */}
-                                    <Badge variant="secondary" className="bg-green-100 text-green-800 hover:bg-green-100">
-                                        {getCategoryName()}
-                                    </Badge>
+                            {/* Right Column - Product Information */}
+                            <div className="lg:col-span-3">
+                                <div className="space-y-4 lg:space-y-6">
+                                    {/* Top Section */}
+                                    <div className="space-y-3 lg:space-y-4">
+                                        {/* Category Badge */}
+                                        <Badge variant="secondary" className="bg-green-100 text-green-800 hover:bg-green-100">
+                                            {getCategoryName()}
+                                        </Badge>
 
-                                    {/* Product Title and Wishlist */}
-                                    <div className="flex items-start justify-between">
-                                        <div className="space-y-2">
-                                            <h1 className="text-3xl font-bold text-gray-900 leading-tight">
-                                                {productData.name}
-                                            </h1>
-                                            <div className="flex items-center space-x-2">
-                                                {/* Rating */}
-                                                <div className="flex items-center">
-                                                    <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />
-                                                    <span className="ml-1 font-semibold">{productData.rating}</span>
+                                        {/* Product Title and Wishlist */}
+                                        <div className="flex items-start justify-between gap-4">
+                                            <div className="space-y-2 flex-1">
+                                                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 leading-tight">
+                                                    {productData.name}
+                                                </h1>
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    {/* Rating */}
+                                                    <div className="flex items-center">
+                                                        <Star className="w-4 h-4 sm:w-5 sm:h-5 fill-yellow-400 text-yellow-400" />
+                                                        <span className="ml-1 font-semibold text-sm sm:text-base">{productData.rating}</span>
+                                                    </div>
+                                                    {/* Reviews */}
+                                                    <span className="text-gray-600 text-sm sm:text-base">
+                                                        {typeof productData.reviews === 'string' ? productData.reviews : `${productData.reviews}+ Reviews`}
+                                                    </span>
                                                 </div>
-                                                {/* Reviews */}
-                                                <span className="text-gray-600">
-                                                    {typeof productData.reviews === 'string' ? productData.reviews : `${productData.reviews}+ Reviews`}
-                                                </span>
                                             </div>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={handleWishlistToggle}
+                                                className={`flex-shrink-0 flex items-center gap-2 ${isInWishlist(productData.id)
+                                                        ? 'text-red-500 hover:text-red-600'
+                                                        : 'text-gray-500 hover:text-red-500'
+                                                    }`}
+                                            >
+                                                <Heart className={`w-5 h-5 ${isInWishlist(productData.id) ? 'fill-current' : ''}`} />
+                                                <span className="hidden lg:inline">Add to Wishlist</span>
+                                            </Button>
                                         </div>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={handleWishlistToggle}
-                                            className={`flex items-center space-x-2 ${isInWishlist(productData.id)
-                                                    ? 'text-red-500 hover:text-red-600'
-                                                    : 'text-gray-500 hover:text-red-500'
-                                                }`}
-                                        >
-                                            <Heart className={`w-5 h-5 ${isInWishlist(productData.id) ? 'fill-current' : ''}`} />
-                                            <span className="hidden sm:inline">Add to Wishlist</span>
-                                        </Button>
-                                    </div>
 
-                                    {/* Description */}
-                                    <p className="text-gray-700 leading-relaxed">
-                                        {productData.description}
-                                    </p>
+                                        {/* Description */}
+                                        <p className="text-sm sm:text-base text-gray-700 leading-relaxed">
+                                            {productData.description}
+                                        </p>
 
-                                    {/* Pricing */}
-                                    <div className="flex items-center space-x-4">
-                                        <span className="text-3xl font-bold text-gray-900">
-                                            ${formatPrice(productData.price)}
-                                        </span>
-                                        {productData.original_price && (
-                                            <>
-                                                <span className="text-xl text-gray-500 line-through">
-                                                    ${formatPrice(productData.original_price)}
+                                        {/* Pricing */}
+                                        <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
+                                            <span className="text-2xl sm:text-3xl font-bold text-gray-900">
+                                                ${formatPrice(productData.price)}
+                                            </span>
+                                            {productData.original_price && (
+                                                <>
+                                                    <span className="text-lg sm:text-xl text-gray-500 line-through">
+                                                        ${formatPrice(productData.original_price)}
+                                                    </span>
+                                                    <Badge variant="destructive" className="bg-red-100 text-red-800">
+                                                        {discountPercentage}% off!
+                                                    </Badge>
+                                                </>
+                                            )}
+                                        </div>
+
+                                        {/* Color Selection - Only show if colors exist */}
+                                        {colorOptions.length > 0 && (
+                                            <div className="space-y-3">
+                                                <div className="flex items-center justify-between">
+                                                    <h3 className="font-medium text-gray-900">Colors</h3>
+                                                    <span className="text-sm text-gray-600">{selectedColor}</span>
+                                                </div>
+                                                <div className="flex gap-2 sm:gap-3 flex-wrap">
+                                                    {colorOptions.map((color) => (
+                                                        <button
+                                                            key={color.name}
+                                                            onClick={() => setSelectedColor(color.name)}
+                                                            className={`relative w-14 h-14 sm:w-16 sm:h-16 rounded-lg overflow-hidden border-2 transition-all ${selectedColor === color.name
+                                                                    ? 'border-green-500 ring-2 ring-green-200'
+                                                                    : 'border-gray-200 hover:border-gray-300'
+                                                                }`}
+                                                        >
+                                                            <div className="w-full h-full flex items-center justify-center">
+                                                                <span className="text-xl sm:text-2xl">{color.image}</span>
+                                                            </div>
+                                                            {selectedColor === color.name && (
+                                                                <div className="absolute inset-0 bg-green-500/20 flex items-center justify-center">
+                                                                    <Check className="w-4 h-4 text-green-600" />
+                                                                </div>
+                                                            )}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Quantity and Add to Cart */}
+                                        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center">
+                                            {/* Quantity Controls */}
+                                            <div className="flex items-center border border-gray-300 rounded-lg w-full sm:w-auto">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                                                    className="h-10 w-10 sm:h-12 sm:w-12 rounded-r-none"
+                                                >
+                                                    <Minus className="w-4 h-4" />
+                                                </Button>
+                                                <span className="px-4 py-2 min-w-[3rem] text-center font-medium flex-1 sm:flex-none">
+                                                    {quantity}
                                                 </span>
-                                                <Badge variant="destructive" className="bg-red-100 text-red-800">
-                                                    {discountPercentage}% off!
-                                                </Badge>
-                                            </>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => setQuantity(quantity + 1)}
+                                                    className="h-10 w-10 sm:h-12 sm:w-12 rounded-l-none"
+                                                >
+                                                    <Plus className="w-4 h-4" />
+                                                </Button>
+                                            </div>
+
+                                            {/* Add to Cart Button */}
+                                            <Button
+                                                onClick={handleAddToCart}
+                                                className="flex-1 sm:flex-none bg-yellow-500 hover:bg-yellow-600 text-black font-semibold py-3 px-6 rounded-lg transition-colors h-12"
+                                                disabled={!productData.inStock}
+                                            >
+                                                <ShoppingCart className="w-5 h-5 mr-2" />
+                                                Add to Cart
+                                            </Button>
+                                        </div>
+
+                                        {/* Stock Status */}
+                                        {!productData.inStock && (
+                                            <p className="text-sm sm:text-base text-red-600 font-medium">Out of Stock</p>
+                                        )}
+                                        {productData.inStock && (
+                                            <p className="text-sm sm:text-base text-green-600 font-medium">
+                                                In Stock ({productData.stock_quantity} available)
+                                            </p>
                                         )}
                                     </div>
 
-                                    {/* Color Selection - Only show if colors exist */}
-                                    {colorOptions.length > 0 && (
-                                        <div className="space-y-3">
-                                            <div className="flex items-center justify-between">
-                                                <h3 className="font-medium text-gray-900">Colors</h3>
-                                                <span className="text-sm text-gray-600">{selectedColor}</span>
-                                            </div>
-                                            <div className="flex space-x-3">
-                                                {colorOptions.map((color) => (
-                                                    <button
-                                                        key={color.name}
-                                                        onClick={() => setSelectedColor(color.name)}
-                                                        className={`relative w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${selectedColor === color.name
-                                                                ? 'border-green-500 ring-2 ring-green-200'
-                                                                : 'border-gray-200 hover:border-gray-300'
-                                                            }`}
-                                                    >
-                                                        <div className="w-full h-full flex items-center justify-center">
-                                                            <span className="text-2xl">{color.image}</span>
-                                                        </div>
-                                                        {selectedColor === color.name && (
-                                                            <div className="absolute inset-0 bg-green-500/20 flex items-center justify-center">
-                                                                <Check className="w-4 h-4 text-green-600" />
-                                                            </div>
-                                                        )}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Add to Cart Button */}
-                                    <Button
-                                        onClick={handleAddToCart}
-                                        className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-semibold py-3 px-6 rounded-lg transition-colors"
-                                        disabled={!productData.inStock}
-                                    >
-                                        <ShoppingCart className="w-5 h-5 mr-2" />
-                                        Add to Cart
-                                    </Button>
-
-                                    {/* Quantity Controls */}
-                                    <div className="flex items-center space-x-4">
-                                        <div className="flex items-center border border-gray-300 rounded-lg">
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                                                className="h-10 w-10 rounded-r-none"
-                                            >
-                                                <Minus className="w-4 h-4" />
-                                            </Button>
-                                            <span className="px-4 py-2 min-w-[3rem] text-center font-medium">
-                                                {quantity}
-                                            </span>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => setQuantity(quantity + 1)}
-                                                className="h-10 w-10 rounded-l-none"
-                                            >
-                                                <Plus className="w-4 h-4" />
-                                            </Button>
-                                        </div>
-                                    </div>
-
-                                    {/* Stock Status */}
-                                    {!productData.inStock && (
-                                        <p className="text-red-600 font-medium">Out of Stock</p>
-                                    )}
-                                    {productData.inStock && (
-                                        <p className="text-green-600 font-medium">
-                                            In Stock ({productData.stock_quantity} available)
-                                        </p>
-                                    )}
-                                </div>
-
-                                {/* Product Details Tabs */}
-                                <div className="mt-8">
-                                    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                                        <TabsList className="grid w-full grid-cols-3">
+                                    {/* Product Details Tabs */}
+                                    <div className="mt-6 lg:mt-8">
+                                        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                                            <TabsList className="grid w-full grid-cols-3 h-auto">
                                             <TabsTrigger value="details">Product Details</TabsTrigger>
                                             <TabsTrigger value="packaging">Packaging</TabsTrigger>
                                             <TabsTrigger value="shipping">Shipping Information</TabsTrigger>
@@ -751,24 +753,25 @@ export default function ProductPage({ product, reviews, relatedProducts, shippin
                                     </Tabs>
                                 </div>
 
-                                {/* Reviews Section */}
-                                <div className="mt-8">
-                                    <div className="flex items-center justify-between mb-8">
-                                        <h2 className="text-2xl font-bold text-gray-900">Reviews & Rating</h2>
-                                        <Button
-                                            onClick={() => {
-                                                if (!props.auth?.user) {
-                                                    toast.info('Please log in to write a review');
-                                                    return;
-                                                }
-                                                setShowReviewForm(!showReviewForm);
-                                            }}
-                                            className="bg-green-600 hover:bg-green-700 text-white"
-                                        >
-                                            <MessageSquare className="w-4 h-4 mr-2" />
-                                            {showReviewForm ? 'Cancel Review' : 'Write a Review'}
-                                        </Button>
-                                    </div>
+                                    {/* Reviews Section */}
+                                    <div className="mt-6 lg:mt-8">
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 lg:mb-8">
+                                            <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Reviews & Rating</h2>
+                                            <Button
+                                                onClick={() => {
+                                                    if (!props.auth?.user) {
+                                                        toast.info('Please log in to write a review');
+                                                        return;
+                                                    }
+                                                    setShowReviewForm(!showReviewForm);
+                                                }}
+                                                className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
+                                            >
+                                                <MessageSquare className="w-4 h-4 mr-2" />
+                                                <span className="hidden sm:inline">{showReviewForm ? 'Cancel Review' : 'Write a Review'}</span>
+                                                <span className="sm:hidden">{showReviewForm ? 'Cancel' : 'Write Review'}</span>
+                                            </Button>
+                                        </div>
 
                                     {reviewsState.length > 0 ? (
                                         <div className="space-y-6">
@@ -1032,6 +1035,7 @@ export default function ProductPage({ product, reviews, relatedProducts, shippin
                                             </form>
                                         </div>
                                     )}
+                                </div>
                                 </div>
                             </div>
                         </div>

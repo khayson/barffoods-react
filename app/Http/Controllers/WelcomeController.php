@@ -17,7 +17,7 @@ class WelcomeController extends Controller
     {
         $userLat = $request->input('latitude', 40.7128);
         $userLng = $request->input('longitude', -74.0060);
-        $radius = $request->input('radius', 10); // Reduced to 10 miles
+        $radius = $request->input('radius', 25); // Match StoreController API radius
 
         // Get nearby stores (within radius)
         $nearbyStores = $this->getNearbyStores($userLat, $userLng, $radius);
@@ -58,6 +58,7 @@ class WelcomeController extends Controller
         ", [$userLat, $userLng, $userLat])
         ->having('distance', '<', $radius)
         ->orderBy('distance')
+        ->limit(10) // Match StoreController API limit
         ->get();
 
         return $stores->map(function ($store) {

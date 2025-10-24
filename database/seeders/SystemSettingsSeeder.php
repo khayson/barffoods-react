@@ -52,25 +52,10 @@ class SystemSettingsSeeder extends Seeder
         SystemSetting::set(
             'payment_methods',
             json_encode([
-                'paypal' => [
-                    'enabled' => true,
-                    'name' => 'PayPal',
-                    'description' => 'Pay with PayPal account'
-                ],
                 'stripe' => [
                     'enabled' => true,
                     'name' => 'Stripe',
-                    'description' => 'Pay with credit/debit card'
-                ],
-                'mastercard' => [
-                    'enabled' => true,
-                    'name' => 'Mastercard',
-                    'description' => 'Pay with Mastercard'
-                ],
-                'bitcoin' => [
-                    'enabled' => false,
-                    'name' => 'Bitcoin',
-                    'description' => 'Pay with Bitcoin'
+                    'description' => 'Pay securely with credit/debit card via Stripe'
                 ]
             ]),
             'json',

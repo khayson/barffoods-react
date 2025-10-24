@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
-import { ChevronDown, Package, Search } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { ChevronDown, Package, Search, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
 import ProductCard from '@/components/ProductCard';
 import axios from 'axios';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface Product {
     id: string;
@@ -48,11 +49,18 @@ export default function ProductSection({ nearbyStores, allStores, initialProduct
     const [showSortDropdown, setShowSortDropdown] = useState(false);
     const [displayedProducts, setDisplayedProducts] = useState<Product[]>([]);
     const [isLoading, setIsLoading] = useState(false);
-    const [hasMore, setHasMore] = useState(true);
     const [allProducts, setAllProducts] = useState<Product[]>([]);
     const [stores, setStores] = useState<Store[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [isInitialLoad, setIsInitialLoad] = useState(true);
+    
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage] = useState(12); // Show 12 products per page
+    const [totalPages, setTotalPages] = useState(1);
+    
+    // Ref for scrolling to product section
+    const productSectionRef = useRef<HTMLDivElement>(null);
 
     // Initialize with props data
     useEffect(() => {
@@ -70,11 +78,14 @@ export default function ProductSection({ nearbyStores, allStores, initialProduct
             setSelectedStores(nearbyStores.map(store => store.name));
         }
         
-        // Initialize with first 8 products
-        setDisplayedProducts(uniqueProducts.slice(0, 8));
-        setHasMore(uniqueProducts.length > 8);
+        // Calculate total pages
+        const pages = Math.ceil(uniqueProducts.length / itemsPerPage);
+        setTotalPages(pages);
+        
+        // Initialize with first page of products
+        setDisplayedProducts(uniqueProducts.slice(0, itemsPerPage));
         setIsInitialLoad(false);
-    }, [nearbyStores, allStores, initialProducts, initialCategories]);
+    }, [nearbyStores, allStores, initialProducts, initialCategories, itemsPerPage]);
 
     // Sync external category selection
     useEffect(() => {
@@ -90,7 +101,7 @@ export default function ProductSection({ nearbyStores, allStores, initialProduct
         setSelectedSort("Sort by");
     };
 
-    // Filter and sort products
+    // Filter, sort and paginate products
     useEffect(() => {
         if (isInitialLoad) return;
 
@@ -124,11 +135,11 @@ export default function ProductSection({ nearbyStores, allStores, initialProduct
                 case "Name: Z to A":
                     return b.name.localeCompare(a.name);
                 case "Newest First":
-                    return parseInt(b.id) - parseInt(a.id); // Assuming higher ID = newer
+                    return parseInt(b.id) - parseInt(a.id);
                 case "Most Popular":
                     return Number(b.reviews) - Number(a.reviews);
                 default:
-                    return 0; // No sorting
+                    return 0;
             }
         });
 
@@ -137,24 +148,39 @@ export default function ProductSection({ nearbyStores, allStores, initialProduct
             index === self.findIndex(p => p.id === product.id)
         );
 
-        // Reset displayed products
-        setDisplayedProducts(uniqueProducts.slice(0, 8));
-        setHasMore(uniqueProducts.length > 8);
-    }, [selectedStores, selectedCategory, selectedSort, allProducts, isInitialLoad]);
+        // Calculate total pages
+        const pages = Math.ceil(uniqueProducts.length / itemsPerPage);
+        setTotalPages(pages);
+        
+        // Reset to first page when filters change
+        setCurrentPage(1);
+        
+        // Display products for current page
+        const startIndex = 0; // Start from first page
+        const endIndex = itemsPerPage;
+        setDisplayedProducts(uniqueProducts.slice(startIndex, endIndex));
+    }, [selectedStores, selectedCategory, selectedSort, allProducts, isInitialLoad, itemsPerPage]);
 
 
-    // Load more products function
-    const loadMoreProducts = useCallback(async () => {
-        if (isLoading || !hasMore) return;
+    // Handle page change
+    const handlePageChange = useCallback((page: number) => {
+        if (page < 1 || page > totalPages || page === currentPage) return;
         
         setIsLoading(true);
+        setCurrentPage(page);
         
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Scroll to top of products section smoothly
+        if (productSectionRef.current) {
+            const yOffset = -20; // Small offset from the top
+            const element = productSectionRef.current;
+            const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
+            
+            window.scrollTo({ top: y, behavior: 'smooth' });
+        }
         
+        // Get filtered and sorted products
         let filteredProducts = [...allProducts];
 
-        // Apply current filters
         if (selectedStores.length > 0) {
             filteredProducts = filteredProducts.filter(product => 
                 selectedStores.includes(product.store)
@@ -167,7 +193,6 @@ export default function ProductSection({ nearbyStores, allStores, initialProduct
             );
         }
 
-        // Apply current sorting
         filteredProducts = filteredProducts.sort((a, b) => {
             switch (selectedSort) {
                 case "Price: Low to High":
@@ -189,25 +214,20 @@ export default function ProductSection({ nearbyStores, allStores, initialProduct
             }
         });
 
-        const currentCount = displayedProducts.length;
-        const nextBatch = filteredProducts.slice(currentCount, currentCount + 8);
+        const uniqueProducts = filteredProducts.filter((product, index, self) => 
+            index === self.findIndex(p => p.id === product.id)
+        );
+
+        // Calculate start and end indices for the new page
+        const startIndex = (page - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
         
-        setDisplayedProducts(prev => [...prev, ...nextBatch]);
-        setHasMore(currentCount + nextBatch.length < filteredProducts.length);
-        setIsLoading(false);
-    }, [isLoading, hasMore, allProducts, selectedStores, selectedCategory, selectedSort, displayedProducts.length]);
-
-    // Infinite scroll effect
-    useEffect(() => {
-        const handleScroll = () => {
-            if (window.innerHeight + document.documentElement.scrollTop >= document.documentElement.offsetHeight - 1000) {
-                loadMoreProducts();
-            }
-        };
-
-        window.addEventListener('scroll', handleScroll);
-        return () => window.removeEventListener('scroll', handleScroll);
-    }, [loadMoreProducts]);
+        // Simulate loading delay for smooth transition
+        setTimeout(() => {
+            setDisplayedProducts(uniqueProducts.slice(startIndex, endIndex));
+            setIsLoading(false);
+        }, 300);
+    }, [currentPage, totalPages, allProducts, selectedStores, selectedCategory, selectedSort, itemsPerPage]);
 
     const sortOptions = [
         "Sort by",
@@ -220,58 +240,256 @@ export default function ProductSection({ nearbyStores, allStores, initialProduct
         "Most Popular"
     ];
 
-    // Loading skeleton component
+    // Generate page numbers with ellipsis
+    const generatePageNumbers = () => {
+        const pages: (number | string)[] = [];
+        const showEllipsisStart = currentPage > 3;
+        const showEllipsisEnd = currentPage < totalPages - 2;
+
+        if (totalPages <= 7) {
+            // Show all pages if total is 7 or less
+            for (let i = 1; i <= totalPages; i++) {
+                pages.push(i);
+            }
+        } else {
+            // Always show first page
+            pages.push(1);
+
+            if (showEllipsisStart) {
+                pages.push('...');
+            }
+
+            // Show pages around current page
+            const start = Math.max(2, currentPage - 1);
+            const end = Math.min(totalPages - 1, currentPage + 1);
+            
+            for (let i = start; i <= end; i++) {
+                pages.push(i);
+            }
+
+            if (showEllipsisEnd) {
+                pages.push('...');
+            }
+
+            // Always show last page
+            pages.push(totalPages);
+        }
+
+        return pages;
+    };
+
+    // Pagination component
+    const Pagination = () => {
+        if (totalPages <= 1) return null;
+
+        const pages = generatePageNumbers();
+
+        return (
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-8 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700"
+            >
+                {/* Page info */}
+                <div className="text-sm text-gray-600 dark:text-gray-400 order-2 sm:order-1">
+                    Showing <span className="font-medium text-gray-900 dark:text-white">{((currentPage - 1) * itemsPerPage) + 1}</span> to{' '}
+                    <span className="font-medium text-gray-900 dark:text-white">
+                        {Math.min(currentPage * itemsPerPage, displayedProducts.length + ((currentPage - 1) * itemsPerPage))}
+                    </span> of{' '}
+                    <span className="font-medium text-gray-900 dark:text-white">
+                        {allProducts.length > 0 ? 
+                            (selectedStores.length > 0 || selectedCategory !== "All Categories" ? 
+                                displayedProducts.length + ((currentPage - 1) * itemsPerPage) : 
+                                allProducts.length) : 
+                            0}
+                    </span> products
+                </div>
+
+                {/* Page numbers */}
+                <div className="flex items-center gap-1 sm:gap-2 order-1 sm:order-2">
+                    {/* Previous button */}
+                    <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        disabled={currentPage === 1}
+                        className={`p-2 rounded-lg transition-colors ${
+                            currentPage === 1
+                                ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
+                                : 'text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-700 hover:shadow-sm'
+                        }`}
+                    >
+                        <ChevronLeft className="h-5 w-5" />
+                    </motion.button>
+
+                    {/* Page numbers */}
+                    {pages.map((page, index) => (
+                        page === '...' ? (
+                            <span
+                                key={`ellipsis-${index}`}
+                                className="px-2 text-gray-500 dark:text-gray-400"
+                            >
+                                ...
+                            </span>
+                        ) : (
+                            <motion.button
+                                key={page}
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                                onClick={() => handlePageChange(page as number)}
+                                className={`min-w-[40px] h-10 rounded-lg font-medium transition-all ${
+                                    currentPage === page
+                                        ? 'bg-green-600 text-white shadow-md'
+                                        : 'text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-700 hover:shadow-sm'
+                                }`}
+                            >
+                                {page}
+                            </motion.button>
+                        )
+                    ))}
+
+                    {/* Next button */}
+                    <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                        className={`p-2 rounded-lg transition-colors ${
+                            currentPage === totalPages
+                                ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
+                                : 'text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-700 hover:shadow-sm'
+                        }`}
+                    >
+                        <ChevronRight className="h-5 w-5" />
+                    </motion.button>
+                </div>
+            </motion.div>
+        );
+    };
+
+    // Enhanced loading skeleton component with animations
     const LoadingSkeleton = () => (
         <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-6">
             {[...Array(8)].map((_, index) => (
-                <div key={index} className="bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-4 shadow-sm animate-pulse">
-                    <div className="h-40 sm:h-48 bg-gray-200 dark:bg-gray-700 rounded-lg mb-3 sm:mb-4"></div>
-                    <div className="space-y-2">
-                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
-                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
-                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/3"></div>
-                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/4"></div>
+                <motion.div
+                    key={index}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                    className="bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-4 shadow-sm overflow-hidden relative"
+                >
+                    {/* Shimmer effect */}
+                    <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+                    
+                    <div className="h-40 sm:h-48 bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600 rounded-lg mb-3 sm:mb-4 animate-pulse"></div>
+                    <div className="space-y-3">
+                        <div className="h-4 bg-gradient-to-r from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600 rounded w-3/4 animate-pulse"></div>
+                        <div className="flex items-center gap-2">
+                            <div className="h-3 bg-gradient-to-r from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600 rounded w-3 animate-pulse"></div>
+                            <div className="h-3 bg-gradient-to-r from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600 rounded w-1/2 animate-pulse"></div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className="h-3 bg-gradient-to-r from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600 rounded w-3 animate-pulse"></div>
+                            <div className="h-3 bg-gradient-to-r from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600 rounded w-1/3 animate-pulse"></div>
+                        </div>
+                        <div className="h-5 bg-gradient-to-r from-green-200 to-green-300 dark:from-green-700 dark:to-green-600 rounded w-1/4 animate-pulse"></div>
+                        <div className="flex items-center gap-2">
+                            <div className="h-3 w-3 bg-yellow-300 dark:bg-yellow-600 rounded-full animate-pulse"></div>
+                            <div className="h-3 bg-gradient-to-r from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600 rounded w-12 animate-pulse"></div>
+                        </div>
                     </div>
-                </div>
+                </motion.div>
             ))}
         </div>
     );
 
-    // Empty state component
+    // Enhanced empty state component with animations
     const EmptyState = ({ type }: { type: 'no-products' | 'no-results' }) => (
-        <div className="text-center py-12">
-            <div className="mb-4">
+        <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.3 }}
+            className="text-center py-16"
+        >
+            <motion.div
+                initial={{ y: -20 }}
+                animate={{ y: 0 }}
+                transition={{ 
+                    repeat: Infinity, 
+                    repeatType: "reverse", 
+                    duration: 2,
+                    ease: "easeInOut"
+                }}
+                className="mb-6"
+            >
                 {type === 'no-products' ? (
-                    <Package className="h-16 w-16 text-gray-400 dark:text-gray-500 mx-auto" />
+                    <Package className="h-20 w-20 text-gray-400 dark:text-gray-500 mx-auto" />
                 ) : (
-                    <Search className="h-16 w-16 text-gray-400 dark:text-gray-500 mx-auto" />
+                    <Search className="h-20 w-20 text-gray-400 dark:text-gray-500 mx-auto" />
                 )}
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+            </motion.div>
+            <motion.h3
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.2 }}
+                className="text-xl font-semibold text-gray-900 dark:text-white mb-3"
+            >
                 {type === 'no-products' ? 'No Products Available' : 'No Products Found'}
-            </h3>
-            <p className="text-gray-500 dark:text-gray-400 mb-4">
+            </motion.h3>
+            <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.3 }}
+                className="text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto"
+            >
                 {type === 'no-products' 
                     ? 'We\'re working on adding more products. Check back soon!'
                     : 'Try adjusting your filters to find what you\'re looking for.'
                 }
-            </p>
+            </motion.p>
             {type === 'no-results' && (
-                <button
+                <motion.button
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.4 }}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                     onClick={clearFilters}
-                    className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                    className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-lg hover:shadow-xl"
                 >
-                    Clear Filters
-                </button>
+                    Clear All Filters
+                </motion.button>
             )}
-        </div>
+        </motion.div>
     );
 
     if (isInitialLoad) {
         return (
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 <div className="mb-8">
-                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Products</h2>
+                    <motion.div
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5 }}
+                        className="flex items-center gap-3 mb-6"
+                    >
+                        <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
+                            Products
+                        </h2>
+                        <motion.div
+                            animate={{ 
+                                rotate: [0, 10, -10, 10, 0],
+                                scale: [1, 1.1, 1.1, 1.1, 1]
+                            }}
+                            transition={{ 
+                                duration: 2,
+                                repeat: Infinity,
+                                repeatDelay: 3
+                            }}
+                        >
+                            <Sparkles className="h-6 w-6 text-green-600 dark:text-green-400" />
+                        </motion.div>
+                    </motion.div>
                     
                     {/* Status Bar */}
                     <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg">
@@ -341,25 +559,40 @@ export default function ProductSection({ nearbyStores, allStores, initialProduct
                             <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
                         </div>
                         
-                        {/* Selected Stores */}
-                        {selectedStores.length > 0 && (
-                            <div className="flex flex-wrap gap-2">
-                                {selectedStores.map((storeName) => (
-                                    <span
-                                        key={storeName}
-                                        className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-                                    >
-                                        {storeName}
-                                        <button
-                                            onClick={() => setSelectedStores(prev => prev.filter(name => name !== storeName))}
-                                            className="ml-2 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-200"
-                                        >
-                                            ×
-                                        </button>
-                                    </span>
-                                ))}
-                            </div>
-                        )}
+                        {/* Selected Stores with Animations */}
+                        <AnimatePresence mode="popLayout">
+                            {selectedStores.length > 0 && (
+                                <motion.div 
+                                    initial={{ opacity: 0, x: -10 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    exit={{ opacity: 0, x: -10 }}
+                                    className="flex flex-wrap gap-2"
+                                >
+                                    <AnimatePresence>
+                                        {selectedStores.map((storeName, index) => (
+                                            <motion.span
+                                                key={storeName}
+                                                initial={{ opacity: 0, scale: 0.8 }}
+                                                animate={{ opacity: 1, scale: 1 }}
+                                                exit={{ opacity: 0, scale: 0.8 }}
+                                                transition={{ delay: index * 0.05 }}
+                                                className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300 shadow-sm"
+                                            >
+                                                {storeName}
+                                                <motion.button
+                                                    whileHover={{ scale: 1.2, rotate: 90 }}
+                                                    whileTap={{ scale: 0.9 }}
+                                                    onClick={() => setSelectedStores(prev => prev.filter(name => name !== storeName))}
+                                                    className="ml-2 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-200 font-bold"
+                                                >
+                                                    ×
+                                                </motion.button>
+                                            </motion.span>
+                                        ))}
+                                    </AnimatePresence>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
 
                         {/* Category Filter */}
                         <div className="relative">
@@ -417,9 +650,40 @@ export default function ProductSection({ nearbyStores, allStores, initialProduct
     }
 
     return (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div ref={productSectionRef} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div className="mb-8">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Products</h2>
+                <motion.div
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5 }}
+                    className="flex items-center gap-3 mb-6"
+                >
+                    <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
+                        Products
+                    </h2>
+                    <motion.div
+                        animate={{ 
+                            rotate: [0, 10, -10, 10, 0],
+                            scale: [1, 1.1, 1.1, 1.1, 1]
+                        }}
+                        transition={{ 
+                            duration: 2,
+                            repeat: Infinity,
+                            repeatDelay: 3
+                        }}
+                    >
+                        <Sparkles className="h-6 w-6 text-green-600 dark:text-green-400" />
+                    </motion.div>
+                    {displayedProducts.length > 0 && (
+                        <motion.span
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-full text-sm font-medium"
+                        >
+                            {displayedProducts.length} {displayedProducts.length === 1 ? 'product' : 'products'}
+                        </motion.span>
+                    )}
+                </motion.div>
                 
                 {/* Status Bar */}
                 <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg">
@@ -489,25 +753,40 @@ export default function ProductSection({ nearbyStores, allStores, initialProduct
                         <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
                     </div>
                     
-                    {/* Selected Stores */}
-                    {selectedStores.length > 0 && (
-                        <div className="flex flex-wrap gap-2">
-                            {selectedStores.map((storeName) => (
-                                <span
-                                    key={storeName}
-                                    className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+                        {/* Selected Stores with Animations */}
+                        <AnimatePresence mode="popLayout">
+                            {selectedStores.length > 0 && (
+                                <motion.div 
+                                    initial={{ opacity: 0, x: -10 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    exit={{ opacity: 0, x: -10 }}
+                                    className="flex flex-wrap gap-2"
                                 >
-                                    {storeName}
-                                    <button
-                                        onClick={() => setSelectedStores(prev => prev.filter(name => name !== storeName))}
-                                        className="ml-2 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-200"
-                                    >
-                                        ×
-                                    </button>
-                                </span>
-                            ))}
-                        </div>
-                    )}
+                                    <AnimatePresence>
+                                        {selectedStores.map((storeName, index) => (
+                                            <motion.span
+                                                key={storeName}
+                                                initial={{ opacity: 0, scale: 0.8 }}
+                                                animate={{ opacity: 1, scale: 1 }}
+                                                exit={{ opacity: 0, scale: 0.8 }}
+                                                transition={{ delay: index * 0.05 }}
+                                                className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300 shadow-sm"
+                                            >
+                                                {storeName}
+                                                <motion.button
+                                                    whileHover={{ scale: 1.2, rotate: 90 }}
+                                                    whileTap={{ scale: 0.9 }}
+                                                    onClick={() => setSelectedStores(prev => prev.filter(name => name !== storeName))}
+                                                    className="ml-2 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-200 font-bold"
+                                                >
+                                                    ×
+                                                </motion.button>
+                                            </motion.span>
+                                        ))}
+                                    </AnimatePresence>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
 
                     {/* Category Filter */}
                     <div className="relative">
@@ -559,39 +838,55 @@ export default function ProductSection({ nearbyStores, allStores, initialProduct
                 </div>
             </div>
 
-            {/* Products Grid */}
+            {/* Products Grid with Animations */}
             {displayedProducts.length === 0 ? (
                 <EmptyState type={allProducts.length === 0 ? 'no-products' : 'no-results'} />
             ) : (
-                <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-6">
-                    {displayedProducts.map((product, index) => (
-                        <ProductCard
-                            key={`${product.id}-${index}`}
-                            product={product}
-                            variant="default"
-                        />
-                    ))}
-                </div>
+                <motion.div 
+                    layout
+                    className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-6"
+                >
+                    <AnimatePresence mode="popLayout">
+                        {displayedProducts.map((product, index) => (
+                            <motion.div
+                                key={`${product.id}-${index}`}
+                                layout
+                                initial={{ opacity: 0, scale: 0.8, y: 20 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.8, y: -20 }}
+                                transition={{
+                                    duration: 0.3,
+                                    delay: index * 0.05,
+                                    layout: { duration: 0.3 }
+                                }}
+                                whileHover={{ y: -4 }}
+                            >
+                                <ProductCard
+                                    product={product}
+                                    variant="default"
+                                />
+                            </motion.div>
+                        ))}
+                    </AnimatePresence>
+                </motion.div>
             )}
 
-            {/* Loading More */}
-            {isLoading && (
-                <div className="mt-8">
-                    <LoadingSkeleton />
-                </div>
-            )}
-
-            {/* Load More Button (fallback) */}
-            {hasMore && !isLoading && (
-                <div className="text-center mt-8">
-                    <button
-                        onClick={loadMoreProducts}
-                        className="px-6 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+            {/* Loading Overlay */}
+            <AnimatePresence>
+                {isLoading && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="mt-8"
                     >
-                        Load More Products
-                    </button>
-                </div>
-            )}
+                        <LoadingSkeleton />
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Pagination */}
+            {!isLoading && <Pagination />}
         </div>
     );
 }

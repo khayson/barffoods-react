@@ -1,25 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { Head, Link } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import AdminLayout from '@/layouts/admin-layout';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
-    MessageSquare, 
     Search, 
-    Filter, 
     Clock, 
     User, 
     AlertCircle, 
     CheckCircle, 
     XCircle,
     MoreHorizontal,
-    Plus
+    Plus,
+    TrendingUp,
+    Calendar,
+    Link
 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger } from '@/components/ui/dropdown-menu';
-import { formatDistanceToNow } from 'date-fns';
+import { format } from 'date-fns';
+import ConversationPanel from '@/components/admin/ConversationPanel';
 
 interface Conversation {
     id: number;
@@ -68,21 +70,32 @@ interface AdminMessagingProps {
 
 export default function AdminMessaging({ conversations, admins }: AdminMessagingProps) {
     const [searchTerm, setSearchTerm] = useState('');
-    const [statusFilter, setStatusFilter] = useState<string>('all');
     const [priorityFilter, setPriorityFilter] = useState<string>('all');
-    const [showNewConversationModal, setShowNewConversationModal] = useState(false);
+    const [selectedConversation, setSelectedConversation] = useState<any>(null);
+    const [isPanelOpen, setIsPanelOpen] = useState(false);
+    const [isLoadingConversation, setIsLoadingConversation] = useState(false);
     
-    // Add default values to prevent undefined errors
     const conversationsData = conversations?.data || [];
     const conversationsMeta = conversations?.meta || { total: 0 };
     const adminsData = admins || [];
     const [filteredConversations, setFilteredConversations] = useState(conversationsData);
 
-    // Filter conversations based on search and filters
+    // Auto-open conversation from URL parameter (e.g., from notifications)
+    useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const conversationId = urlParams.get('open');
+        
+        if (conversationId) {
+            openConversation(parseInt(conversationId));
+            // Clean up URL without reloading
+            window.history.replaceState({}, '', '/admin/messaging');
+        }
+    }, []);
+
+    // Filter conversations
     useEffect(() => {
         let filtered = conversationsData;
 
-        // Search filter
         if (searchTerm) {
             filtered = filtered.filter(conv => 
                 conv.subject?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -94,21 +107,19 @@ export default function AdminMessaging({ conversations, admins }: AdminMessaging
             );
         }
 
-        // Status filter
-        if (statusFilter !== 'all') {
-            filtered = filtered.filter(conv => conv.status === statusFilter);
-        }
-
-        // Priority filter
         if (priorityFilter !== 'all') {
             filtered = filtered.filter(conv => conv.priority === priorityFilter);
         }
 
         setFilteredConversations(filtered);
-    }, [searchTerm, statusFilter, priorityFilter, conversationsData]);
+    }, [searchTerm, priorityFilter, conversationsData]);
 
-    const handleNewConversation = () => {
-        setShowNewConversationModal(true);
+    // Group conversations by status
+    const groupedConversations = {
+        open: filteredConversations.filter(c => c.status === 'open'),
+        in_progress: filteredConversations.filter(c => c.status === 'in_progress'),
+        resolved: filteredConversations.filter(c => c.status === 'resolved'),
+        closed: filteredConversations.filter(c => c.status === 'closed'),
     };
 
     const handleAssignToAdmin = async (conversationId: number, adminId: number) => {
@@ -123,20 +134,10 @@ export default function AdminMessaging({ conversations, admins }: AdminMessaging
             });
 
             if (response.ok) {
-                // Find the admin name for the success message
-                const admin = adminsData.find(a => a.id === adminId);
-                const adminName = admin ? admin.name : 'Admin';
-                
-                // Show success message
-                alert(`Conversation assigned to ${adminName} successfully!`);
                 window.location.reload();
-            } else {
-                console.error('Failed to assign conversation');
-                alert('Failed to assign conversation. Please try again.');
             }
         } catch (error) {
             console.error('Error assigning conversation:', error);
-            alert('An error occurred while assigning the conversation.');
         }
     };
 
@@ -153,8 +154,6 @@ export default function AdminMessaging({ conversations, admins }: AdminMessaging
 
             if (response.ok) {
                 window.location.reload();
-            } else {
-                console.error('Failed to update priority');
             }
         } catch (error) {
             console.error('Error updating priority:', error);
@@ -174,342 +173,345 @@ export default function AdminMessaging({ conversations, admins }: AdminMessaging
 
             if (response.ok) {
                 window.location.reload();
-            } else {
-                console.error('Failed to update status');
             }
         } catch (error) {
             console.error('Error updating status:', error);
         }
     };
 
-    const getStatusIcon = (status: string) => {
-        switch (status) {
-            case 'open':
-                return <Clock className="h-4 w-4 text-blue-500" />;
-            case 'in_progress':
-                return <AlertCircle className="h-4 w-4 text-yellow-500" />;
-            case 'resolved':
-                return <CheckCircle className="h-4 w-4 text-green-500" />;
-            case 'closed':
-                return <XCircle className="h-4 w-4 text-gray-500" />;
-            default:
-                return <Clock className="h-4 w-4 text-gray-500" />;
+    const openConversation = async (conversationId: number) => {
+        // Open panel immediately with loading state
+        setIsPanelOpen(true);
+        setIsLoadingConversation(true);
+        
+        try {
+            const response = await fetch(`/api/admin/messaging/${conversationId}`);
+            if (response.ok) {
+                const data = await response.json();
+                setSelectedConversation(data.conversation);
+            }
+        } catch (error) {
+            console.error('Error fetching conversation:', error);
+            setIsPanelOpen(false);
+        } finally {
+            setIsLoadingConversation(false);
         }
+    };
+
+    const closeConversation = () => {
+        setIsPanelOpen(false);
+        setTimeout(() => setSelectedConversation(null), 300);
     };
 
     const getPriorityColor = (priority: string) => {
         switch (priority) {
             case 'urgent':
-                return 'bg-red-100 text-red-800 border-red-200';
+                return 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800';
             case 'high':
-                return 'bg-orange-100 text-orange-800 border-orange-200';
+                return 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800';
             case 'medium':
-                return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+                return 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800';
             case 'low':
-                return 'bg-green-100 text-green-800 border-green-200';
+                return 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800';
             default:
-                return 'bg-gray-100 text-gray-800 border-gray-200';
+                return 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700';
         }
     };
 
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case 'open':
-                return 'bg-blue-100 text-blue-800 border-blue-200';
-            case 'in_progress':
-                return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-            case 'resolved':
-                return 'bg-green-100 text-green-800 border-green-200';
-            case 'closed':
-                return 'bg-gray-100 text-gray-800 border-gray-200';
-            default:
-                return 'bg-gray-100 text-gray-800 border-gray-200';
-        }
+    // Kanban columns configuration
+    const columns = [
+        { 
+            id: 'open', 
+            title: 'Open', 
+            count: groupedConversations.open.length,
+            icon: Clock,
+        },
+        { 
+            id: 'in_progress', 
+            title: 'In Progress', 
+            count: groupedConversations.in_progress.length,
+            icon: TrendingUp,
+        },
+        { 
+            id: 'resolved', 
+            title: 'Resolved', 
+            count: groupedConversations.resolved.length,
+            icon: CheckCircle,
+        },
+        { 
+            id: 'closed', 
+            title: 'Closed', 
+            count: groupedConversations.closed.length,
+            icon: XCircle,
+        },
+    ];
+
+    const renderTicketCard = (conversation: Conversation, index: number) => {
+        const customer = conversation.participants.find(p => p.pivot.role === 'customer');
+        
+        // Priority badge styling with icons
+        const getPriorityBadge = (priority: string) => {
+            switch (priority) {
+                case 'urgent':
+                    return { icon: '🔥', label: 'Urgent', class: 'bg-red-50 text-red-700 border border-red-200 dark:bg-red-950/50 dark:text-red-400 dark:border-red-900' };
+                case 'high':
+                    return { icon: '⚡', label: 'High', class: 'bg-orange-50 text-orange-700 border border-orange-200 dark:bg-orange-950/50 dark:text-orange-400 dark:border-orange-900' };
+                case 'medium':
+                    return { icon: '➡️', label: 'Medium', class: 'bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/50 dark:text-blue-400 dark:border-blue-900' };
+                case 'low':
+                    return { icon: '✅', label: 'Low', class: 'bg-green-50 text-green-700 border border-green-200 dark:bg-green-950/50 dark:text-green-400 dark:border-green-900' };
+                default:
+                    return { icon: '📌', label: priority, class: 'bg-gray-50 text-gray-700 border border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700' };
+            }
+        };
+
+        const priorityBadge = getPriorityBadge(conversation.priority);
+        
+        return (
+            <motion.div
+                key={conversation.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ delay: index * 0.02, duration: 0.15 }}
+            >
+                <div 
+                    className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-200 group cursor-pointer"
+                    onClick={() => openConversation(conversation.id)}
+                >
+                    {/* Header */}
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                        <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold text-sm text-gray-900 dark:text-white line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors mb-2">
+                                {conversation.subject || `Conversation #${conversation.id}`}
+                            </h4>
+                            <div className="flex items-center gap-2">
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${priorityBadge.class}`}>
+                                    <span>{priorityBadge.icon}</span>
+                                    <span>{priorityBadge.label}</span>
+                                </span>
+                            </div>
+                        </div>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                                <DropdownMenuSub>
+                                    <DropdownMenuSubTrigger>Assign to</DropdownMenuSubTrigger>
+                                    <DropdownMenuSubContent>
+                                        {adminsData.map((admin) => (
+                                            <DropdownMenuItem 
+                                                key={admin.id}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleAssignToAdmin(conversation.id, admin.id);
+                                                }}
+                                            >
+                                                {admin.name}
+                                            </DropdownMenuItem>
+                                        ))}
+                                    </DropdownMenuSubContent>
+                                </DropdownMenuSub>
+                                
+                                <DropdownMenuSub>
+                                    <DropdownMenuSubTrigger>Change Priority</DropdownMenuSubTrigger>
+                                    <DropdownMenuSubContent>
+                                        <DropdownMenuItem onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleChangePriority(conversation.id, 'urgent');
+                                        }}>
+                                            🔥 Urgent
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleChangePriority(conversation.id, 'high');
+                                        }}>
+                                            ⚡ High
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleChangePriority(conversation.id, 'medium');
+                                        }}>
+                                            ➡️ Medium
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleChangePriority(conversation.id, 'low');
+                                        }}>
+                                            ✅ Low
+                                        </DropdownMenuItem>
+                                    </DropdownMenuSubContent>
+                                </DropdownMenuSub>
+                                
+                                <DropdownMenuSub>
+                                    <DropdownMenuSubTrigger>Change Status</DropdownMenuSubTrigger>
+                                    <DropdownMenuSubContent>
+                                        <DropdownMenuItem onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleChangeStatus(conversation.id, 'open');
+                                        }}>
+                                            Open
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleChangeStatus(conversation.id, 'in_progress');
+                                        }}>
+                                            In Progress
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleChangeStatus(conversation.id, 'resolved');
+                                        }}>
+                                            Resolved
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleChangeStatus(conversation.id, 'closed');
+                                        }}>
+                                            Closed
+                                        </DropdownMenuItem>
+                                    </DropdownMenuSubContent>
+                                </DropdownMenuSub>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
+
+                    {/* Message Preview */}
+                    {conversation.latest_message && (
+                        <div className="mb-4">
+                            <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 leading-relaxed">
+                                {conversation.latest_message.content}
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Footer Info */}
+                    <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700">
+                        <div className="flex items-center gap-2">
+                            <div className="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white text-xs font-semibold">
+                                {customer?.name?.charAt(0).toUpperCase() || '?'}
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                                    {customer?.name || 'Unknown'}
+                                </span>
+                                {conversation.last_message_at && (
+                                    <span className="text-xs text-gray-500 dark:text-gray-500">
+                                        {format(new Date(conversation.last_message_at), 'MMM dd, h:mm a')}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                        
+                        {conversation.assigned_admin && (
+                            <div className="flex items-center gap-1.5 px-2 py-1 bg-gray-50 dark:bg-gray-700/50 rounded-md">
+                                <User className="h-3 w-3 text-gray-500 dark:text-gray-400" />
+                                <span className="text-xs text-gray-600 dark:text-gray-400">
+                                    {conversation.assigned_admin.name.split(' ')[0]}
+                                </span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </motion.div>
+        );
     };
 
     return (
         <AdminLayout>
-            <Head title="Admin Messaging" />
+            <Head title="Customer Support - BarfFoods Admin" />
             
-            <div className="space-y-6">
-                {/* Page Header */}
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                            Customer Support
-                        </h1>
-                        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                            Manage customer conversations and provide 24/7 support
-                        </p>
-                    </div>
-                    {/* <Button className="flex items-center space-x-2" onClick={handleNewConversation}>
-                        <Plus className="h-4 w-4" />
-                        <span>New Conversation</span>
+            <div className="space-y-4">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-2">
+                    <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Customer Support</h1>
+                    {/* <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
+                        <Plus className="h-4 w-4 mr-1" />
+                        New
                     </Button> */}
                 </div>
 
-                {/* Stats Cards */}
-                {/* <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <Card>
-                        <CardContent className="p-4">
-                            <div className="flex items-center space-x-2">
-                                <MessageSquare className="h-5 w-5 text-blue-500" />
-                                <div>
-                                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total</p>
-                                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                                        {conversationsMeta.total}
-                                    </p>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                    
-                    <Card>
-                        <CardContent className="p-4">
-                            <div className="flex items-center space-x-2">
-                                <Clock className="h-5 w-5 text-blue-500" />
-                                <div>
-                                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Open</p>
-                                    <p className="text-2xl font-bold text-blue-600">
-                                        {conversationsData.filter(c => c.status === 'open').length}
-                                    </p>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                    
-                    <Card>
-                        <CardContent className="p-4">
-                            <div className="flex items-center space-x-2">
-                                <AlertCircle className="h-5 w-5 text-yellow-500" />
-                                <div>
-                                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">In Progress</p>
-                                    <p className="text-2xl font-bold text-yellow-600">
-                                        {conversationsData.filter(c => c.status === 'in_progress').length}
-                                    </p>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                    
-                    <Card>
-                        <CardContent className="p-4">
-                            <div className="flex items-center space-x-2">
-                                <AlertCircle className="h-5 w-5 text-red-500" />
-                                <div>
-                                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Urgent</p>
-                                    <p className="text-2xl font-bold text-red-600">
-                                        {conversationsData.filter(c => c.priority === 'urgent').length}
-                                    </p>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div> */}
-
                 {/* Filters */}
-                <Card>
-                    <CardContent className="p-4">
-                        <div className="flex flex-col sm:flex-row gap-4">
-                            <div className="flex-1">
-                                <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                    <Input
-                                        placeholder="Search conversations..."
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="pl-10"
-                                    />
+                <div className="flex gap-2 pb-2">
+                    <div className="flex-1 relative">
+                        <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <Input
+                            placeholder="Search..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-8 h-9 text-sm"
+                        />
+                    </div>
+                    
+                    <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                        <SelectTrigger className="w-32 h-9 text-sm">
+                            <SelectValue placeholder="Priority" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All</SelectItem>
+                            <SelectItem value="urgent">Urgent</SelectItem>
+                            <SelectItem value="high">High</SelectItem>
+                            <SelectItem value="medium">Medium</SelectItem>
+                            <SelectItem value="low">Low</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                {/* Kanban Board */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 md:grid-cols-2 gap-4">
+                    {columns.map((column) => {
+                        const Icon = column.icon;
+                        const conversations = groupedConversations[column.id as keyof typeof groupedConversations];
+                        
+                        return (
+                            <div key={column.id} className="flex flex-col">
+                                {/* Column Header */}
+                                <div className="flex items-center justify-between px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-t-lg">
+                                    <div className="flex items-center gap-2">
+                                        <Icon className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                                        <span className="text-sm font-medium text-gray-900 dark:text-white">{column.title}</span>
+                                        <span className="text-xs text-gray-500 dark:text-gray-400">({column.count})</span>
+                                    </div>
+                                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                                        <Plus className="h-3 w-3" />
+                                    </Button>
+                                </div>
+
+                                {/* Column Content */}
+                                <div className="p-3 space-y-3 bg-gray-50/50 dark:bg-gray-900/50 border-x border-b border-gray-200 dark:border-gray-700 rounded-b-lg min-h-[400px] max-h-[600px] overflow-y-auto">
+                                    <AnimatePresence>
+                                        {conversations.length === 0 ? (
+                                            <div className="flex flex-col items-center justify-center py-12 text-gray-400 dark:text-gray-600">
+                                                <Icon className="h-8 w-8 mb-2" />
+                                                <p className="text-xs">No items</p>
+                                            </div>
+                                        ) : (
+                                            conversations.map((conversation, index) => renderTicketCard(conversation, index))
+                                        )}
+                                    </AnimatePresence>
                                 </div>
                             </div>
-                            
-                            <Select value={statusFilter} onValueChange={setStatusFilter}>
-                                <SelectTrigger className="w-full sm:w-48">
-                                    <SelectValue placeholder="Status" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All Status</SelectItem>
-                                    <SelectItem value="open">Open</SelectItem>
-                                    <SelectItem value="in_progress">In Progress</SelectItem>
-                                    <SelectItem value="resolved">Resolved</SelectItem>
-                                    <SelectItem value="closed">Closed</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            
-                            <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                                <SelectTrigger className="w-full sm:w-48">
-                                    <SelectValue placeholder="Priority" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All Priority</SelectItem>
-                                    <SelectItem value="urgent">Urgent</SelectItem>
-                                    <SelectItem value="high">High</SelectItem>
-                                    <SelectItem value="medium">Medium</SelectItem>
-                                    <SelectItem value="low">Low</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Conversations List */}
-                <div className="space-y-4">
-                    {filteredConversations.length === 0 ? (
-                        <Card>
-                            <CardContent className="p-8 text-center">
-                                <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                                    No conversations found
-                                </h3>
-                                <p className="text-gray-500 dark:text-gray-400">
-                                    {searchTerm || statusFilter !== 'all' || priorityFilter !== 'all'
-                                        ? 'Try adjusting your filters to see more conversations.'
-                                        : 'No customer conversations yet. They will appear here when customers contact support.'}
-                                </p>
-                            </CardContent>
-                        </Card>
-                    ) : (
-                        filteredConversations.map((conversation) => {
-                            const customer = conversation.participants.find(p => p.pivot.role === 'customer');
-                            
-                            return (
-                                <Card key={conversation.id} className="hover:shadow-md transition-shadow">
-                                    <CardContent className="p-4">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center space-x-3 mb-2">
-                                                    <div className="flex items-center space-x-2">
-                                                        {getStatusIcon(conversation.status)}
-                                                        <h3 className="text-lg font-medium text-gray-900 dark:text-white truncate">
-                                                            {conversation.subject || `Conversation #${conversation.id}`}
-                                                        </h3>
-                                                    </div>
-                                                    
-                                                    <Badge className={getPriorityColor(conversation.priority)}>
-                                                        {conversation.priority}
-                                                    </Badge>
-                                                    
-                                                    <Badge className={getStatusColor(conversation.status)}>
-                                                        {conversation.status.replace('_', ' ')}
-                                                    </Badge>
-                                                </div>
-                                                
-                                                <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
-                                                    <div className="flex items-center space-x-1">
-                                                        <User className="h-4 w-4" />
-                                                        <span>{customer?.name || 'Unknown Customer'}</span>
-                                                    </div>
-                                                    
-                                                    {conversation.assigned_admin && (
-                                                        <div className="flex items-center space-x-1">
-                                                            <span>Assigned to:</span>
-                                                            <span className="font-medium">{conversation.assigned_admin?.name || 'Unknown Admin'}</span>
-                                                        </div>
-                                                    )}
-                                                    
-                                                    {conversation.last_message_at && (
-                                                        <div className="flex items-center space-x-1">
-                                                            <Clock className="h-4 w-4" />
-                                                            <span>
-                                                                {formatDistanceToNow(new Date(conversation.last_message_at), { addSuffix: true })}
-                                                            </span>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                
-                                                {conversation.latest_message && (
-                                                    <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 truncate">
-                                                        <span className="font-medium">{conversation.latest_message.user?.name || 'Unknown User'}:</span>{' '}
-                                                        {conversation.latest_message.content}
-                                                    </p>
-                                                )}
-                                            </div>
-                                            
-                                            <div className="flex items-center space-x-2 ml-4">
-                                                <Link
-                                                    href={`/admin/messaging/${conversation.id}`}
-                                                    className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-                                                >
-                                                    View
-                                                </Link>
-                                                
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button variant="ghost" size="sm">
-                                                            <MoreHorizontal className="h-4 w-4" />
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end">
-                                                        <DropdownMenuSub>
-                                                            <DropdownMenuSubTrigger>
-                                                                Assign to Admin
-                                                            </DropdownMenuSubTrigger>
-                                                            <DropdownMenuSubContent>
-                                                                {adminsData.length > 0 ? (
-                                                                    adminsData.map((admin) => (
-                                                                        <DropdownMenuItem 
-                                                                            key={admin.id}
-                                                                            onClick={() => handleAssignToAdmin(conversation.id, admin.id)}
-                                                                        >
-                                                                            {admin.name}
-                                                                        </DropdownMenuItem>
-                                                                    ))
-                                                                ) : (
-                                                                    <DropdownMenuItem disabled>
-                                                                        No admins available
-                                                                    </DropdownMenuItem>
-                                                                )}
-                                                            </DropdownMenuSubContent>
-                                                        </DropdownMenuSub>
-                                                        <DropdownMenuItem onClick={() => handleChangePriority(conversation.id, 'high')}>
-                                                            Change Priority
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => handleChangeStatus(conversation.id, 'in_progress')}>
-                                                            Change Status
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem className="text-red-600" onClick={() => handleChangeStatus(conversation.id, 'closed')}>
-                                                            Close Conversation
-                                                        </DropdownMenuItem>
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            );
-                        })
-                    )}
+                        );
+                    })}
                 </div>
             </div>
 
-            {/* New Conversation Modal */}
-            {showNewConversationModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
-                        <h3 className="text-lg font-semibold mb-4">Create New Conversation</h3>
-                        <p className="text-gray-600 dark:text-gray-400 mb-4">
-                            New conversations are typically created when customers contact support. 
-                            You can view existing conversations or wait for new customer inquiries.
-                        </p>
-                        <div className="flex justify-end space-x-3">
-                            <Button variant="outline" onClick={() => setShowNewConversationModal(false)}>
-                                Close
-                            </Button>
-                            <Button onClick={() => {
-                                // For now, just redirect to the first conversation or show a message
-                                if (filteredConversations.length > 0) {
-                                    window.location.href = `/admin/messaging/${filteredConversations[0].id}`;
-                                } else {
-                                    alert('No conversations available. New conversations will appear when customers contact support.');
-                                    setShowNewConversationModal(false);
-                                }
-                            }}>
-                                View Conversations
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            {/* Off-Canvas Conversation Panel */}
+            <ConversationPanel 
+                conversation={selectedConversation}
+                isOpen={isPanelOpen}
+                isLoading={isLoadingConversation}
+                onClose={closeConversation}
+                adminsData={adminsData}
+            />
         </AdminLayout>
     );
 }

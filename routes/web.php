@@ -139,9 +139,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:super_admin'])
     Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
     Route::get('/notifications', [AdminController::class, 'notifications'])->name('notifications');
     
-    // Messaging routes
+    // Messaging routes (using off-canvas panel, no separate conversation page)
     Route::get('/messaging', [MessagingController::class, 'index'])->name('messaging');
-    Route::get('/messaging/{conversation}', [MessagingController::class, 'show'])->name('messaging.conversation');
     
     // System Settings (Super Admin only)
     Route::get('/system-settings', [App\Http\Controllers\Admin\SystemSettingsController::class, 'index'])->name('system-settings');
@@ -162,6 +161,7 @@ Route::middleware(['web', 'auth'])->group(function () {
 
 // Admin Messaging API Routes
 Route::prefix('api/admin')->middleware(['web', 'auth', 'role:super_admin'])->group(function () {
+    Route::get('/messaging/{conversation}', [App\Http\Controllers\Admin\MessagingController::class, 'showApi']);
     Route::post('/messaging/{conversation}/messages', [App\Http\Controllers\Admin\MessagingController::class, 'sendMessage']);
     Route::post('/messaging/{conversation}/assign', [App\Http\Controllers\Admin\MessagingController::class, 'assign']);
     Route::patch('/messaging/{conversation}/status', [App\Http\Controllers\Admin\MessagingController::class, 'updateStatus']);

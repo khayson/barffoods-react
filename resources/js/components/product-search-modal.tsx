@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Search, ArrowRight, Command, ChevronDown, Package, MapPin, X } from 'lucide-react';
 import { Kbd } from '@/components/ui/kbd';
 import { Button } from '@/components/ui/button';
@@ -188,8 +189,8 @@ export default function ProductSearchModal({ isOpen, onClose }: ProductSearchMod
 
     if (!isOpen) return null;
 
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    const modalContent = (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             {/* Backdrop */}
             <div 
                 className="absolute inset-0 bg-black/50 backdrop-blur-sm"
@@ -197,8 +198,8 @@ export default function ProductSearchModal({ isOpen, onClose }: ProductSearchMod
             />
             
             {/* Modal */}
-            <div className="relative bg-white dark:bg-gray-900 text-gray-900 dark:text-white rounded-xl shadow-2xl max-w-4xl w-full overflow-hidden scrollbar-hide">
-                <div className="flex flex-col h-[600px]">
+            <div className="relative bg-white dark:bg-gray-900 text-gray-900 dark:text-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+                <div className="flex flex-col h-full max-h-[600px]">
                     {/* Header with Search Input */}
                     <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                         <div className="flex items-center justify-between mb-4">
@@ -371,4 +372,7 @@ export default function ProductSearchModal({ isOpen, onClose }: ProductSearchMod
             </div>
         </div>
     );
+
+    // Render modal in a portal at document body level to avoid z-index and overflow issues
+    return createPortal(modalContent, document.body);
 }

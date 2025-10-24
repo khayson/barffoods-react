@@ -213,7 +213,7 @@ class MessagingController extends Controller
                     message: "New message from {$user->name}: {$request->subject}",
                     userId: $admin->id,
                     priority: 'medium',
-                    actionUrl: "/admin/messaging/{$conversation->id}",
+                    actionUrl: "/admin/messaging?open={$conversation->id}",
                     actionText: 'View Conversation',
                     icon: 'message',
                     color: 'blue'
@@ -392,8 +392,8 @@ class MessagingController extends Controller
                 userId: $participant->id,
                 priority: 'medium',
                 actionUrl: $participant->pivot->role === 'admin' 
-                    ? "/admin/messaging/{$conversation->id}" 
-                    : "/customer/messaging/{$conversation->id}",
+                    ? "/admin/messaging?open={$conversation->id}" 
+                    : "/dashboard?open={$conversation->id}",
                 actionText: 'View Message',
                 icon: 'message',
                 color: 'blue'

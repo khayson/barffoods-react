@@ -176,6 +176,15 @@
     .scrollbar-hide::-webkit-scrollbar { 
         display: none;  /* Safari and Chrome */
     }
+    
+    @keyframes shimmer {
+        0% {
+            transform: translateX(-100%);
+        }
+        100% {
+            transform: translateX(100%);
+        }
+    }
 }
 
 /* Leaflet custom styles */
@@ -187,4 +196,41 @@
 .user-location-marker {
     background: transparent !important;
     border: none !important;
+}
+
+/* Ensure Leaflet map stays below navigation (z-50) */
+.leaflet-container {
+    z-index: 1 !important;
+}
+
+.leaflet-pane {
+    z-index: auto !important;
+}
+
+.leaflet-tile-pane {
+    z-index: 1 !important;
+}
+
+.leaflet-overlay-pane {
+    z-index: 2 !important;
+}
+
+.leaflet-shadow-pane {
+    z-index: 3 !important;
+}
+
+.leaflet-marker-pane {
+    z-index: 4 !important;
+}
+
+.leaflet-tooltip-pane {
+    z-index: 5 !important;
+}
+
+.leaflet-popup-pane {
+    z-index: 6 !important;
+}
+
+.leaflet-control {
+    z-index: 10 !important;
 }

@@ -51,9 +51,10 @@ interface Conversation {
 
 interface FloatingSupportIconProps {
     className?: string;
+    initialConversationId?: number | null;
 }
 
-export default function FloatingSupportIcon({ className = '' }: FloatingSupportIconProps) {
+export default function FloatingSupportIcon({ className = '', initialConversationId = null }: FloatingSupportIconProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -159,6 +160,37 @@ export default function FloatingSupportIcon({ className = '' }: FloatingSupportI
         window.addEventListener('open-support-modal', openHandler);
         return () => window.removeEventListener('open-support-modal', openHandler);
     }, []);
+
+    // Auto-open conversation from initialConversationId (e.g., from notifications)
+    useEffect(() => {
+        if (initialConversationId) {
+            const openConversation = async () => {
+                setIsOpen(true);
+                await loadConversations();
+                
+                // Find and select the conversation
+                try {
+                    const response = await fetch(`/api/customer/messaging`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        
+                        // Handle paginated response
+                        const conversationsList = data.conversations?.data || data.conversations || [];
+                        const conversation = conversationsList.find((c: Conversation) => c.id === initialConversationId);
+                        
+                        if (conversation) {
+                            setSelectedConversation(conversation);
+                            await loadMessages(conversation.id);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error loading conversation:', error);
+                }
+            };
+            
+            openConversation();
+        }
+    }, [initialConversationId]);
 
     // Handle escape key to close modal
     useEffect(() => {
