@@ -30,7 +30,6 @@ import { useNotifications } from '@/contexts/NotificationContext';
 import NotificationDropdown from '@/components/notifications/NotificationDropdown';
 import { useWishlist } from '@/contexts/WishlistContext';
 import { useCart } from '@/contexts/CartContext';
-import WishlistDropdown from '@/components/WishlistDropdown';
 import CartDropdown from '@/components/CartDropdown';
 import { toast } from 'sonner';
 
@@ -59,7 +58,6 @@ export default function CustomerHeader({ onToggleMobileMenu, isMobile }: Custome
     const [isDarkMode, setIsDarkMode] = useState(false);
     const [searchOpen, setSearchOpen] = useState(false);
     const [notificationOpen, setNotificationOpen] = useState(false);
-    const [wishlistOpen, setWishlistOpen] = useState(false);
     const [cartOpen, setCartOpen] = useState(false);
     const page = usePage<SharedData>();
     const { auth } = page.props;
@@ -68,7 +66,6 @@ export default function CustomerHeader({ onToggleMobileMenu, isMobile }: Custome
     const { state: notificationState } = useNotifications();
     const { wishlistCount } = useWishlist();
     const { totalItems } = useCart();
-    const wishlistButtonRef = useRef<HTMLButtonElement>(null);
     const cartButtonRef = useRef<HTMLButtonElement>(null);
 
     // Check for saved theme preference or default to light mode
@@ -221,21 +218,29 @@ export default function CustomerHeader({ onToggleMobileMenu, isMobile }: Custome
                             />
                         </div>
 
-                        {/* Wishlist - Hide on smallest screens */}
-                        <Button
-                            ref={wishlistButtonRef}
-                            variant="ghost"
-                            size="sm"
-                            className="hidden xs:flex relative p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
-                            onClick={() => auth.user ? setWishlistOpen(!wishlistOpen) : toast.error('Please log in to view wishlist')}
-                        >
-                            <Heart className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                            {wishlistCount > 0 && (
-                                <span className="absolute top-1 right-1 h-4 w-4 bg-pink-500 rounded-full text-[10px] text-white flex items-center justify-center font-medium">
-                                    {wishlistCount > 9 ? '9+' : wishlistCount}
-                                </span>
-                            )}
-                        </Button>
+                        {/* Wishlist */}
+                        {auth.user ? (
+                            <Link
+                                href="/wishlist"
+                                className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                            >
+                                <Heart className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                                {wishlistCount > 0 && (
+                                    <span className="absolute top-1 right-1 h-4 w-4 bg-pink-500 rounded-full text-[10px] text-white flex items-center justify-center font-medium">
+                                        {wishlistCount > 9 ? '9+' : wishlistCount}
+                                    </span>
+                                )}
+                            </Link>
+                        ) : (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+                                onClick={() => toast.error('Please log in to view wishlist')}
+                            >
+                                <Heart className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                            </Button>
+                        )}
 
                         {/* Cart */}
                         <Button
@@ -299,12 +304,6 @@ export default function CustomerHeader({ onToggleMobileMenu, isMobile }: Custome
             {/* Product Search Modal */}
             <ProductSearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
             
-            {/* Wishlist Dropdown */}
-            <WishlistDropdown
-                isOpen={wishlistOpen}
-                onClose={() => setWishlistOpen(false)}
-                buttonRef={wishlistButtonRef}
-            />
             
             {/* Cart Dropdown */}
             <CartDropdown

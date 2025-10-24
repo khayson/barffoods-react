@@ -5,7 +5,6 @@ import { login, register } from '@/routes';
 import { type SharedData } from '@/types';
 import { usePage } from '@inertiajs/react';
 import ProductSearchModal from '@/components/product-search-modal';
-import WishlistDropdown from '@/components/WishlistDropdown';
 import CartDropdown from '@/components/CartDropdown';
 import NotificationDropdown from '@/components/notifications/NotificationDropdown';
 import { Kbd } from '@/components/ui/kbd';
@@ -21,9 +20,7 @@ export default function Navigation() {
     const [isDarkMode, setIsDarkMode] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [searchOpen, setSearchOpen] = useState(false);
-    const [wishlistOpen, setWishlistOpen] = useState(false);
     const [cartOpen, setCartOpen] = useState(false);
-    const wishlistButtonRef = useRef<HTMLButtonElement>(null);
     const cartButtonRef = useRef<HTMLButtonElement>(null);
     
     // Helper function to check if a path is active
@@ -112,18 +109,26 @@ export default function Navigation() {
                     {/* Right Section - Actions */}
                     <div className="flex items-center gap-2 ml-4">
                         {/* Wishlist */}
-                        <button 
-                            ref={wishlistButtonRef}
-                            onClick={() => auth.user ? setWishlistOpen(!wishlistOpen) : toast.error('Please log in to view wishlist')}
-                            className="p-2 bg-pink-50 dark:bg-pink-900 hover:bg-pink-100 dark:hover:bg-pink-800 rounded-lg transition-colors relative"
-                        >
-                            <Heart className="h-5 w-5 text-pink-600 dark:text-pink-400" />
-                            {wishlistCount > 0 && (
-                                <span className="absolute -top-1 -right-1 h-5 w-5 bg-pink-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
-                                    {wishlistCount > 9 ? '9+' : wishlistCount}
-                                </span>
-                            )}
-                        </button>
+                        {auth.user ? (
+                            <Link
+                                href="/wishlist"
+                                className="p-2 bg-pink-50 dark:bg-pink-900 hover:bg-pink-100 dark:hover:bg-pink-800 rounded-lg transition-colors relative"
+                            >
+                                <Heart className="h-5 w-5 text-pink-600 dark:text-pink-400" />
+                                {wishlistCount > 0 && (
+                                    <span className="absolute -top-1 -right-1 h-5 w-5 bg-pink-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                                        {wishlistCount > 9 ? '9+' : wishlistCount}
+                                    </span>
+                                )}
+                            </Link>
+                        ) : (
+                            <button
+                                onClick={() => toast.error('Please log in to view wishlist')}
+                                className="p-2 bg-pink-50 dark:bg-pink-900 hover:bg-pink-100 dark:hover:bg-pink-800 rounded-lg transition-colors relative"
+                            >
+                                <Heart className="h-5 w-5 text-pink-600 dark:text-pink-400" />
+                            </button>
+                        )}
 
                         {/* Shopping Cart */}
                         <button 
@@ -339,12 +344,6 @@ export default function Navigation() {
             {/* Product Search Modal */}
             <ProductSearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
             
-            {/* Wishlist Dropdown */}
-            <WishlistDropdown 
-                isOpen={wishlistOpen} 
-                onClose={() => setWishlistOpen(false)}
-                buttonRef={wishlistButtonRef}
-            />
             
             {/* Cart Dropdown */}
             <CartDropdown 

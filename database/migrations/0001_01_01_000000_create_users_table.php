@@ -21,6 +21,8 @@ return new class extends Migration
             $table->string('password');
             $table->enum('role', ['super_admin', 'customer'])->default('customer');
             $table->boolean('is_active')->default(true);
+            $table->string('wishlist_share_token')->unique()->nullable();
+            $table->boolean('is_wishlist_public')->default(false);
             $table->rememberToken();
             $table->timestamps();
         });

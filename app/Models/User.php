@@ -30,6 +30,8 @@ class User extends Authenticatable
         'role',
         'is_active',
         'avatar',
+        'wishlist_share_token',
+        'is_wishlist_public',
     ];
 
     /**
@@ -53,6 +55,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'is_wishlist_public' => 'boolean',
         ];
     }
 

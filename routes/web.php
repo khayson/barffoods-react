@@ -55,11 +55,22 @@ Route::middleware(['auth'])->group(function () {
 
 // Wishlist routes (authenticated users only)
 Route::middleware(['auth'])->group(function () {
+    Route::get('/wishlist', function () {
+        return Inertia::render('wishlist');
+    })->name('wishlist.page');
     Route::get('/api/wishlist', [WishlistItemController::class, 'index'])->name('wishlist.index');
     Route::post('/api/wishlist', [WishlistItemController::class, 'store'])->name('wishlist.store');
     Route::delete('/api/wishlist/{id}', [WishlistItemController::class, 'destroy'])->name('wishlist.destroy');
     Route::get('/api/wishlist/check/{productId}', [WishlistItemController::class, 'check'])->name('wishlist.check');
+    
+    // Wishlist sharing routes
+    Route::post('/api/wishlist/share/generate', [App\Http\Controllers\WishlistShareController::class, 'generateToken'])->name('wishlist.share.generate');
+    Route::post('/api/wishlist/share/toggle', [App\Http\Controllers\WishlistShareController::class, 'togglePrivacy'])->name('wishlist.share.toggle');
+    Route::get('/api/wishlist/share/settings', [App\Http\Controllers\WishlistShareController::class, 'getSettings'])->name('wishlist.share.settings');
 });
+
+// Public shared wishlist route (no auth required)
+Route::get('/wishlist/shared/{token}', [App\Http\Controllers\WishlistShareController::class, 'show'])->name('wishlist.shared');
 
 // Cart page (no auth required)
 Route::get('/cart', [CartItemController::class, 'show'])->name('cart.show');
