@@ -109,6 +109,41 @@ export default function ProductPage({ product, reviews, relatedProducts, shippin
     // Use only real product colors from database
     const colorOptions = productData.colors || [];
 
+    // Helper function to check if image is a URL
+    const isImageUrl = (image: string) => {
+        return image && (image.startsWith('http://') || image.startsWith('https://') || image.startsWith('/'));
+    };
+
+    // Helper function to render product image
+    const renderProductImage = (image: string, sizeClasses: string) => {
+        const defaultEmoji = '📦';
+        
+        if (!image) {
+            return <span className={sizeClasses}>{defaultEmoji}</span>;
+        }
+
+        if (isImageUrl(image)) {
+            return (
+                <img 
+                    src={image} 
+                    alt={productData.name}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                        // Fallback to emoji if image fails to load
+                        const target = e.currentTarget;
+                        target.style.display = 'none';
+                        if (target.parentElement) {
+                            target.parentElement.innerHTML = `<span class="${sizeClasses}">${defaultEmoji}</span>`;
+                        }
+                    }}
+                />
+            );
+        }
+
+        // Display as emoji or text
+        return <span className={sizeClasses}>{image}</span>;
+    };
+
     useEffect(() => {
         // Simulate loading time
         const timer = setTimeout(() => {
@@ -401,9 +436,9 @@ export default function ProductPage({ product, reviews, relatedProducts, shippin
                             <div className="lg:col-span-2">
                                 <div className="sticky top-20 space-y-4 lg:space-y-6">
                                 {/* Main Image */}
-                                <div className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden">
+                                <div className="relative aspect-square bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden">
                                     <div className="w-full h-full flex items-center justify-center">
-                                        <span className="text-8xl">{productImages[selectedImage]}</span>
+                                        {renderProductImage(productImages[selectedImage], 'text-8xl')}
                                     </div>
 
                                     {/* Navigation Arrows - Only show if multiple images exist */}
@@ -411,13 +446,13 @@ export default function ProductPage({ product, reviews, relatedProducts, shippin
                                         <>
                                             <button
                                                 onClick={prevImage}
-                                                className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/50 hover:bg-black/70 text-white rounded-full flex items-center justify-center transition-colors"
+                                                className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/50 hover:bg-black/70 dark:bg-white/20 dark:hover:bg-white/30 text-white rounded-full flex items-center justify-center transition-colors"
                                             >
                                                 <ChevronLeft className="w-5 h-5" />
                                             </button>
                                             <button
                                                 onClick={nextImage}
-                                                className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/50 hover:bg-black/70 text-white rounded-full flex items-center justify-center transition-colors"
+                                                className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/50 hover:bg-black/70 dark:bg-white/20 dark:hover:bg-white/30 text-white rounded-full flex items-center justify-center transition-colors"
                                             >
                                                 <ChevronRight className="w-5 h-5" />
                                             </button>
@@ -434,17 +469,12 @@ export default function ProductPage({ product, reviews, relatedProducts, shippin
                                                 onClick={() => setSelectedImage(index)}
                                                 className={`relative w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 rounded-lg overflow-hidden border-2 transition-colors ${selectedImage === index
                                                         ? 'border-green-500'
-                                                        : 'border-gray-200 hover:border-gray-300'
+                                                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                                                     }`}
                                             >
-                                                <div className="w-full h-full flex items-center justify-center">
-                                                    <span className="text-xl sm:text-2xl">{image}</span>
+                                                <div className="w-full h-full flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+                                                    {renderProductImage(image, 'text-xl sm:text-2xl')}
                                                 </div>
-                                                {index === 0 && (
-                                                    <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                                                        <span className="text-white text-xs font-medium">3D</span>
-                                                    </div>
-                                                )}
                                             </button>
                                         ))}
                                     </div>
@@ -458,24 +488,24 @@ export default function ProductPage({ product, reviews, relatedProducts, shippin
                                     {/* Top Section */}
                                     <div className="space-y-3 lg:space-y-4">
                                         {/* Category Badge */}
-                                        <Badge variant="secondary" className="bg-green-100 text-green-800 hover:bg-green-100">
+                                        <Badge variant="secondary" className="bg-green-100 text-green-800 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-400">
                                             {getCategoryName()}
                                         </Badge>
 
                                         {/* Product Title and Wishlist */}
                                         <div className="flex items-start justify-between gap-4">
                                             <div className="space-y-2 flex-1">
-                                                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 leading-tight">
+                                                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white leading-tight">
                                                     {productData.name}
                                                 </h1>
                                                 <div className="flex items-center gap-2 flex-wrap">
                                                     {/* Rating */}
                                                     <div className="flex items-center">
                                                         <Star className="w-4 h-4 sm:w-5 sm:h-5 fill-yellow-400 text-yellow-400" />
-                                                        <span className="ml-1 font-semibold text-sm sm:text-base">{productData.rating}</span>
+                                                        <span className="ml-1 font-semibold text-sm sm:text-base dark:text-white">{productData.rating}</span>
                                                     </div>
                                                     {/* Reviews */}
-                                                    <span className="text-gray-600 text-sm sm:text-base">
+                                                    <span className="text-gray-600 dark:text-gray-400 text-sm sm:text-base">
                                                         {typeof productData.reviews === 'string' ? productData.reviews : `${productData.reviews}+ Reviews`}
                                                     </span>
                                                 </div>
@@ -495,21 +525,21 @@ export default function ProductPage({ product, reviews, relatedProducts, shippin
                                         </div>
 
                                         {/* Description */}
-                                        <p className="text-sm sm:text-base text-gray-700 leading-relaxed">
+                                        <p className="text-sm sm:text-base text-gray-700 dark:text-gray-300 leading-relaxed">
                                             {productData.description}
                                         </p>
 
                                         {/* Pricing */}
                                         <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
-                                            <span className="text-2xl sm:text-3xl font-bold text-gray-900">
+                                            <span className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
                                                 ${formatPrice(productData.price)}
                                             </span>
                                             {productData.original_price && (
                                                 <>
-                                                    <span className="text-lg sm:text-xl text-gray-500 line-through">
+                                                    <span className="text-lg sm:text-xl text-gray-500 dark:text-gray-400 line-through">
                                                         ${formatPrice(productData.original_price)}
                                                     </span>
-                                                    <Badge variant="destructive" className="bg-red-100 text-red-800">
+                                                    <Badge variant="destructive" className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
                                                         {discountPercentage}% off!
                                                     </Badge>
                                                 </>
@@ -520,8 +550,8 @@ export default function ProductPage({ product, reviews, relatedProducts, shippin
                                         {colorOptions.length > 0 && (
                                             <div className="space-y-3">
                                                 <div className="flex items-center justify-between">
-                                                    <h3 className="font-medium text-gray-900">Colors</h3>
-                                                    <span className="text-sm text-gray-600">{selectedColor}</span>
+                                                    <h3 className="font-medium text-gray-900 dark:text-white">Colors</h3>
+                                                    <span className="text-sm text-gray-600 dark:text-gray-400">{selectedColor}</span>
                                                 </div>
                                                 <div className="flex gap-2 sm:gap-3 flex-wrap">
                                                     {colorOptions.map((color) => (
@@ -529,16 +559,16 @@ export default function ProductPage({ product, reviews, relatedProducts, shippin
                                                             key={color.name}
                                                             onClick={() => setSelectedColor(color.name)}
                                                             className={`relative w-14 h-14 sm:w-16 sm:h-16 rounded-lg overflow-hidden border-2 transition-all ${selectedColor === color.name
-                                                                    ? 'border-green-500 ring-2 ring-green-200'
-                                                                    : 'border-gray-200 hover:border-gray-300'
+                                                                    ? 'border-green-500 ring-2 ring-green-200 dark:ring-green-900'
+                                                                    : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                                                                 }`}
                                                         >
-                                                            <div className="w-full h-full flex items-center justify-center">
+                                                            <div className="w-full h-full flex items-center justify-center bg-gray-50 dark:bg-gray-900">
                                                                 <span className="text-xl sm:text-2xl">{color.image}</span>
                                                             </div>
                                                             {selectedColor === color.name && (
                                                                 <div className="absolute inset-0 bg-green-500/20 flex items-center justify-center">
-                                                                    <Check className="w-4 h-4 text-green-600" />
+                                                                    <Check className="w-4 h-4 text-green-600 dark:text-green-400" />
                                                                 </div>
                                                             )}
                                                         </button>
@@ -550,23 +580,23 @@ export default function ProductPage({ product, reviews, relatedProducts, shippin
                                         {/* Quantity and Add to Cart */}
                                         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center">
                                             {/* Quantity Controls */}
-                                            <div className="flex items-center border border-gray-300 rounded-lg w-full sm:w-auto">
+                                            <div className="flex items-center border border-gray-300 dark:border-gray-600 rounded-lg w-full sm:w-auto bg-white dark:bg-gray-800">
                                                 <Button
                                                     variant="ghost"
                                                     size="sm"
                                                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                                                    className="h-10 w-10 sm:h-12 sm:w-12 rounded-r-none"
+                                                    className="h-10 w-10 sm:h-12 sm:w-12 rounded-r-none dark:hover:bg-gray-700"
                                                 >
                                                     <Minus className="w-4 h-4" />
                                                 </Button>
-                                                <span className="px-4 py-2 min-w-[3rem] text-center font-medium flex-1 sm:flex-none">
+                                                <span className="px-4 py-2 min-w-[3rem] text-center font-medium flex-1 sm:flex-none dark:text-white">
                                                     {quantity}
                                                 </span>
                                                 <Button
                                                     variant="ghost"
                                                     size="sm"
                                                     onClick={() => setQuantity(quantity + 1)}
-                                                    className="h-10 w-10 sm:h-12 sm:w-12 rounded-l-none"
+                                                    className="h-10 w-10 sm:h-12 sm:w-12 rounded-l-none dark:hover:bg-gray-700"
                                                 >
                                                     <Plus className="w-4 h-4" />
                                                 </Button>
@@ -575,7 +605,7 @@ export default function ProductPage({ product, reviews, relatedProducts, shippin
                                             {/* Add to Cart Button */}
                                             <Button
                                                 onClick={handleAddToCart}
-                                                className="flex-1 sm:flex-none bg-yellow-500 hover:bg-yellow-600 text-black font-semibold py-3 px-6 rounded-lg transition-colors h-12"
+                                                className="flex-1 sm:flex-none bg-yellow-500 hover:bg-yellow-600 dark:bg-yellow-600 dark:hover:bg-yellow-700 text-black font-semibold py-3 px-6 rounded-lg transition-colors h-12"
                                                 disabled={!productData.inStock}
                                             >
                                                 <ShoppingCart className="w-5 h-5 mr-2" />
@@ -585,10 +615,10 @@ export default function ProductPage({ product, reviews, relatedProducts, shippin
 
                                         {/* Stock Status */}
                                         {!productData.inStock && (
-                                            <p className="text-sm sm:text-base text-red-600 font-medium">Out of Stock</p>
+                                            <p className="text-sm sm:text-base text-red-600 dark:text-red-400 font-medium">Out of Stock</p>
                                         )}
                                         {productData.inStock && (
-                                            <p className="text-sm sm:text-base text-green-600 font-medium">
+                                            <p className="text-sm sm:text-base text-green-600 dark:text-green-400 font-medium">
                                                 In Stock ({productData.stock_quantity} available)
                                             </p>
                                         )}
@@ -606,8 +636,8 @@ export default function ProductPage({ product, reviews, relatedProducts, shippin
                                         <TabsContent value="details" className="mt-8">
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                                 <div>
-                                                    <h3 className="text-lg font-semibold mb-4">Detailed Description</h3>
-                                                    <p className="text-gray-700 leading-relaxed">
+                                                    <h3 className="text-lg font-semibold mb-4 dark:text-white">Detailed Description</h3>
+                                                    <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
                                                         {productData.description}
                                                     </p>
                                                 </div>
@@ -615,15 +645,15 @@ export default function ProductPage({ product, reviews, relatedProducts, shippin
                                                 <div className="space-y-6">
                                                     {productData.specifications && productData.specifications.length > 0 && (
                                                         <div>
-                                                            <h4 className="font-semibold mb-3 flex items-center">
+                                                            <h4 className="font-semibold mb-3 flex items-center dark:text-white">
                                                                 <Info className="w-5 h-5 mr-2" />
                                                                 Specifications
                                                             </h4>
                                                             <div className="space-y-2">
                                                                 {productData.specifications.map((spec, index) => (
                                                                     <div key={index} className="flex justify-between">
-                                                                        <span className="text-gray-600">{spec.key}:</span>
-                                                                        <span className="font-medium">{spec.value}</span>
+                                                                        <span className="text-gray-600 dark:text-gray-400">{spec.key}:</span>
+                                                                        <span className="font-medium dark:text-white">{spec.value}</span>
                                                                     </div>
                                                                 ))}
                                                             </div>
@@ -635,22 +665,22 @@ export default function ProductPage({ product, reviews, relatedProducts, shippin
 
                                         <TabsContent value="packaging" className="mt-8">
                                             <div className="space-y-6">
-                                                <h3 className="text-lg font-semibold">Packaging Information</h3>
+                                                <h3 className="text-lg font-semibold dark:text-white">Packaging Information</h3>
                                                 
                                                 {/* Product Dimensions */}
                                                 {productData.weight && (
-                                                    <div className="bg-gray-50 p-4 rounded-lg">
-                                                        <h4 className="font-medium text-gray-900 mb-3">Product Specifications</h4>
+                                                    <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+                                                        <h4 className="font-medium text-gray-900 dark:text-white mb-3">Product Specifications</h4>
                                                         <div className="grid grid-cols-2 gap-4 text-sm">
                                                             <div>
-                                                                <span className="text-gray-600">Weight:</span>
-                                                                <span className="ml-2 font-medium">{productData.weight} kg</span>
+                                                                <span className="text-gray-600 dark:text-gray-400">Weight:</span>
+                                                                <span className="ml-2 font-medium dark:text-white">{productData.weight} kg</span>
                                                             </div>
                                                             {productData.length && productData.width && productData.height && (
                                                                 <>
                                                                     <div>
-                                                                        <span className="text-gray-600">Dimensions:</span>
-                                                                        <span className="ml-2 font-medium">{productData.length} × {productData.width} × {productData.height} cm</span>
+                                                                        <span className="text-gray-600 dark:text-gray-400">Dimensions:</span>
+                                                                        <span className="ml-2 font-medium dark:text-white">{productData.length} × {productData.width} × {productData.height} cm</span>
                                                                     </div>
                                                                 </>
                                                             )}
@@ -660,22 +690,22 @@ export default function ProductPage({ product, reviews, relatedProducts, shippin
                                                 
                                                 {/* Packaging Details */}
                                                 <div className="space-y-3">
-                                                    <h4 className="font-medium text-gray-900">Packaging Details</h4>
-                                                    <ul className="space-y-2 text-gray-700">
+                                                    <h4 className="font-medium text-gray-900 dark:text-white">Packaging Details</h4>
+                                                    <ul className="space-y-2 text-gray-700 dark:text-gray-300">
                                                         <li className="flex items-start">
-                                                            <span className="text-green-600 mr-2">✓</span>
+                                                            <span className="text-green-600 dark:text-green-400 mr-2">✓</span>
                                                             <span>Eco-friendly packaging materials</span>
                                                         </li>
                                                         <li className="flex items-start">
-                                                            <span className="text-green-600 mr-2">✓</span>
+                                                            <span className="text-green-600 dark:text-green-400 mr-2">✓</span>
                                                             <span>Secure padding to prevent damage</span>
                                                         </li>
                                                         <li className="flex items-start">
-                                                            <span className="text-green-600 mr-2">✓</span>
+                                                            <span className="text-green-600 dark:text-green-400 mr-2">✓</span>
                                                             <span>Weather-resistant outer packaging</span>
                                                         </li>
                                                         <li className="flex items-start">
-                                                            <span className="text-green-600 mr-2">✓</span>
+                                                            <span className="text-green-600 dark:text-green-400 mr-2">✓</span>
                                                             <span>Clear labeling and handling instructions</span>
                                                         </li>
                                                     </ul>
@@ -685,34 +715,34 @@ export default function ProductPage({ product, reviews, relatedProducts, shippin
 
                                         <TabsContent value="shipping" className="mt-8">
                                             <div className="space-y-6">
-                                                <h3 className="text-lg font-semibold">Shipping Information</h3>
+                                                <h3 className="text-lg font-semibold dark:text-white">Shipping Information</h3>
                                                 
                                                 {/* Store Delivery Info */}
-                                                <div className="bg-blue-50 p-4 rounded-lg">
-                                                    <h4 className="font-medium text-gray-900 mb-3">Delivery from {productData.store?.name}</h4>
+                                                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                                                    <h4 className="font-medium text-gray-900 dark:text-white mb-3">Delivery from {productData.store?.name}</h4>
                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                                                         {productData.store?.delivery_fee && (
                                                             <div>
-                                                                <span className="text-gray-600">Delivery Fee:</span>
-                                                                <span className="ml-2 font-medium text-green-600">${productData.store.delivery_fee}</span>
+                                                                <span className="text-gray-600 dark:text-gray-400">Delivery Fee:</span>
+                                                                <span className="ml-2 font-medium text-green-600 dark:text-green-400">${productData.store.delivery_fee}</span>
                                                             </div>
                                                         )}
                                                         {productData.store?.min_order_amount && (
                                                             <div>
-                                                                <span className="text-gray-600">Minimum Order:</span>
-                                                                <span className="ml-2 font-medium">${productData.store.min_order_amount}</span>
+                                                                <span className="text-gray-600 dark:text-gray-400">Minimum Order:</span>
+                                                                <span className="ml-2 font-medium dark:text-white">${productData.store.min_order_amount}</span>
                                                             </div>
                                                         )}
                                                         {productData.store?.delivery_radius && (
                                                             <div>
-                                                                <span className="text-gray-600">Delivery Radius:</span>
-                                                                <span className="ml-2 font-medium">{productData.store.delivery_radius} km</span>
+                                                                <span className="text-gray-600 dark:text-gray-400">Delivery Radius:</span>
+                                                                <span className="ml-2 font-medium dark:text-white">{productData.store.delivery_radius} km</span>
                                                             </div>
                                                         )}
                                                         {productData.store?.address && (
                                                             <div>
-                                                                <span className="text-gray-600">Store Location:</span>
-                                                                <span className="ml-2 font-medium">{productData.store.address}</span>
+                                                                <span className="text-gray-600 dark:text-gray-400">Store Location:</span>
+                                                                <span className="ml-2 font-medium dark:text-white">{productData.store.address}</span>
                                                             </div>
                                                         )}
                                                     </div>
@@ -720,16 +750,16 @@ export default function ProductPage({ product, reviews, relatedProducts, shippin
                                                 
                                                 {/* Shipping Options */}
                                                 <div className="space-y-4">
-                                                    <h4 className="font-medium text-gray-900">Shipping Options</h4>
+                                                    <h4 className="font-medium text-gray-900 dark:text-white">Shipping Options</h4>
                                                     <div className="space-y-3">
                                                         {Object.entries(shippingOptions).map(([key, option]) => 
                                                             option.enabled && (
-                                                                <div key={key} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+                                                                <div key={key} className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800">
                                                                     <div>
-                                                                        <h5 className="font-medium text-gray-900">{option.name}</h5>
-                                                                        <p className="text-sm text-gray-600">{option.description}</p>
+                                                                        <h5 className="font-medium text-gray-900 dark:text-white">{option.name}</h5>
+                                                                        <p className="text-sm text-gray-600 dark:text-gray-400">{option.description}</p>
                                                                     </div>
-                                                                    <span className={`font-medium ${option.price === 0 ? 'text-green-600' : 'text-gray-900'}`}>
+                                                                    <span className={`font-medium ${option.price === 0 ? 'text-green-600 dark:text-green-400' : 'text-gray-900 dark:text-white'}`}>
                                                                         {option.price === 0 ? 'Free' : `+$${option.price.toFixed(2)}`}
                                                                     </span>
                                                                 </div>
@@ -739,9 +769,9 @@ export default function ProductPage({ product, reviews, relatedProducts, shippin
                                                 </div>
                                                 
                                                 {/* Additional Info */}
-                                                <div className="bg-gray-50 p-4 rounded-lg">
-                                                    <h4 className="font-medium text-gray-900 mb-2">Important Notes</h4>
-                                                    <ul className="space-y-1 text-sm text-gray-700">
+                                                <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+                                                    <h4 className="font-medium text-gray-900 dark:text-white mb-2">Important Notes</h4>
+                                                    <ul className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
                                                         <li>• Delivery times are estimates and may vary based on location</li>
                                                         <li>• Orders placed after 2 PM will be processed the next business day</li>
                                                         <li>• Free delivery available for orders over $50</li>

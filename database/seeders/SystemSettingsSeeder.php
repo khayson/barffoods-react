@@ -130,5 +130,18 @@ class SystemSettingsSeeder extends Seeder
             'json',
             'Delivery zones configuration with ZIP code ranges and pricing'
         );
+
+        // Default Map Location Settings
+        SystemSetting::set(
+            'default_map_location',
+            json_encode([
+                'latitude' => 40.7128,
+                'longitude' => -74.0060,
+                'address' => 'New York, NY',
+                'zoom' => 13
+            ]),
+            'json',
+            'Default map location used when user location is not available or not set'
+        );
     }
 }

@@ -12,6 +12,7 @@ interface Product {
     rating: number | string;
     reviews: number | string;
     image: string;
+    images?: string[]; // Multiple images array
     store: string;
     category: string;
     badges?: Array<{

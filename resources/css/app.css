@@ -234,3 +234,36 @@
 .leaflet-control {
     z-index: 10 !important;
 }
+
+/* Combobox popover width matching */
+.popover-content-width-full {
+    width: var(--radix-popper-anchor-width) !important;
+    max-width: var(--radix-popper-anchor-width) !important;
+}
+
+/* Scrollbar styling */
+.scrollbar-thin::-webkit-scrollbar {
+    height: 6px;
+    width: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: rgba(156, 163, 175, 0.5);
+    border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(107, 114, 128, 0.7);
+}
+
+.dark .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: rgba(75, 85, 99, 0.5);
+}
+
+.dark .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(107, 114, 128, 0.7);
+}

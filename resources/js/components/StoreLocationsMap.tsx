@@ -37,7 +37,26 @@ interface DeliveryZone {
   deliveryFee: number;
 }
 
-export default function StoreLocationsMap() {
+interface DefaultMapLocation {
+  latitude: number;
+  longitude: number;
+  address: string;
+  zoom: number;
+}
+
+interface StoreLocationsMapProps {
+  defaultMapLocation?: DefaultMapLocation;
+}
+
+export default function StoreLocationsMap({ defaultMapLocation }: StoreLocationsMapProps = { defaultMapLocation: undefined }) {
+  // Use system settings default location or fallback to New York
+  const DEFAULT_LOCATION: DefaultMapLocation = defaultMapLocation || {
+    latitude: 40.7128,
+    longitude: -74.0060,
+    address: 'New York, NY',
+    zoom: 13
+  };
+
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
   const [nearbyStores, setNearbyStores] = useState<Store[]>([]);
@@ -377,7 +396,7 @@ export default function StoreLocationsMap() {
         toast.error('Location detection failed', {
           description: error.code === error.TIMEOUT 
             ? 'Timeout expired. Location services may be disabled or unavailable.' 
-            : 'Using default location (New York). You can manually refresh when ready.',
+            : `Using default location (${DEFAULT_LOCATION.address}). You can manually refresh when ready.`,
           duration: 5000
         });
         
@@ -385,7 +404,7 @@ export default function StoreLocationsMap() {
         setIsDetectingLocation(false);
         
         // Use default location as final fallback
-        const defaultLocation: [number, number] = [40.7128, -74.0060];
+        const defaultLocation: [number, number] = [DEFAULT_LOCATION.latitude, DEFAULT_LOCATION.longitude];
         setUserLocation(defaultLocation);
         fetchNearbyStores(defaultLocation);
       },
@@ -402,7 +421,7 @@ export default function StoreLocationsMap() {
     if (!mapRef.current) return;
 
     // Initialize map
-    const map = L.map(mapRef.current).setView([40.7128, -74.0060], 13);
+    const map = L.map(mapRef.current).setView([DEFAULT_LOCATION.latitude, DEFAULT_LOCATION.longitude], DEFAULT_LOCATION.zoom);
 
     // Add OpenStreetMap tiles
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -452,10 +471,10 @@ export default function StoreLocationsMap() {
       console.log(`Using saved location: ${locationData.address}`);
     } else {
       // Use default location - user will be prompted by the first-visit modal
-      const defaultLocation: [number, number] = [40.7128, -74.0060];
+      const defaultLocation: [number, number] = [DEFAULT_LOCATION.latitude, DEFAULT_LOCATION.longitude];
       setUserLocation(defaultLocation);
       fetchNearbyStores(defaultLocation, map);
-      console.log('No saved location, using default (New York). First-visit modal will prompt user.');
+      console.log(`No saved location, using default (${DEFAULT_LOCATION.address}). First-visit modal will prompt user.`);
     }
 
     // Cleanup function

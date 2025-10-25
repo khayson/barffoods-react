@@ -10,7 +10,7 @@ import { UserMenuContent } from '@/components/user-menu-content';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useInitials } from '@/hooks/use-initials';
-import { ChevronsUpDown, Bell, MessageSquare, Search, LayoutGrid, Sun, Moon, ShoppingCart, Settings } from 'lucide-react';
+import { ChevronsUpDown, Bell, MessageSquare, Search, LayoutGrid, Sun, Moon, ShoppingCart, Settings, Package } from 'lucide-react';
 import NotificationDropdown from '@/components/notifications/NotificationDropdown';
 
 interface AdminLayoutProps {
@@ -141,6 +141,24 @@ function AdminLayoutContent({ children, hideRightSidebar = false }: AdminLayoutP
                         <ShoppingCart className={`h-5 w-5 mr-3 ${isActive('/admin/orders') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'}`} />
                         <span className="text-sm font-medium">Orders</span>
                         {isActive('/admin/orders') && (
+                            <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-blue-400"></div>
+                        )}
+                    </Link>
+
+                    {/* Products */}
+                    <Link
+                        href="/admin/products"
+                        className={`
+                            group flex items-center px-3 py-2.5 rounded-lg transition-all duration-200
+                            ${isActive('/admin/products')
+                                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+                            }
+                        `}
+                    >
+                        <Package className={`h-5 w-5 mr-3 ${isActive('/admin/products') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'}`} />
+                        <span className="text-sm font-medium">Products</span>
+                        {isActive('/admin/products') && (
                             <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-blue-400"></div>
                         )}
                     </Link>

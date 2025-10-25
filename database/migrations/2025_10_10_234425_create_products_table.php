@@ -17,7 +17,8 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->decimal('price', 8, 2);
             $table->decimal('original_price', 8, 2)->nullable(); // For sales
-            $table->string('image')->nullable(); // URL or emoji
+            $table->string('image')->nullable(); // Primary image (URL or emoji)
+            $table->json('images')->nullable(); // Multiple images (up to 4 images)
             $table->foreignId('category_id')->constrained()->onDelete('restrict');
             $table->foreignId('store_id')->constrained()->onDelete('restrict');
             $table->integer('stock_quantity')->default(0);

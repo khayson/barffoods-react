@@ -153,6 +153,14 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:super_admin'])
     // Messaging routes (using off-canvas panel, no separate conversation page)
     Route::get('/messaging', [MessagingController::class, 'index'])->name('messaging');
     
+    // Product Management
+    Route::get('/products', [App\Http\Controllers\Admin\ProductManagementController::class, 'index'])->name('products');
+    Route::post('/products', [App\Http\Controllers\Admin\ProductManagementController::class, 'store'])->name('products.store');
+    Route::put('/products/{id}', [App\Http\Controllers\Admin\ProductManagementController::class, 'update'])->name('products.update');
+    Route::delete('/products/{id}', [App\Http\Controllers\Admin\ProductManagementController::class, 'destroy'])->name('products.destroy');
+    Route::patch('/products/{id}/toggle-status', [App\Http\Controllers\Admin\ProductManagementController::class, 'toggleStatus'])->name('products.toggle-status');
+    Route::post('/products/upload-image', [App\Http\Controllers\Admin\ProductManagementController::class, 'uploadImage'])->name('products.upload-image');
+    
     // System Settings (Super Admin only)
     Route::get('/system-settings', [App\Http\Controllers\Admin\SystemSettingsController::class, 'index'])->name('system-settings');
     
@@ -192,10 +200,12 @@ Route::prefix('api/admin')->middleware(['web', 'auth', 'role:super_admin'])->gro
     Route::put('/notifications/{notification}', [AdminNotificationController::class, 'update']);
     Route::delete('/notifications/{notification}', [AdminNotificationController::class, 'destroy']);
     
-    // System Settings (Super Admin only)
-    Route::get('/system-settings', [App\Http\Controllers\Admin\SystemSettingsController::class, 'index'])->name('admin.system-settings');
+    // Product API endpoint (for fetching single product in off-canvas)
+    Route::get('/products/{id}', [App\Http\Controllers\Admin\ProductManagementController::class, 'show'])->name('admin.products.show');
+    
+    // System Settings API
     Route::post('/system-settings', [App\Http\Controllers\Admin\SystemSettingsController::class, 'update'])->name('admin.system-settings.update');
-    Route::get('/api/system-settings', [App\Http\Controllers\Admin\SystemSettingsController::class, 'getSettings'])->name('admin.system-settings.api');
+    Route::get('/system-settings', [App\Http\Controllers\Admin\SystemSettingsController::class, 'getSettings'])->name('admin.system-settings.api');
 });
 
 // Customer Messaging API Routes (for FloatingSupportIcon)

@@ -58,6 +58,12 @@ interface PageProps {
         latitude: number;
         longitude: number;
     };
+    defaultMapLocation: {
+        latitude: number;
+        longitude: number;
+        address: string;
+        zoom: number;
+    };
     [key: string]: any;
 }
 
@@ -368,7 +374,7 @@ export default function Welcome() {
                 />
                 
                 {/* Store Locations & Delivery Zones */}
-                <StoreLocationsMap />
+                <StoreLocationsMap defaultMapLocation={props.defaultMapLocation} />
                 
                 {/* Footer */}
                 <Footer />

@@ -32,6 +32,13 @@ interface StoreAddress {
     email: string;
 }
 
+interface DefaultMapLocation {
+    latitude: number;
+    longitude: number;
+    address: string;
+    zoom: number;
+}
+
 interface SystemSettingsProps {
     settings: {
         global_delivery_fee: number;
@@ -39,6 +46,7 @@ interface SystemSettingsProps {
         discount_rules: Record<string, DiscountRule>;
         payment_methods: Record<string, PaymentMethod>;
         store_address: StoreAddress;
+        default_map_location: DefaultMapLocation;
     };
 }
 
@@ -48,6 +56,7 @@ interface FormData {
     discount_rules: Record<string, DiscountRule>;
     payment_methods: Record<string, PaymentMethod>;
     store_address: StoreAddress;
+    default_map_location: DefaultMapLocation;
 }
 
 export default function SystemSettings({ settings }: SystemSettingsProps) {
@@ -73,6 +82,14 @@ export default function SystemSettings({ settings }: SystemSettingsProps) {
                 company_name: 'BarfFoods',
                 phone: '+1 (555) 123-4567',
                 email: 'orders@barffoods.com'
+            },
+        default_map_location: typeof settings.default_map_location === 'string'
+            ? JSON.parse(settings.default_map_location)
+            : settings.default_map_location || {
+                latitude: 40.7128,
+                longitude: -74.0060,
+                address: 'New York, NY',
+                zoom: 13
             },
     });
 
@@ -425,6 +442,107 @@ export default function SystemSettings({ settings }: SystemSettingsProps) {
                                             {(errors.store_address as any).country}
                                         </p>
                                     )}
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Default Map Location Card */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Settings className="h-5 w-5" />
+                                    Default Map Location
+                                </CardTitle>
+                                <CardDescription>
+                                    Set the default location displayed on maps when user location is not available
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div>
+                                    <Label htmlFor="map_address">Location Name/Address</Label>
+                                    <Input
+                                        id="map_address"
+                                        value={data.default_map_location.address}
+                                        onChange={(e) => setData('default_map_location', {
+                                            ...data.default_map_location,
+                                            address: e.target.value
+                                        })}
+                                        placeholder="e.g., New York, NY"
+                                    />
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                        Descriptive name shown to users
+                                    </p>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <Label htmlFor="latitude">Latitude</Label>
+                                        <Input
+                                            id="latitude"
+                                            type="number"
+                                            step="any"
+                                            value={data.default_map_location.latitude}
+                                            onChange={(e) => setData('default_map_location', {
+                                                ...data.default_map_location,
+                                                latitude: parseFloat(e.target.value) || 0
+                                            })}
+                                            placeholder="e.g., 40.7128"
+                                        />
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                            Geographic coordinate
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <Label htmlFor="longitude">Longitude</Label>
+                                        <Input
+                                            id="longitude"
+                                            type="number"
+                                            step="any"
+                                            value={data.default_map_location.longitude}
+                                            onChange={(e) => setData('default_map_location', {
+                                                ...data.default_map_location,
+                                                longitude: parseFloat(e.target.value) || 0
+                                            })}
+                                            placeholder="e.g., -74.0060"
+                                        />
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                            Geographic coordinate
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <Label htmlFor="zoom">Default Zoom Level</Label>
+                                    <Input
+                                        id="zoom"
+                                        type="number"
+                                        min="1"
+                                        max="18"
+                                        value={data.default_map_location.zoom}
+                                        onChange={(e) => setData('default_map_location', {
+                                            ...data.default_map_location,
+                                            zoom: parseInt(e.target.value) || 13
+                                        })}
+                                        placeholder="1-18"
+                                    />
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                        Map zoom level (1 = world view, 18 = street level). Recommended: 13
+                                    </p>
+                                </div>
+
+                                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                                    <p className="text-sm text-blue-800 dark:text-blue-300">
+                                        💡 <strong>Tip:</strong> You can find coordinates by searching for a location on{' '}
+                                        <a 
+                                            href="https://www.google.com/maps" 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="underline hover:text-blue-600"
+                                        >
+                                            Google Maps
+                                        </a>
+                                        {' '}and right-clicking on the location to copy the coordinates.
+                                    </p>
                                 </div>
                             </CardContent>
                         </Card>

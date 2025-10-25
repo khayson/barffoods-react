@@ -11,6 +11,7 @@ interface Product {
     rating: number | string;
     reviews: number | string;
     image: string;
+    images?: string[]; // Multiple images array
     store: string;
     category: string;
     badges?: Array<{ text: string; color: string }>;
@@ -106,20 +107,36 @@ export default function ProductCard({
 
     const classes = getVariantClasses();
 
+    // Get display image - prioritize images array, then fallback to single image
+    const displayImage = product.images && product.images.length > 0 
+        ? product.images[0] 
+        : product.image || '📦';
+    
+    // Check if the display image is a URL
+    const isImageUrl = displayImage && (displayImage.startsWith('http://') || displayImage.startsWith('https://') || displayImage.startsWith('/'));
+
     return (
         <div className={`${classes.container} ${className}`}>
             {/* Product Image */}
             <Link href={`/products/${product.id}`} className={`${classes.image} relative block`}>
                 <div className={classes.icon}>
-                    {product.image && product.image.startsWith('http') ? (
+                    {isImageUrl ? (
                         <img
-                            src={product.image}
+                            src={displayImage}
                             alt={product.name}
                             className="w-full h-full object-cover"
+                            onError={(e) => {
+                                // Fallback to emoji if image fails to load
+                                const target = e.currentTarget;
+                                target.style.display = 'none';
+                                if (target.parentElement) {
+                                    target.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center text-4xl">📦</div>';
+                                }
+                            }}
                         />
                     ) : (
                         <div className="w-full h-full flex items-center justify-center text-4xl">
-                            {product.image || '📦'}
+                            {displayImage}
                         </div>
                     )}
                 </div>
