@@ -9,7 +9,9 @@ import AuthLayout from '@/layouts/auth-layout';
 import { register } from '@/routes';
 import { request } from '@/routes/password';
 import { Form, Head } from '@inertiajs/react';
-import { LoaderCircle } from 'lucide-react';
+import { LoaderCircle, Eye, EyeOff } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useState } from 'react';
 
 interface LoginProps {
     status?: string;
@@ -18,6 +20,8 @@ interface LoginProps {
 }
 
 export default function Login({ status, canResetPassword, redirect }: LoginProps) {
+    const [showPassword, setShowPassword] = useState(false);
+
     return (
         <AuthLayout
             title="Log in to your account"
@@ -66,15 +70,50 @@ export default function Login({ status, canResetPassword, redirect }: LoginProps
                                         </TextLink>
                                     )}
                                 </div>
-                                <Input
-                                    id="password"
-                                    type="password"
-                                    name="password"
-                                    required
-                                    tabIndex={2}
-                                    autoComplete="current-password"
-                                    placeholder="Password"
-                                />
+                                <div className="relative">
+                                    <Input
+                                        id="password"
+                                        type={showPassword ? "text" : "password"}
+                                        name="password"
+                                        required
+                                        tabIndex={2}
+                                        autoComplete="current-password"
+                                        placeholder="Password"
+                                        className="pr-10"
+                                    />
+                                    <motion.button
+                                        type="button"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 focus:outline-none"
+                                        whileHover={{ scale: 1.1 }}
+                                        whileTap={{ scale: 0.9 }}
+                                        transition={{ duration: 0.2 }}
+                                    >
+                                        <AnimatePresence mode="wait" initial={false}>
+                                            {showPassword ? (
+                                                <motion.div
+                                                    key="eye-off"
+                                                    initial={{ opacity: 0, rotate: -90, scale: 0.5 }}
+                                                    animate={{ opacity: 1, rotate: 0, scale: 1 }}
+                                                    exit={{ opacity: 0, rotate: 90, scale: 0.5 }}
+                                                    transition={{ duration: 0.3, ease: "easeInOut" }}
+                                                >
+                                                    <EyeOff className="h-5 w-5" />
+                                                </motion.div>
+                                            ) : (
+                                                <motion.div
+                                                    key="eye"
+                                                    initial={{ opacity: 0, rotate: 90, scale: 0.5 }}
+                                                    animate={{ opacity: 1, rotate: 0, scale: 1 }}
+                                                    exit={{ opacity: 0, rotate: -90, scale: 0.5 }}
+                                                    transition={{ duration: 0.3, ease: "easeInOut" }}
+                                                >
+                                                    <Eye className="h-5 w-5" />
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
+                                    </motion.button>
+                                </div>
                                 <InputError message={errors.password} />
                             </div>
 
