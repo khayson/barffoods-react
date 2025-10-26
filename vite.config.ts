@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 import laravel from 'laravel-vite-plugin';
 import { defineConfig } from 'vite';
 
-export default defineConfig({
+export default defineConfig(({ isSsrBuild }) => ({
     plugins: [
         laravel({
             input: ['resources/css/app.css', 'resources/js/app.tsx'],
@@ -20,50 +20,63 @@ export default defineConfig({
     esbuild: {
         jsx: 'automatic',
     },
+    ssr: {
+        noExternal: ['@inertiajs/react', 'framer-motion', 'lucide-react'],
+    },
     build: {
-        chunkSizeWarningLimit: 1000, // Increase warning limit to 1000 kB
+        chunkSizeWarningLimit: 1000,
         rollupOptions: {
-            output: {
-                manualChunks: (id) => {
-                    // Split vendor libraries into separate chunks
-                    if (id.includes('node_modules')) {
-                        // Large chart library
-                        if (id.includes('recharts')) {
-                            return 'recharts';
-                        }
-                        // Animation library
-                        if (id.includes('framer-motion')) {
-                            return 'framer-motion';
-                        }
-                        // React core
-                        if (id.includes('react') || id.includes('react-dom')) {
-                            return 'react-vendor';
-                        }
-                        // Inertia
-                        if (id.includes('@inertiajs')) {
-                            return 'inertia';
-                        }
-                        // Map library
-                        if (id.includes('leaflet')) {
-                            return 'leaflet';
-                        }
-                        // Radix UI components
-                        if (id.includes('@radix-ui')) {
-                            return 'radix-ui';
-                        }
-                        // Date utilities
-                        if (id.includes('date-fns')) {
-                            return 'date-fns';
-                        }
-                        // Icon libraries
-                        if (id.includes('lucide-react')) {
-                            return 'icons';
-                        }
-                        // Other node_modules
-                        return 'vendor';
-                    }
+            output: !isSsrBuild ? {
+                // Only apply manual chunks for client build, not SSR
+                manualChunks: {
+                    // Group React and related core libraries together to avoid circular deps
+                    'react-core': [
+                        'react',
+                        'react-dom',
+                        'react/jsx-runtime',
+                    ],
+                    // Inertia and router
+                    'inertia': [
+                        '@inertiajs/react',
+                    ],
+                    // Large chart library
+                    'recharts': [
+                        'recharts',
+                    ],
+                    // Animation library
+                    'framer-motion': [
+                        'framer-motion',
+                    ],
+                    // Map library
+                    'leaflet': [
+                        'leaflet',
+                    ],
+                    // UI components
+                    'ui-components': [
+                        '@radix-ui/react-dialog',
+                        '@radix-ui/react-dropdown-menu',
+                        '@radix-ui/react-popover',
+                        '@radix-ui/react-select',
+                        '@radix-ui/react-tabs',
+                        '@radix-ui/react-checkbox',
+                        '@radix-ui/react-label',
+                        '@radix-ui/react-separator',
+                        '@radix-ui/react-switch',
+                        '@radix-ui/react-slot',
+                    ],
+                    // Icons
+                    'icons': [
+                        'lucide-react',
+                    ],
+                    // Utilities
+                    'utils': [
+                        'date-fns',
+                        'clsx',
+                        'tailwind-merge',
+                        'emoji-picker-react',
+                    ],
                 },
-            },
+            } : {},
         },
     },
-});
+}));
