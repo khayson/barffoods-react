@@ -42,6 +42,11 @@ export default function CartDropdown({ isOpen, onClose, buttonRef }: CartDropdow
     const dropdownRef = useRef<HTMLDivElement>(null);
     const [position, setPosition] = useState({ top: 0, right: 0 });
 
+    // Helper to check if image is a URL
+    const isImageUrl = (image: string) => {
+        return image && (image.startsWith('http://') || image.startsWith('https://') || image.startsWith('/'));
+    };
+
     useEffect(() => {
         if (isOpen && buttonRef?.current) {
             const buttonRect = buttonRef.current.getBoundingClientRect();
@@ -113,8 +118,25 @@ export default function CartDropdown({ isOpen, onClose, buttonRef }: CartDropdow
                                 <div key={item.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700">
                                     <div className="flex items-start space-x-3">
                                         <div className="flex-shrink-0">
-                                            <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
-                                                <span className="text-2xl">{item.product.image}</span>
+                                            <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden flex items-center justify-center">
+                                                {isImageUrl(item.product.image) ? (
+                                                    <img
+                                                        src={item.product.image}
+                                                        alt={item.product.name}
+                                                        className="w-full h-full object-cover"
+                                                        onError={(e) => {
+                                                            e.currentTarget.style.display = 'none';
+                                                            const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                                                            if (fallback) fallback.style.display = 'flex';
+                                                        }}
+                                                    />
+                                                ) : null}
+                                                <div 
+                                                    className="w-full h-full flex items-center justify-center text-3xl"
+                                                    style={{ display: isImageUrl(item.product.image) ? 'none' : 'flex' }}
+                                                >
+                                                    {isImageUrl(item.product.image) ? '📦' : item.product.image || '📦'}
+                                                </div>
                                             </div>
                                         </div>
                                         

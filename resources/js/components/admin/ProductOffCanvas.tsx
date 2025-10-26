@@ -4,6 +4,7 @@ import { X, Save, Loader2, Package, DollarSign, Box, Tag, Store, Image as ImageI
 import { toast } from 'sonner';
 import { router } from '@inertiajs/react';
 import { Badge } from '@/components/ui/badge';
+import { EmojiPickerComponent } from '@/components/ui/emoji-picker';
 
 interface Category {
     id: number;
@@ -272,8 +273,23 @@ export default function ProductOffCanvas({
         toast.success('Image removed');
     };
 
+    const handleAddEmoji = (emoji: string) => {
+        if (product.images.length >= 4) {
+            toast.error('Maximum 4 images allowed');
+            return;
+        }
+
+        const newImages = [...product.images, emoji];
+        setProduct({
+            ...product,
+            images: newImages,
+            image: product.image || emoji // Set first image as primary if not set
+        });
+        toast.success(`Emoji added! (${newImages.length}/4)`);
+    };
+
     const handleAddImageUrl = () => {
-        const url = prompt('Enter image URL or emoji:');
+        const url = prompt('Enter image URL:');
         if (!url) return;
 
         if (product.images.length >= 4) {
@@ -809,14 +825,21 @@ export default function ProductOffCanvas({
                                                                 </label>
                                                             </div>
                                                             
-                                                            {/* Add URL/Emoji */}
-                                                            <button
-                                                                type="button"
-                                                                onClick={handleAddImageUrl}
-                                                                className="px-4 py-2 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-green-500 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-sm text-gray-600 dark:text-gray-400"
-                                                            >
-                                                                🎨 Add URL/Emoji
-                                                            </button>
+                                                            {/* Add Emoji */}
+                                                            <div className="space-y-2">
+                                                                <EmojiPickerComponent
+                                                                    onEmojiSelect={handleAddEmoji}
+                                                                    buttonText="🎨 Add Emoji"
+                                                                    buttonClassName="w-full px-4 py-2 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-green-500 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-sm text-gray-600 dark:text-gray-400"
+                                                                />
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={handleAddImageUrl}
+                                                                    className="w-full px-4 py-2 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-blue-500 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-sm text-gray-600 dark:text-gray-400"
+                                                                >
+                                                                    🔗 Add Image URL
+                                                                </button>
+                                                            </div>
                                                         </div>
                                                     )}
                                                     

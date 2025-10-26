@@ -115,7 +115,7 @@ export function CartProvider({ children, user }: CartProviderProps) {
                 });
             } else if (response.status === 401) {
                 // Handle unauthorized - user might not be logged in or token expired
-                console.warn('Cart fetch unauthorized, trying anonymous cart');
+                // console.warn('Cart fetch unauthorized, trying anonymous cart');
                 // Clear any stored token and try anonymous cart
                 localStorage.removeItem('sanctum_token');
                 
@@ -131,16 +131,16 @@ export function CartProvider({ children, user }: CartProviderProps) {
                             const newItems = [...(anonymousData.cart_items || [])];
                             return newItems;
                         });
-                        console.log('Anonymous cart fetched successfully:', anonymousData);
+                        // console.log('Anonymous cart fetched successfully:', anonymousData);
                     }
                 } catch (anonymousError) {
                     console.error('Failed to fetch anonymous cart:', anonymousError);
                 }
             } else {
-                console.error('fetchCart failed with status:', response.status);
+                // console.error('fetchCart failed with status:', response.status);
             }
         } catch (error) {
-            console.error('Error fetching cart:', error);
+            // console.error('Error fetching cart:', error);
         } finally {
             setIsLoading(false);
         }
@@ -179,7 +179,7 @@ export function CartProvider({ children, user }: CartProviderProps) {
                 });
             }
         } catch (error) {
-            console.error('Error adding to cart:', error);
+            // console.error('Error adding to cart:', error);
             toast.error('Failed to add to cart', {
                 description: 'Please try again.'
             });
@@ -192,13 +192,13 @@ export function CartProvider({ children, user }: CartProviderProps) {
         // Get unique stores from cart items
         const uniqueStores = new Set(cartItems.map(item => item.product.store.name));
         
-        console.log('Checking multi-store alert:', {
-            cartItemsLength: cartItems.length,
-            uniqueStoresSize: uniqueStores.size,
-            hasShownTwoStoreAlert,
-            hasShownThreeStoreAlert,
-            storeNames: Array.from(uniqueStores)
-        });
+        // console.log('Checking multi-store alert:', {
+        //     cartItemsLength: cartItems.length,
+        //     uniqueStoresSize: uniqueStores.size,
+        //     hasShownTwoStoreAlert,
+        //     hasShownThreeStoreAlert,
+        //     storeNames: Array.from(uniqueStores)
+        // });
         
         if (uniqueStores.size === 2 && !hasShownTwoStoreAlert) {
             // Two different stores - show toast
@@ -236,7 +236,7 @@ export function CartProvider({ children, user }: CartProviderProps) {
     };
 
     const updateQuantity = async (itemId: string, quantity: number) => {
-        console.log('updateQuantity called:', { itemId, quantity });
+        // console.log('updateQuantity called:', { itemId, quantity });
         
         if (quantity < 1) {
             await removeFromCart(itemId);
@@ -244,7 +244,7 @@ export function CartProvider({ children, user }: CartProviderProps) {
         }
 
         try {
-            console.log('Making API call to update quantity:', `/api/cart/${itemId}`);
+            // console.log('Making API call to update quantity:', `/api/cart/${itemId}`);
             const response = await fetch(getApiEndpoint(`/cart/${itemId}`), {
                 method: 'PUT',
                 headers: getApiHeaders(),
@@ -253,9 +253,9 @@ export function CartProvider({ children, user }: CartProviderProps) {
                 }),
             });
 
-            console.log('API response status:', response.status);
+            // console.log('API response status:', response.status);
             const data = await response.json();
-            console.log('API response data:', data);
+            // console.log('API response data:', data);
 
             if (data.success) {
                 await refreshCartWithEndpoint(getApiEndpoint('/cart')); // Refresh the cart
@@ -265,7 +265,7 @@ export function CartProvider({ children, user }: CartProviderProps) {
                 });
             }
         } catch (error) {
-            console.error('Error updating quantity:', error);
+            // console.error('Error updating quantity:', error);
             toast.error('Failed to update quantity', {
                 description: 'Please try again.'
             });
@@ -296,7 +296,7 @@ export function CartProvider({ children, user }: CartProviderProps) {
                 });
             }
         } catch (error) {
-            console.error('Error removing from cart:', error);
+            // console.error('Error removing from cart:', error);
             toast.error('Failed to remove from cart', {
                 description: 'Please try again.'
             });
@@ -327,7 +327,7 @@ export function CartProvider({ children, user }: CartProviderProps) {
                 });
             }
         } catch (error) {
-            console.error('Error clearing cart:', error);
+            // console.error('Error clearing cart:', error);
             toast.error('Failed to clear cart', {
                 description: 'Please try again.'
             });
@@ -356,7 +356,7 @@ export function CartProvider({ children, user }: CartProviderProps) {
                 });
             } else if (response.status === 401) {
                 // Handle unauthorized - try anonymous cart
-                console.warn('Cart refresh unauthorized, trying anonymous cart');
+                // console.warn('Cart refresh unauthorized, trying anonymous cart');
                 localStorage.removeItem('sanctum_token');
                 
                 try {
@@ -372,13 +372,13 @@ export function CartProvider({ children, user }: CartProviderProps) {
                         });
                     }
                 } catch (anonymousError) {
-                    console.error('Failed to fetch anonymous cart:', anonymousError);
+                    // console.error('Failed to fetch anonymous cart:', anonymousError);
                 }
             } else {
-                console.error('Cart refresh failed with status:', response.status);
+                // console.error('Cart refresh failed with status:', response.status);
             }
         } catch (error) {
-            console.error('Error refreshing cart:', error);
+            // console.error('Error refreshing cart:', error);
         } finally {
             setIsLoading(false);
         }
@@ -415,7 +415,7 @@ export function CartProvider({ children, user }: CartProviderProps) {
                 }
             }
         } catch (error) {
-            console.error('Failed to fetch Sanctum token:', error);
+            // console.error('Failed to fetch Sanctum token:', error);
         }
     };
 

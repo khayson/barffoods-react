@@ -3,13 +3,104 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 use App\Models\Store;
 use App\Models\SystemSetting;
 
 class StoreController extends Controller
 {
     /**
-     * Get all active stores
+     * Display the customer stores page
+     */
+    public function browse()
+    {
+        $stores = Store::where('is_active', true)
+            ->orderBy('name')
+            ->withCount(['products' => function ($query) {
+                $query->where('is_active', true);
+            }])
+            ->get()
+            ->map(function ($store) {
+                return [
+                    'id' => $store->id,
+                    'name' => $store->name,
+                    'address' => $store->address,
+                    'phone' => $store->phone,
+                    'latitude' => (float) $store->latitude,
+                    'longitude' => (float) $store->longitude,
+                    'delivery_radius' => (float) $store->delivery_radius,
+                    'min_order_amount' => (float) $store->min_order_amount,
+                    'delivery_fee' => (float) $store->delivery_fee,
+                    'products_count' => $store->products_count,
+                ];
+            });
+
+        // Get default map location from system settings
+        $defaultMapLocation = SystemSetting::get('default_map_location');
+        $defaultMapLocation = is_string($defaultMapLocation) ? json_decode($defaultMapLocation, true) : $defaultMapLocation;
+
+        return Inertia::render('stores/index', [
+            'stores' => $stores,
+            'defaultMapLocation' => $defaultMapLocation,
+        ]);
+    }
+
+    /**
+     * Display a single store details page
+     */
+    public function show($id)
+    {
+        $store = Store::where('is_active', true)
+            ->withCount(['products' => function ($query) {
+                $query->where('is_active', true);
+            }])
+            ->findOrFail($id);
+
+        // Get store products
+        $products = $store->products()
+            ->where('is_active', true)
+            ->with(['category'])
+            ->get()
+            ->map(function ($product) use ($store) {
+                $actualReviewCount = $product->reviews()->approved()->count();
+                $actualAverageRating = $product->reviews()->approved()->avg('rating') ?? 0;
+                
+                return [
+                    'id' => (string) $product->id,
+                    'name' => $product->name,
+                    'price' => $product->price,
+                    'originalPrice' => $product->original_price,
+                    'rating' => $actualAverageRating,
+                    'reviews' => $actualReviewCount,
+                    'image' => $product->images[0] ?? $product->image ?? '📦',
+                    'images' => $product->images ?? [],
+                    'store' => $store->name,
+                    'category' => $product->category->name,
+                    'stock_quantity' => $product->stock_quantity,
+                    'inStock' => $product->stock_quantity > 0,
+                ];
+            });
+
+        return Inertia::render('stores/show', [
+            'store' => [
+                'id' => $store->id,
+                'name' => $store->name,
+                'address' => $store->address,
+                'phone' => $store->phone,
+                'latitude' => (float) $store->latitude,
+                'longitude' => (float) $store->longitude,
+                'delivery_radius' => (float) $store->delivery_radius,
+                'min_order_amount' => (float) $store->min_order_amount,
+                'delivery_fee' => (float) $store->delivery_fee,
+                'products_count' => $store->products_count,
+                'is_active' => $store->is_active,
+            ],
+            'products' => $products,
+        ]);
+    }
+
+    /**
+     * Get all active stores (API endpoint)
      */
     public function index()
     {

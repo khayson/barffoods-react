@@ -11,6 +11,77 @@ use App\Models\SystemSetting;
 
 class ProductController extends Controller
 {
+    /**
+     * Display the customer products page
+     */
+    public function browse(Request $request)
+    {
+        $categories = Category::where('is_active', true)
+            ->orderBy('sort_order')
+            ->withCount(['products' => function ($query) {
+                $query->where('is_active', true);
+            }])
+            ->get()
+            ->map(function ($category) {
+                return [
+                    'id' => $category->id,
+                    'name' => $category->name,
+                    'icon' => $category->icon,
+                    'products_count' => $category->products_count,
+                ];
+            });
+
+        $stores = Store::where('is_active', true)
+            ->orderBy('name')
+            ->withCount(['products' => function ($query) {
+                $query->where('is_active', true);
+            }])
+            ->get()
+            ->map(function ($store) {
+                return [
+                    'id' => $store->id,
+                    'name' => $store->name,
+                    'address' => $store->address,
+                    'products_count' => $store->products_count,
+                ];
+            });
+
+        // Fetch all active products with reviews
+        $products = Product::with(['category', 'store'])
+            ->where('is_active', true)
+            ->get()
+            ->map(function ($product) {
+                // Calculate actual review count and average rating
+                $actualReviewCount = $product->reviews()->approved()->count();
+                $actualAverageRating = $product->reviews()->approved()->avg('rating') ?? 0;
+                
+                return [
+                    'id' => (string) $product->id,
+                    'name' => $product->name,
+                    'price' => $product->price,
+                    'originalPrice' => $product->original_price,
+                    'rating' => $actualAverageRating,
+                    'reviews' => $actualReviewCount,
+                    'image' => $product->images[0] ?? $product->image ?? '📦',
+                    'images' => $product->images ?? [],
+                    'store' => $product->store->name,
+                    'category' => $product->category->name,
+                    'badges' => $this->generateBadges($product),
+                ];
+            });
+
+        return Inertia::render('products/index', [
+            'categories' => $categories,
+            'stores' => $stores,
+            'products' => $products,
+            'filters' => [
+                'search' => $request->input('search', ''),
+                'category_id' => $request->input('category_id'),
+                'store_id' => $request->input('store_id'),
+            ],
+        ]);
+    }
+
     public function index(Request $request)
     {
         $query = Product::with(['category', 'store'])

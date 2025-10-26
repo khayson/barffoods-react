@@ -20,7 +20,12 @@ Route::get('/', [WelcomeController::class, 'index'])->name('home');
 // Broadcasting authentication is handled by routes/channels.php
 
 // Product routes
+Route::get('/products', [ProductController::class, 'browse'])->name('products.index');
 Route::get('/products/{id}', [ProductController::class, 'show'])->name('products.show');
+
+// Store routes
+Route::get('/stores', [StoreController::class, 'browse'])->name('stores.index');
+Route::get('/stores/{id}', [StoreController::class, 'show'])->name('stores.show');
 
 // Order routes (authenticated users only)
 Route::middleware(['auth'])->group(function () {
@@ -161,6 +166,20 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:super_admin'])
     Route::patch('/products/{id}/toggle-status', [App\Http\Controllers\Admin\ProductManagementController::class, 'toggleStatus'])->name('products.toggle-status');
     Route::post('/products/upload-image', [App\Http\Controllers\Admin\ProductManagementController::class, 'uploadImage'])->name('products.upload-image');
     
+    // Store Management
+    Route::get('/stores', [App\Http\Controllers\Admin\StoreManagementController::class, 'index'])->name('stores');
+    Route::post('/stores', [App\Http\Controllers\Admin\StoreManagementController::class, 'store'])->name('stores.store');
+    Route::put('/stores/{id}', [App\Http\Controllers\Admin\StoreManagementController::class, 'update'])->name('stores.update');
+    Route::delete('/stores/{id}', [App\Http\Controllers\Admin\StoreManagementController::class, 'destroy'])->name('stores.destroy');
+    Route::patch('/stores/{id}/toggle-status', [App\Http\Controllers\Admin\StoreManagementController::class, 'toggleStatus'])->name('stores.toggle-status');
+    
+    // Category Management
+    Route::get('/categories', [App\Http\Controllers\Admin\CategoryManagementController::class, 'index'])->name('categories');
+    Route::post('/categories', [App\Http\Controllers\Admin\CategoryManagementController::class, 'store'])->name('categories.store');
+    Route::put('/categories/{id}', [App\Http\Controllers\Admin\CategoryManagementController::class, 'update'])->name('categories.update');
+    Route::delete('/categories/{id}', [App\Http\Controllers\Admin\CategoryManagementController::class, 'destroy'])->name('categories.destroy');
+    Route::patch('/categories/{id}/toggle-status', [App\Http\Controllers\Admin\CategoryManagementController::class, 'toggleStatus'])->name('categories.toggle-status');
+    
     // System Settings (Super Admin only)
     Route::get('/system-settings', [App\Http\Controllers\Admin\SystemSettingsController::class, 'index'])->name('system-settings');
     
@@ -202,6 +221,12 @@ Route::prefix('api/admin')->middleware(['web', 'auth', 'role:super_admin'])->gro
     
     // Product API endpoint (for fetching single product in off-canvas)
     Route::get('/products/{id}', [App\Http\Controllers\Admin\ProductManagementController::class, 'show'])->name('admin.products.show');
+    
+    // Store API endpoint (for fetching single store in off-canvas)
+    Route::get('/stores/{id}', [App\Http\Controllers\Admin\StoreManagementController::class, 'show'])->name('admin.stores.show');
+    
+    // Category API endpoint (for fetching single category in off-canvas)
+    Route::get('/categories/{id}', [App\Http\Controllers\Admin\CategoryManagementController::class, 'show'])->name('admin.categories.show');
     
     // System Settings API
     Route::post('/system-settings', [App\Http\Controllers\Admin\SystemSettingsController::class, 'update'])->name('admin.system-settings.update');
