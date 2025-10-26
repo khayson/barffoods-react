@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Save, Loader2, Package, DollarSign, Box, Tag, Store, Image as ImageIcon, Weight, Ruler, Edit, Trash2, CheckCircle, XCircle, AlertTriangle, Info, Upload, FileImage, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Save, Loader2, Package, DollarSign, Box, Tag, Store, Image as ImageIcon, Weight, Ruler, Edit, Trash2, CheckCircle, XCircle, AlertTriangle, Info, Upload, FileImage, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { router } from '@inertiajs/react';
 import { Badge } from '@/components/ui/badge';
@@ -59,6 +59,8 @@ export default function ProductOffCanvas({
     const [isSaving, setIsSaving] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+    const [isEstimating, setIsEstimating] = useState(false);
+    const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
     const [product, setProduct] = useState<Product>({
         name: '',
         description: '',
@@ -304,6 +306,123 @@ export default function ProductOffCanvas({
             image: product.image || url.trim() // Set first image as primary if not set
         });
         toast.success(`Image added! (${newImages.length}/4)`);
+    };
+
+    const handleEstimateDimensions = async () => {
+        if (!product.name.trim()) {
+            toast.error('Please enter a product name first');
+            return;
+        }
+
+        setIsEstimating(true);
+        
+        try {
+            const categoryName = categories.find(c => c.id === product.category_id)?.name || '';
+            
+            const response = await fetch('/admin/products/estimate-dimensions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({
+                    name: product.name,
+                    category: categoryName,
+                    weight: product.weight,
+                    description: product.description,
+                }),
+            });
+
+            const result = await response.json();
+
+            if (result.success && result.dimensions) {
+                // Convert cm to inches (1 cm = 0.393701 inches)
+                const cmToInches = (cm: number) => Math.round(cm * 0.393701 * 100) / 100;
+                
+                // Update product with dimensions and weight (if detected)
+                setProduct({
+                    ...product,
+                    weight: result.weight || product.weight, // Use detected weight or keep existing
+                    length: cmToInches(result.dimensions.length),
+                    width: cmToInches(result.dimensions.width),
+                    height: cmToInches(result.dimensions.height),
+                });
+
+                const methodText = result.method === 'ai' ? '🤖 AI-powered' : '📐 Smart rules';
+                
+                // Build description with dimensions
+                let description = `Length: ${cmToInches(result.dimensions.length)}" × Width: ${cmToInches(result.dimensions.width)}" × Height: ${cmToInches(result.dimensions.height)}"`;
+                
+                // Add weight info with source indicator
+                if (result.weight) {
+                    if (result.weight_source === 'parsed') {
+                        description += `\n⚖️ Weight detected from name: ${result.weight} oz`;
+                    } else if (result.weight_source === 'estimated') {
+                        description += `\n⚖️ Typical weight estimated: ${result.weight} oz (adjust if needed)`;
+                    }
+                }
+                
+                toast.success(`${methodText} dimensions estimated!`, {
+                    description: description,
+                });
+            } else {
+                toast.error('Failed to estimate dimensions. Please enter manually.');
+            }
+        } catch (error) {
+            console.error('Error estimating dimensions:', error);
+            toast.error('Failed to estimate dimensions. Please try again.');
+        } finally {
+            setIsEstimating(false);
+        }
+    };
+
+    const handleGenerateDescription = async () => {
+        if (!product.name.trim()) {
+            toast.error('Please enter a product name first');
+            return;
+        }
+
+        setIsGeneratingDescription(true);
+        
+        try {
+            const categoryName = categories.find(c => c.id === product.category_id)?.name || '';
+            
+            const response = await fetch('/admin/products/generate-description', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({
+                    name: product.name,
+                    category: categoryName,
+                    weight: product.weight,
+                    description: product.description,
+                }),
+            });
+
+            const result = await response.json();
+
+            if (result.success && result.description) {
+                setProduct({
+                    ...product,
+                    description: result.description,
+                });
+
+                toast.success('🤖 AI-powered description generated!', {
+                    description: 'Review and edit as needed',
+                });
+            } else {
+                toast.error(result.message || 'Failed to generate description. Please try again.');
+            }
+        } catch (error) {
+            console.error('Error generating description:', error);
+            toast.error('Failed to generate description. Please try again.');
+        } finally {
+            setIsGeneratingDescription(false);
+        }
     };
 
     const handleSave = async () => {
@@ -713,17 +832,45 @@ export default function ProductOffCanvas({
 
                                             {/* Description */}
                                             <div>
-                                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                                    Description
-                                                </label>
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                                        Description
+                                                    </label>
+                                                    {!isReadOnly && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleGenerateDescription}
+                                                            disabled={isGeneratingDescription || !product.name.trim()}
+                                                            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                                                            title={!product.name.trim() ? "Enter product name first" : "Generate description with AI"}
+                                                        >
+                                                            {isGeneratingDescription ? (
+                                                                <>
+                                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                                    <span>Generating...</span>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <Sparkles className="h-4 w-4" />
+                                                                    <span>Generate</span>
+                                                                </>
+                                                            )}
+                                                        </button>
+                                                    )}
+                                                </div>
                                                 <textarea
                                                     value={product.description || ''}
                                                     onChange={(e) => setProduct({ ...product, description: e.target.value })}
                                                     disabled={isReadOnly}
-                                                    rows={4}
-                                                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50"
-                                                    placeholder="Enter product description"
+                                                    rows={6}
+                                                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 resize-none"
+                                                    placeholder="Enter product description or click 'Generate' to use AI"
                                                 />
+                                                {!product.name.trim() && (
+                                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 italic">
+                                                        💡 Enter product name above to enable AI generation
+                                                    </p>
+                                                )}
                                             </div>
 
                                             {/* Multiple Images Upload (Up to 4) */}
@@ -1046,10 +1193,40 @@ export default function ProductOffCanvas({
 
                                     {/* Shipping Dimensions */}
                                     <div>
-                                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                                            <Ruler className="h-5 w-5" />
-                                            Shipping Dimensions (Optional)
-                                        </h3>
+                                        <div className="flex items-center justify-between mb-4">
+                                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                                                <Ruler className="h-5 w-5" />
+                                                Shipping Dimensions (Optional)
+                                            </h3>
+                                            {!isReadOnly && (
+                                                <div className="flex flex-col items-end gap-1">
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleEstimateDimensions}
+                                                        disabled={isEstimating || !product.name.trim()}
+                                                        className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                                                        title={!product.name.trim() ? "Enter product name first to enable estimation" : "Let AI estimate dimensions based on product details"}
+                                                    >
+                                                        {isEstimating ? (
+                                                            <>
+                                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                                                <span>Estimating...</span>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Sparkles className="h-4 w-4" />
+                                                                <span>Auto Estimate</span>
+                                                            </>
+                                                        )}
+                                                    </button>
+                                                    {!product.name.trim() && (
+                                                        <span className="text-xs text-gray-500 dark:text-gray-400 italic">
+                                                            Enter name first ↑
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">

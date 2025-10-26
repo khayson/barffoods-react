@@ -271,6 +271,66 @@ class ProductManagementController extends Controller
     }
 
     /**
+     * Estimate product dimensions using AI/rules
+     */
+    public function estimateDimensions(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string',
+            'category' => 'nullable|string',
+            'weight' => 'nullable|numeric',
+            'description' => 'nullable|string',
+        ]);
+
+        try {
+            $estimationService = app(\App\Services\DimensionEstimationService::class);
+            $result = $estimationService->estimate([
+                'name' => $request->input('name'),
+                'category' => $request->input('category'),
+                'weight' => $request->input('weight'),
+                'description' => $request->input('description'),
+            ]);
+
+            return response()->json($result);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to estimate dimensions: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Generate product description using AI
+     */
+    public function generateDescription(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string',
+            'category' => 'nullable|string',
+            'weight' => 'nullable|numeric',
+            'description' => 'nullable|string',
+        ]);
+
+        try {
+            $estimationService = app(\App\Services\DimensionEstimationService::class);
+            $result = $estimationService->generateDescription([
+                'name' => $request->input('name'),
+                'category' => $request->input('category'),
+                'weight' => $request->input('weight'),
+                'description' => $request->input('description'),
+            ]);
+
+            return response()->json($result);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to generate description: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Upload product image
      */
     public function uploadImage(Request $request)

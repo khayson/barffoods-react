@@ -165,6 +165,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:super_admin'])
     Route::delete('/products/{id}', [App\Http\Controllers\Admin\ProductManagementController::class, 'destroy'])->name('products.destroy');
     Route::patch('/products/{id}/toggle-status', [App\Http\Controllers\Admin\ProductManagementController::class, 'toggleStatus'])->name('products.toggle-status');
     Route::post('/products/upload-image', [App\Http\Controllers\Admin\ProductManagementController::class, 'uploadImage'])->name('products.upload-image');
+    Route::post('/products/estimate-dimensions', [App\Http\Controllers\Admin\ProductManagementController::class, 'estimateDimensions'])->name('products.estimate-dimensions');
+    Route::post('/products/generate-description', [App\Http\Controllers\Admin\ProductManagementController::class, 'generateDescription'])->name('products.generate-description');
     
     // Store Management
     Route::get('/stores', [App\Http\Controllers\Admin\StoreManagementController::class, 'index'])->name('stores');
