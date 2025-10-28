@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, MapPin, Phone, DollarSign, Truck, TrendingUp, Package, Edit, Trash2 } from 'lucide-react';
+import { X, MapPin, Phone, DollarSign, Truck, TrendingUp, Package, Edit, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 interface Store {
     id: number;
     name: string;
+    image: string | null;
     address: string;
     phone: string;
     latitude: number;
@@ -37,6 +38,7 @@ export default function StoreOffCanvas({ isOpen, onClose, mode, storeId, onEdit 
     const [store, setStore] = useState<Store>({
         id: 0,
         name: '',
+        image: null,
         address: '',
         phone: '',
         latitude: 0,
@@ -51,16 +53,24 @@ export default function StoreOffCanvas({ isOpen, onClose, mode, storeId, onEdit 
     });
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [isUploadingImage, setIsUploadingImage] = useState(false);
+    const [storeProducts, setStoreProducts] = useState<any[]>([]);
+    const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+    const [showProducts, setShowProducts] = useState(false);
 
     // Fetch store data when in view/edit mode
     useEffect(() => {
         if ((mode === 'view' || mode === 'edit') && storeId && isOpen) {
             fetchStore();
+            if (mode === 'view') {
+                fetchStoreProducts();
+            }
         } else if (mode === 'create') {
             // Reset form for create mode
             setStore({
                 id: 0,
                 name: '',
+                image: null,
                 address: '',
                 phone: '',
                 latitude: 0,
@@ -100,6 +110,21 @@ export default function StoreOffCanvas({ isOpen, onClose, mode, storeId, onEdit 
         }
     };
 
+    const fetchStoreProducts = async () => {
+        setIsLoadingProducts(true);
+        try {
+            const response = await fetch(`/api/admin/stores/${storeId}/products`);
+            if (!response.ok) throw new Error('Failed to fetch products');
+            const data = await response.json();
+            setStoreProducts(data.products || []);
+        } catch (error) {
+            console.error('Error fetching store products:', error);
+            toast.error('Failed to load store products');
+        } finally {
+            setIsLoadingProducts(false);
+        }
+    };
+
     const handleSave = () => {
         // Minimal validation - only name is required
         if (!store.name?.trim()) {
@@ -112,7 +137,7 @@ export default function StoreOffCanvas({ isOpen, onClose, mode, storeId, onEdit 
         const url = mode === 'create' ? '/admin/stores' : `/admin/stores/${store.id}`;
         const method = mode === 'create' ? 'post' : 'put';
 
-        router[method](url, store, {
+        router[method](url, store as any, {
             preserveScroll: true,
             onSuccess: () => {
                 toast.success(`Store ${mode === 'create' ? 'created' : 'updated'} successfully!`);
@@ -127,6 +152,52 @@ export default function StoreOffCanvas({ isOpen, onClose, mode, storeId, onEdit 
                 setIsSaving(false);
             },
         });
+    };
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            toast.error('Please upload an image file');
+            return;
+        }
+
+        // Validate file size (5MB max)
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error('Image size must be less than 5MB');
+            return;
+        }
+
+        setIsUploadingImage(true);
+
+        const formData = new FormData();
+        formData.append('image', file);
+
+        try {
+            const response = await fetch('/admin/stores/upload-image', {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+                body: formData,
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                setStore({ ...store, image: data.url });
+                toast.success('Image uploaded successfully!');
+            } else {
+                toast.error(data.message || 'Failed to upload image');
+            }
+        } catch (error) {
+            console.error('Error uploading image:', error);
+            toast.error('Failed to upload image');
+        } finally {
+            setIsUploadingImage(false);
+        }
     };
 
     const handleDelete = () => {
@@ -158,8 +229,20 @@ export default function StoreOffCanvas({ isOpen, onClose, mode, storeId, onEdit 
         <div className="space-y-6">
             {/* Store Header */}
             <div className="text-center space-y-2">
-                <div className="w-20 h-20 mx-auto bg-gradient-to-br from-blue-500 to-purple-500 rounded-2xl flex items-center justify-center shadow-lg">
-                    <MapPin className="h-10 w-10 text-white" />
+                <div className="w-20 h-20 mx-auto bg-gradient-to-br from-blue-500 to-purple-500 rounded-2xl flex items-center justify-center shadow-lg overflow-hidden">
+                    {store.image ? (
+                        store.image.startsWith('http') || store.image.startsWith('/') ? (
+                            <img
+                                src={store.image}
+                                alt={store.name}
+                                className="w-full h-full object-cover"
+                            />
+                        ) : (
+                            <span className="text-4xl">{store.image}</span>
+                        )
+                    ) : (
+                        <MapPin className="h-10 w-10 text-white" />
+                    )}
                 </div>
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{store.name}</h2>
                 <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${
@@ -199,6 +282,25 @@ export default function StoreOffCanvas({ isOpen, onClose, mode, storeId, onEdit 
                 )}
 
                 {/* Coordinates */}
+                {/* Location Warning in View Mode */}
+                {(store.latitude === 0 && store.longitude === 0) && (
+                    <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 rounded-xl">
+                        <div className="flex items-start gap-3">
+                            <div className="flex-shrink-0 mt-0.5">
+                                <svg className="h-5 w-5 text-yellow-600 dark:text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                                </svg>
+                            </div>
+                            <div className="flex-1">
+                                <h4 className="text-sm font-semibold text-yellow-800 dark:text-yellow-200">⚠️ Location Not Set</h4>
+                                <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
+                                    This store is hidden from customers. Click "Edit" to add valid coordinates.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4">
                     <div className="flex items-start gap-3">
                         <MapPin className="h-5 w-5 text-purple-600 dark:text-purple-400 mt-0.5" />
@@ -247,6 +349,105 @@ export default function StoreOffCanvas({ isOpen, onClose, mode, storeId, onEdit 
                         <span className="text-lg font-bold text-blue-600 dark:text-blue-400">{store.products_count}</span>
                     </div>
                 </div>
+
+                {/* Products Dropdown */}
+                {store.products_count > 0 && (
+                    <div className="bg-gray-50 dark:bg-gray-800 rounded-xl overflow-hidden">
+                        <button
+                            onClick={() => setShowProducts(!showProducts)}
+                            className="w-full flex items-center justify-between p-4 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        >
+                            <div className="flex items-center gap-3">
+                                <Package className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                                <h4 className="text-sm font-semibold text-gray-900 dark:text-white">View All Products</h4>
+                            </div>
+                            {showProducts ? (
+                                <ChevronUp className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                            ) : (
+                                <ChevronDown className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                            )}
+                        </button>
+                        
+                        <AnimatePresence>
+                            {showProducts && (
+                                <motion.div
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: 'auto', opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    transition={{ duration: 0.2 }}
+                                    className="border-t border-gray-200 dark:border-gray-700"
+                                >
+                                    {isLoadingProducts ? (
+                                        <div className="p-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                                            Loading products...
+                                        </div>
+                                    ) : storeProducts.length > 0 ? (
+                                        <div className="max-h-96 overflow-y-auto">
+                                            {storeProducts.map((product: any) => (
+                                                <div
+                                                    key={product.id}
+                                                    className="p-4 border-b border-gray-200 dark:border-gray-700 last:border-b-0 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                                >
+                                                    <div className="flex items-start gap-3">
+                                                        {/* Product Image/Emoji */}
+                                                        <div className="w-12 h-12 flex-shrink-0 bg-gray-200 dark:bg-gray-600 rounded-lg overflow-hidden">
+                                                            {product.image ? (
+                                                                product.image.startsWith('http') || product.image.startsWith('/') ? (
+                                                                    <img
+                                                                        src={product.image}
+                                                                        alt={product.name}
+                                                                        className="w-full h-full object-cover"
+                                                                    />
+                                                                ) : (
+                                                                    <div className="w-full h-full flex items-center justify-center text-2xl">
+                                                                        {product.image}
+                                                                    </div>
+                                                                )
+                                                            ) : (
+                                                                <div className="w-full h-full flex items-center justify-center">
+                                                                    <Package className="h-6 w-6 text-gray-400" />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        
+                                                        {/* Product Info */}
+                                                        <div className="flex-1 min-w-0">
+                                                            <h5 className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                                                {product.name}
+                                                            </h5>
+                                                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                                                {product.category?.name}
+                                                            </p>
+                                                            <div className="flex items-center gap-3 mt-2">
+                                                                <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">
+                                                                    ${parseFloat(product.price).toFixed(2)}
+                                                                </span>
+                                                                <span className="text-xs text-gray-500 dark:text-gray-400">
+                                                                    Stock: {product.stock_quantity}
+                                                                </span>
+                                                                <span className={`text-xs px-2 py-0.5 rounded-full ${
+                                                                    product.is_active 
+                                                                        ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' 
+                                                                        : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                                                                }`}>
+                                                                    {product.is_active ? 'Active' : 'Inactive'}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="p-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                                            No products found
+                                        </div>
+                                    )}
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
+                )}
             </div>
 
             {/* Action Buttons */}
@@ -287,6 +488,67 @@ export default function StoreOffCanvas({ isOpen, onClose, mode, storeId, onEdit 
                 </p>
             </div>
 
+            {/* Store Image */}
+            <div>
+                <Label htmlFor="image">Store Image (Optional)</Label>
+                <div className="mt-1 space-y-3">
+                    {/* Image Preview */}
+                    {store.image && (
+                        <div className="relative w-32 h-32 border-2 border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                            {store.image.startsWith('http') || store.image.startsWith('/') ? (
+                                <img
+                                    src={store.image}
+                                    alt="Store preview"
+                                    className="w-full h-full object-cover"
+                                />
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800 text-5xl">
+                                    {store.image}
+                                </div>
+                            )}
+                            <button
+                                type="button"
+                                onClick={() => setStore({ ...store, image: null })}
+                                className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                            >
+                                <X className="h-3 w-3" />
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Image Input or Emoji Input */}
+                    <div className="flex gap-2">
+                        <div className="flex-1">
+                            <Input
+                                type="file"
+                                accept="image/*"
+                                onChange={handleImageUpload}
+                                disabled={isUploadingImage}
+                                className="w-full"
+                            />
+                        </div>
+                        <div className="w-32">
+                            <Input
+                                type="text"
+                                value={store.image && (store.image.startsWith('http') || store.image.startsWith('/')) ? '' : (store.image || '')}
+                                onChange={(e) => setStore({ ...store, image: e.target.value })}
+                                placeholder="or emoji"
+                                maxLength={2}
+                                className="text-center text-2xl"
+                            />
+                        </div>
+                    </div>
+                    {isUploadingImage && (
+                        <p className="text-xs text-blue-600 dark:text-blue-400">
+                            Uploading image...
+                        </p>
+                    )}
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Upload an image or enter an emoji (🏪 🏬 🏭)
+                    </p>
+                </div>
+            </div>
+
             {/* Address */}
             <div>
                 <Label htmlFor="address">Address (Optional)</Label>
@@ -314,6 +576,25 @@ export default function StoreOffCanvas({ isOpen, onClose, mode, storeId, onEdit 
             </div>
 
             {/* Coordinates */}
+            {/* Location Warning */}
+            {(store.latitude === 0 && store.longitude === 0) && (
+                <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 rounded-xl">
+                    <div className="flex items-start gap-3">
+                        <div className="flex-shrink-0 mt-0.5">
+                            <svg className="h-5 w-5 text-yellow-600 dark:text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                            </svg>
+                        </div>
+                        <div className="flex-1">
+                            <h4 className="text-sm font-semibold text-yellow-800 dark:text-yellow-200">⚠️ Location Not Set</h4>
+                            <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
+                                This store will be hidden from customers until valid coordinates are provided. Customers won't be able to view this store or its products on the customer-facing pages.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="grid grid-cols-2 gap-4">
                 <div>
                     <Label htmlFor="latitude">Latitude (Optional)</Label>
@@ -341,7 +622,7 @@ export default function StoreOffCanvas({ isOpen, onClose, mode, storeId, onEdit 
                 </div>
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400 -mt-3">
-                Defaults to 0, 0 if not provided
+                Enter valid coordinates to make this store visible to customers
             </p>
 
             {/* Delivery Settings */}

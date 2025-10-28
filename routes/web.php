@@ -167,6 +167,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:super_admin'])
     Route::post('/products/upload-image', [App\Http\Controllers\Admin\ProductManagementController::class, 'uploadImage'])->name('products.upload-image');
     Route::post('/products/estimate-dimensions', [App\Http\Controllers\Admin\ProductManagementController::class, 'estimateDimensions'])->name('products.estimate-dimensions');
     Route::post('/products/generate-description', [App\Http\Controllers\Admin\ProductManagementController::class, 'generateDescription'])->name('products.generate-description');
+    Route::post('/products/{id}/duplicate', [App\Http\Controllers\Admin\ProductManagementController::class, 'duplicate'])->name('products.duplicate');
     
     // Store Management
     Route::get('/stores', [App\Http\Controllers\Admin\StoreManagementController::class, 'index'])->name('stores');
@@ -174,6 +175,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:super_admin'])
     Route::put('/stores/{id}', [App\Http\Controllers\Admin\StoreManagementController::class, 'update'])->name('stores.update');
     Route::delete('/stores/{id}', [App\Http\Controllers\Admin\StoreManagementController::class, 'destroy'])->name('stores.destroy');
     Route::patch('/stores/{id}/toggle-status', [App\Http\Controllers\Admin\StoreManagementController::class, 'toggleStatus'])->name('stores.toggle-status');
+    Route::post('/stores/upload-image', [App\Http\Controllers\Admin\StoreManagementController::class, 'uploadImage'])->name('stores.upload-image');
     
     // Category Management
     Route::get('/categories', [App\Http\Controllers\Admin\CategoryManagementController::class, 'index'])->name('categories');
@@ -226,6 +228,7 @@ Route::prefix('api/admin')->middleware(['web', 'auth', 'role:super_admin'])->gro
     
     // Store API endpoint (for fetching single store in off-canvas)
     Route::get('/stores/{id}', [App\Http\Controllers\Admin\StoreManagementController::class, 'show'])->name('admin.stores.show');
+    Route::get('/stores/{id}/products', [App\Http\Controllers\Admin\StoreManagementController::class, 'getProducts'])->name('admin.stores.products');
     
     // Category API endpoint (for fetching single category in off-canvas)
     Route::get('/categories/{id}', [App\Http\Controllers\Admin\CategoryManagementController::class, 'show'])->name('admin.categories.show');

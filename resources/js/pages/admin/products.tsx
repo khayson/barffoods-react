@@ -2,13 +2,14 @@ import { Head, router } from '@inertiajs/react';
 import { useState } from 'react';
 import AdminLayout from '@/layouts/admin-layout';
 import ProductOffCanvas from '@/components/admin/ProductOffCanvas';
+import DuplicateProductDialog from '@/components/admin/DuplicateProductDialog';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
     Plus, Search, X, Package, Eye, Edit, Trash2, 
     Power, PowerOff, ChevronLeft, ChevronRight, MoreVertical,
     Grid3x3, List, DollarSign, Box, Tag, Store as StoreIcon,
     TrendingUp, AlertCircle, CheckCircle, XCircle, Sparkles,
-    Filter, ChevronDown, SlidersHorizontal
+    Filter, ChevronDown, SlidersHorizontal, Copy
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -62,6 +63,7 @@ interface Filters {
     stock_status: string;
     sort_by: string;
     sort_order: string;
+    per_page: number;
 }
 
 interface ProductsPageProps {
@@ -83,6 +85,7 @@ export default function ProductsPage({ products, categories, stores, filters }: 
     const [selectedStore, setSelectedStore] = useState(filters.store_id || '');
     const [selectedStatus, setSelectedStatus] = useState(filters.status || '');
     const [selectedStockStatus, setSelectedStockStatus] = useState(filters.stock_status || '');
+    const [perPage, setPerPage] = useState(filters.per_page || 20);
     const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
     const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
@@ -90,6 +93,10 @@ export default function ProductsPage({ products, categories, stores, filters }: 
     const [offCanvasOpen, setOffCanvasOpen] = useState(false);
     const [offCanvasMode, setOffCanvasMode] = useState<'view' | 'edit' | 'create'>('view');
     const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
+
+    // Duplicate dialog state
+    const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
+    const [productToDuplicate, setProductToDuplicate] = useState<Product | null>(null);
 
     // Helper function to check if image is a URL
     const isImageUrl = (image: string) => {
@@ -163,6 +170,7 @@ export default function ProductsPage({ products, categories, stores, filters }: 
             store_id: selectedStore,
             status: selectedStatus,
             stock_status: selectedStockStatus,
+            per_page: perPage,
         }, {
             preserveState: true,
             preserveScroll: true,
@@ -175,7 +183,24 @@ export default function ProductsPage({ products, categories, stores, filters }: 
         setSelectedStore('');
         setSelectedStatus('');
         setSelectedStockStatus('');
+        setPerPage(20);
         router.get('/admin/products');
+    };
+
+    const handlePerPageChange = (newPerPage: number) => {
+        setPerPage(newPerPage);
+        router.get('/admin/products', {
+            search: searchTerm,
+            category_id: selectedCategory,
+            store_id: selectedStore,
+            status: selectedStatus,
+            stock_status: selectedStockStatus,
+            per_page: newPerPage,
+            page: 1, // Reset to first page when changing per_page
+        }, {
+            preserveState: true,
+            preserveScroll: false, // Scroll to top when changing per_page
+        });
     };
 
     const handleViewProduct = (id: number) => {
@@ -188,6 +213,11 @@ export default function ProductsPage({ products, categories, stores, filters }: 
         setSelectedProductId(id);
         setOffCanvasMode('edit');
         setOffCanvasOpen(true);
+    };
+
+    const handleDuplicateProduct = (product: Product) => {
+        setProductToDuplicate(product);
+        setDuplicateDialogOpen(true);
     };
 
     const handleCreateProduct = () => {
@@ -798,6 +828,10 @@ export default function ProductsPage({ products, categories, stores, filters }: 
                                                         <Edit className="h-4 w-4 mr-2" />
                                                         Edit
                                                     </DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => handleDuplicateProduct(product)}>
+                                                        <Copy className="h-4 w-4 mr-2" />
+                                                        Duplicate to Store
+                                                    </DropdownMenuItem>
                                                     <DropdownMenuItem onClick={() => handleToggleStatus(product.id)}>
                                                         {product.is_active ? (
                                                             <>
@@ -980,6 +1014,10 @@ export default function ProductsPage({ products, categories, stores, filters }: 
                                                                 <Edit className="h-4 w-4 mr-2" />
                                                                 Edit
                                                             </DropdownMenuItem>
+                                                            <DropdownMenuItem onClick={() => handleDuplicateProduct(product)}>
+                                                                <Copy className="h-4 w-4 mr-2" />
+                                                                Duplicate to Store
+                                                            </DropdownMenuItem>
                                                             <DropdownMenuItem onClick={() => handleToggleStatus(product.id)}>
                                                                 {product.is_active ? (
                                                                     <>
@@ -1014,70 +1052,89 @@ export default function ProductsPage({ products, categories, stores, filters }: 
                 )}
 
                 {/* Enhanced Pagination */}
-                {products.last_page > 1 && (
+                {products.total > 0 && (
                     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
                         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                            <div className="text-sm text-gray-600 dark:text-gray-400">
-                                Showing{' '}
-                                <span className="font-semibold text-gray-900 dark:text-white">
-                                    {((products.current_page - 1) * products.per_page) + 1}
-                                </span>{' '}
-                                to{' '}
-                                <span className="font-semibold text-gray-900 dark:text-white">
-                                    {Math.min(products.current_page * products.per_page, products.total)}
-                                </span>{' '}
-                                of{' '}
-                                <span className="font-semibold text-gray-900 dark:text-white">
-                                    {products.total}
-                                </span>{' '}
-                                results
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                                <motion.button
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    onClick={() => handlePageChange(products.current_page - 1)}
-                                    disabled={products.current_page === 1}
-                                    className="p-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    <ChevronLeft className="h-5 w-5" />
-                                </motion.button>
-
-                                <div className="flex items-center gap-1">
-                                    {generatePageNumbers().map((page, index) => (
-                                        typeof page === 'number' ? (
-                                            <motion.button
-                                                key={index}
-                                                whileHover={{ scale: 1.05 }}
-                                                whileTap={{ scale: 0.95 }}
-                                                onClick={() => handlePageChange(page)}
-                                                className={`min-w-[40px] h-10 px-3 rounded-lg font-medium transition-all ${
-                                                    products.current_page === page
-                                                        ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-lg'
-                                                        : 'border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                                                }`}
-                                            >
-                                                {page}
-                                            </motion.button>
-                                        ) : (
-                                            <span key={index} className="px-2 text-gray-500 dark:text-gray-400">
-                                                {page}
-                                            </span>
-                                        )
-                                    ))}
+                            <div className="flex items-center gap-4">
+                                <div className="text-sm text-gray-600 dark:text-gray-400">
+                                    Showing{' '}
+                                    <span className="font-semibold text-gray-900 dark:text-white">
+                                        {((products.current_page - 1) * products.per_page) + 1}
+                                    </span>{' '}
+                                    to{' '}
+                                    <span className="font-semibold text-gray-900 dark:text-white">
+                                        {Math.min(products.current_page * products.per_page, products.total)}
+                                    </span>{' '}
+                                    of{' '}
+                                    <span className="font-semibold text-gray-900 dark:text-white">
+                                        {products.total}
+                                    </span>{' '}
+                                    results
                                 </div>
-
-                                <motion.button
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    onClick={() => handlePageChange(products.current_page + 1)}
-                                    disabled={products.current_page === products.last_page}
-                                    className="p-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    <ChevronRight className="h-5 w-5" />
-                                </motion.button>
+                                
+                                {/* Per Page Selector */}
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm text-gray-600 dark:text-gray-400">Show:</span>
+                                    <select
+                                        value={perPage}
+                                        onChange={(e) => handlePerPageChange(Number(e.target.value))}
+                                        className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500 dark:focus:ring-green-400 transition-all"
+                                    >
+                                        <option value="10">10</option>
+                                        <option value="20">20</option>
+                                        <option value="50">50</option>
+                                        <option value="100">100</option>
+                                    </select>
+                                </div>
                             </div>
+
+                            {products.last_page > 1 && (
+                                <div className="flex items-center gap-2">
+                                    <motion.button
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        onClick={() => handlePageChange(products.current_page - 1)}
+                                        disabled={products.current_page === 1}
+                                        className="p-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        <ChevronLeft className="h-5 w-5" />
+                                    </motion.button>
+
+                                    <div className="flex items-center gap-1">
+                                        {generatePageNumbers().map((page, index) => (
+                                            typeof page === 'number' ? (
+                                                <motion.button
+                                                    key={index}
+                                                    whileHover={{ scale: 1.05 }}
+                                                    whileTap={{ scale: 0.95 }}
+                                                    onClick={() => handlePageChange(page)}
+                                                    className={`min-w-[40px] h-10 px-3 rounded-lg font-medium transition-all ${
+                                                        products.current_page === page
+                                                            ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-lg'
+                                                            : 'border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                                                    }`}
+                                                >
+                                                    {page}
+                                                </motion.button>
+                                            ) : (
+                                                <span key={index} className="px-2 text-gray-500 dark:text-gray-400">
+                                                    {page}
+                                                </span>
+                                            )
+                                        ))}
+                                    </div>
+
+                                    <motion.button
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        onClick={() => handlePageChange(products.current_page + 1)}
+                                        disabled={products.current_page === products.last_page}
+                                        className="p-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        <ChevronRight className="h-5 w-5" />
+                                    </motion.button>
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
@@ -1093,6 +1150,13 @@ export default function ProductsPage({ products, categories, stores, filters }: 
                 onClose={() => setOffCanvasOpen(false)}
                 onSuccess={() => router.reload()}
                 onEdit={handleEditProduct}
+            />
+
+            <DuplicateProductDialog
+                open={duplicateDialogOpen}
+                onOpenChange={setDuplicateDialogOpen}
+                product={productToDuplicate}
+                stores={stores}
             />
         </AdminLayout>
     );

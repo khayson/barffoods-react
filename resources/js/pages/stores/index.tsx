@@ -2,16 +2,17 @@ import { Head, Link, usePage } from '@inertiajs/react';
 import CustomerLayout from '@/layouts/customer-layout';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
 import { 
     MapPin, 
     Phone, 
     Package, 
-    DollarSign,
-    Clock,
-    Navigation,
     Search,
-    Store as StoreIcon
+    Store as StoreIcon,
+    ArrowRight,
+    Navigation2,
+    Truck
 } from 'lucide-react';
 import { type SharedData } from '@/types';
 import { useEffect, useRef, useState } from 'react';
@@ -21,6 +22,7 @@ import 'leaflet/dist/leaflet.css';
 interface Store {
     id: number;
     name: string;
+    image: string | null;
     address: string;
     phone: string;
     latitude: number;
@@ -49,6 +51,12 @@ export default function StoresIndex() {
     const mapInstance = useRef<L.Map | null>(null);
     const [selectedStore, setSelectedStore] = useState<Store | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
+
+    // Helper function to check if image is a URL (not emoji)
+    const isImageUrl = (image: string | null) => {
+        if (!image) return false;
+        return image.startsWith('http://') || image.startsWith('https://') || image.startsWith('/');
+    };
 
     // Filter stores based on search
     const filteredStores = stores.filter(store =>
@@ -93,7 +101,7 @@ export default function StoresIndex() {
                                 border-radius: 50% 50% 50% 0;
                                 border: 3px solid white;
                                 transform: rotate(-45deg);
-                                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                                box-shadow: 0 3px 10px rgba(0,0,0,0.2);
                                 display: flex;
                                 align-items: center;
                                 justify-content: center;
@@ -107,26 +115,27 @@ export default function StoresIndex() {
                 }).addTo(map);
 
                 marker.bindPopup(`
-                    <div style="min-width: 200px;">
-                        <h3 style="font-weight: bold; margin-bottom: 8px; font-size: 16px;">${store.name}</h3>
-                        <p style="font-size: 14px; color: #666; margin-bottom: 4px;">
-                            <strong>📍</strong> ${store.address}
+                    <div style="min-width: 220px;">
+                        <h3 style="font-weight: 600; margin-bottom: 10px; font-size: 16px; color: #111;">${store.name}</h3>
+                        <p style="font-size: 13px; color: #666; margin-bottom: 6px; display: flex; gap: 6px;">
+                            <span>📍</span> ${store.address}
                         </p>
-                        ${store.phone ? `<p style="font-size: 14px; color: #666; margin-bottom: 4px;">
-                            <strong>📞</strong> ${store.phone}
+                        ${store.phone ? `<p style="font-size: 13px; color: #666; margin-bottom: 6px; display: flex; gap: 6px;">
+                            <span>📞</span> ${store.phone}
                         </p>` : ''}
-                        <p style="font-size: 14px; color: #666; margin-bottom: 8px;">
-                            <strong>📦</strong> ${store.products_count} products available
+                        <p style="font-size: 13px; color: #666; margin-bottom: 12px; display: flex; gap: 6px;">
+                            <span>📦</span> ${store.products_count} products
                         </p>
                         <a href="/stores/${store.id}" style="
-                            display: inline-block;
-                            padding: 6px 12px;
+                            display: block;
+                            padding: 8px 16px;
                             background: #10B981;
                             color: white;
                             text-decoration: none;
                             border-radius: 6px;
                             font-size: 14px;
                             font-weight: 500;
+                            text-align: center;
                         ">View Store</a>
                     </div>
                 `);
@@ -164,139 +173,160 @@ export default function StoresIndex() {
         <CustomerLayout>
             <Head title="Find Stores" />
             
-            <div className="min-h-screen">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-                    {/* Header */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="text-center space-y-4"
-                    >
-                        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/20 mb-4">
-                            <StoreIcon className="h-8 w-8 text-green-600 dark:text-green-400" />
-                        </div>
-                        <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 dark:text-white">
-                            Find Stores Near You
-                        </h1>
-                        <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-                            Discover local stores and browse their fresh products
-                        </p>
-                    </motion.div>
-
-                    {/* Content Grid */}
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        {/* Stores List */}
-                        <motion.div
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 0.1 }}
-                            className="lg:col-span-1 space-y-4"
-                        >
-                            {/* Search */}
-                            <Card className="p-4">
-                                <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                                    <input
-                                        type="text"
-                                        placeholder="Search stores..."
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                        className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 dark:focus:ring-green-400"
-                                    />
-                                </div>
-                            </Card>
-
-                            {/* Store Count */}
-                            <Card className="p-4">
-                                <p className="text-sm text-gray-600 dark:text-gray-400">
-                                    Showing <span className="font-semibold text-gray-900 dark:text-white">{filteredStores.length}</span> {filteredStores.length === 1 ? 'store' : 'stores'}
+            <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+                {/* Header */}
+                <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                        <div className="flex items-center justify-between mb-6">
+                            <div>
+                                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+                                    Store Locator
+                                </h1>
+                                <p className="mt-1 text-gray-600 dark:text-gray-400">
+                                    Find fresh products from local stores near you
                                 </p>
-                            </Card>
+                            </div>
+                            <div className="hidden sm:flex items-center gap-6 text-sm">
+                                <div className="text-center">
+                                    <div className="text-2xl font-bold text-gray-900 dark:text-white">{stores.length}</div>
+                                    <div className="text-gray-600 dark:text-gray-400">Stores</div>
+                                </div>
+                                <div className="w-px h-12 bg-gray-200 dark:bg-gray-700"></div>
+                                <div className="text-center">
+                                    <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                                        {stores.reduce((sum, s) => sum + s.products_count, 0)}
+                                    </div>
+                                    <div className="text-gray-600 dark:text-gray-400">Products</div>
+                                </div>
+                            </div>
+                        </div>
 
-                            {/* Stores List */}
-                            <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2 scrollbar-thin">
+                        {/* Search */}
+                        <div className="relative max-w-2xl">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                            <input
+                                type="text"
+                                placeholder="Search by store name or location..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full pl-12 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-transparent placeholder:text-gray-400"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Main Content */}
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        {/* Store List */}
+                        <div className="lg:col-span-1 space-y-4">
+                            <div className="flex items-center justify-between">
+                                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                                    {filteredStores.length} {filteredStores.length === 1 ? 'Store' : 'Stores'}
+                                </h2>
+                            </div>
+
+                            <div className="space-y-3 max-h-[700px] overflow-y-auto">
                                 {filteredStores.map((store) => (
                                     <motion.div
                                         key={store.id}
-                                        initial={{ opacity: 0, y: 20 }}
+                                        initial={{ opacity: 0, y: 10 }}
                                         animate={{ opacity: 1, y: 0 }}
                                     >
                                         <Card
-                                            className={`p-4 cursor-pointer transition-all hover:shadow-lg ${
-                                                selectedStore?.id === store.id
-                                                    ? 'border-green-500 shadow-lg ring-2 ring-green-200 dark:ring-green-800'
-                                                    : 'hover:border-green-300'
-                                            }`}
                                             onClick={() => handleStoreClick(store)}
+                                            className={`cursor-pointer transition-all hover:shadow-md ${
+                                                selectedStore?.id === store.id
+                                                    ? 'ring-2 ring-green-500 shadow-md'
+                                                    : ''
+                                            }`}
                                         >
-                                            <div className="flex items-start gap-3">
-                                                <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg flex-shrink-0">
-                                                    <StoreIcon className="h-5 w-5 text-green-600 dark:text-green-400" />
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
-                                                        {store.name}
-                                                    </h3>
-                                                    <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
-                                                        <p className="flex items-start gap-1">
-                                                            <MapPin className="h-4 w-4 flex-shrink-0 mt-0.5" />
-                                                            <span className="line-clamp-2">{store.address}</span>
-                                                        </p>
-                                                        {store.phone && (
-                                                            <p className="flex items-center gap-1">
-                                                                <Phone className="h-4 w-4 flex-shrink-0" />
-                                                                <span>{store.phone}</span>
-                                                            </p>
+                                            <Link href={`/stores/${store.id}`} className="block p-4">
+                                                <div className="flex gap-4">
+                                                    {/* Store Image/Icon */}
+                                                    <div className="flex-shrink-0">
+                                                        {isImageUrl(store.image) ? (
+                                                            <img
+                                                                src={store.image || ''}
+                                                                alt={store.name}
+                                                                className="w-16 h-16 rounded-lg object-cover"
+                                                            />
+                                                        ) : (
+                                                            <div className="w-16 h-16 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                                                                {store.image ? (
+                                                                    <span className="text-3xl">{store.image}</span>
+                                                                ) : (
+                                                                    <StoreIcon className="h-8 w-8 text-gray-400" />
+                                                                )}
+                                                            </div>
                                                         )}
-                                                        <p className="flex items-center gap-1">
-                                                            <Package className="h-4 w-4 flex-shrink-0" />
-                                                            <span>{store.products_count} products</span>
-                                                        </p>
                                                     </div>
-                                                    <div className="flex items-center gap-2 mt-3">
-                                                        <Badge className="text-xs bg-green-100 text-green-800 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
-                                                            Min: {formatCurrency(store.min_order_amount)}
-                                                        </Badge>
-                                                        <Badge className="text-xs bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800">
-                                                            Delivery: {formatCurrency(store.delivery_fee)}
-                                                        </Badge>
+
+                                                    {/* Store Info */}
+                                                    <div className="flex-1 min-w-0">
+                                                        <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
+                                                            {store.name}
+                                                        </h3>
+                                                        <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                                                            <p className="flex items-start gap-1.5 line-clamp-1">
+                                                                <MapPin className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                                                                <span className="line-clamp-1">{store.address}</span>
+                                                            </p>
+                                                            <p className="flex items-center gap-1.5">
+                                                                <Package className="h-4 w-4 flex-shrink-0" />
+                                                                <span>{store.products_count} products</span>
+                                                            </p>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 mt-2">
+                                                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                                                                From {formatCurrency(store.min_order_amount)}
+                                                            </span>
+                                                            <span className="text-gray-300 dark:text-gray-600">•</span>
+                                                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                                                                {formatCurrency(store.delivery_fee)} delivery
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Arrow */}
+                                                    <div className="flex-shrink-0 self-center">
+                                                        <ArrowRight className="h-5 w-5 text-gray-400" />
                                                     </div>
                                                 </div>
-                                            </div>
+                                            </Link>
                                         </Card>
                                     </motion.div>
                                 ))}
 
                                 {filteredStores.length === 0 && (
                                     <Card className="p-8 text-center">
-                                        <Search className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                                        <p className="text-gray-600 dark:text-gray-400">
-                                            No stores found matching "{searchQuery}"
+                                        <Search className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                                        <p className="text-gray-600 dark:text-gray-400 text-sm">
+                                            No stores found
                                         </p>
+                                        <button
+                                            onClick={() => setSearchQuery('')}
+                                            className="mt-3 text-sm text-green-600 hover:text-green-700 font-medium"
+                                        >
+                                            Clear search
+                                        </button>
                                     </Card>
                                 )}
                             </div>
-                        </motion.div>
+                        </div>
 
                         {/* Map */}
-                        <motion.div
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 0.2 }}
-                            className="lg:col-span-2"
-                        >
-                            <Card className="p-4 h-[700px]">
+                        <div className="lg:col-span-2">
+                            <Card className="p-0 overflow-hidden sticky top-8">
                                 <div 
                                     ref={mapRef} 
-                                    className="w-full h-full rounded-lg overflow-hidden"
-                                    style={{ minHeight: '650px' }}
+                                    className="w-full h-[700px]"
                                 />
                             </Card>
-                        </motion.div>
+                        </div>
                     </div>
                 </div>
             </div>
         </CustomerLayout>
     );
 }
-

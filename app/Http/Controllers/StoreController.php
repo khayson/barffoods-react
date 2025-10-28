@@ -15,6 +15,10 @@ class StoreController extends Controller
     public function browse()
     {
         $stores = Store::where('is_active', true)
+            ->where(function ($query) {
+                // Exclude stores with invalid coordinates (0, 0)
+                $query->whereRaw('(latitude != 0 OR longitude != 0)');
+            })
             ->orderBy('name')
             ->withCount(['products' => function ($query) {
                 $query->where('is_active', true);
@@ -24,6 +28,7 @@ class StoreController extends Controller
                 return [
                     'id' => $store->id,
                     'name' => $store->name,
+                    'image' => $store->image,
                     'address' => $store->address,
                     'phone' => $store->phone,
                     'latitude' => (float) $store->latitude,
@@ -56,6 +61,11 @@ class StoreController extends Controller
             }])
             ->findOrFail($id);
 
+        // Check if store has valid coordinates
+        if ($store->latitude == 0 && $store->longitude == 0) {
+            abort(404, 'Store location is not yet available. Please check back later.');
+        }
+
         // Get store products
         $products = $store->products()
             ->where('is_active', true)
@@ -85,6 +95,7 @@ class StoreController extends Controller
             'store' => [
                 'id' => $store->id,
                 'name' => $store->name,
+                'image' => $store->image,
                 'address' => $store->address,
                 'phone' => $store->phone,
                 'latitude' => (float) $store->latitude,
@@ -104,7 +115,12 @@ class StoreController extends Controller
      */
     public function index()
     {
-        $stores = Store::active()->get();
+        $stores = Store::active()
+            ->where(function ($query) {
+                // Exclude stores with invalid coordinates (0, 0)
+                $query->whereRaw('(latitude != 0 OR longitude != 0)');
+            })
+            ->get();
         
         return response()->json($stores);
     }
@@ -118,7 +134,12 @@ class StoreController extends Controller
         $userLng = $request->input('longitude', -74.0060);
         $radius = $request->input('radius', 25); // miles
 
-        $stores = Store::selectRaw("
+        $stores = Store::where('is_active', true)
+        ->where(function ($query) {
+            // Exclude stores with invalid coordinates (0, 0)
+            $query->whereRaw('(latitude != 0 OR longitude != 0)');
+        })
+        ->selectRaw("
             *, 
             (3959 * acos(cos(radians(?)) * cos(radians(latitude)) * 
             cos(radians(longitude) - radians(?)) + 

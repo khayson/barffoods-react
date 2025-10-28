@@ -290,6 +290,7 @@ class ProductController extends Controller
             'store' => [
                 'id' => (string) $product->store->id,
                 'name' => $product->store->name,
+                'image' => $product->store->image,
                 'address' => $product->store->address,
                 'delivery_fee' => $product->store->delivery_fee,
                 'min_order_amount' => $product->store->min_order_amount,

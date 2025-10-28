@@ -13,9 +13,12 @@ import {
     Truck,
     MapPin,
     ChevronRight,
-    Tag,
     TrendingUp,
-    Calendar
+    TrendingDown,
+    Activity,
+    Calendar,
+    Eye,
+    ShoppingCart
 } from 'lucide-react';
 import { type SharedData } from '@/types';
 
@@ -53,28 +56,15 @@ export default function CustomerDashboard() {
 
     const getStatusColor = (status: string) => {
         const colors: Record<string, string> = {
-            pending_payment: 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-400 dark:border-yellow-800',
-            payment_failed: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800',
-            confirmed: 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800',
-            processing: 'bg-indigo-100 text-indigo-800 border-indigo-200 dark:bg-indigo-900/20 dark:text-indigo-400 dark:border-indigo-800',
-            shipped: 'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-800',
-            delivered: 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800',
-            refunded: 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800',
+            pending_payment: 'bg-amber-500',
+            payment_failed: 'bg-rose-500',
+            confirmed: 'bg-sky-500',
+            processing: 'bg-violet-500',
+            shipped: 'bg-purple-500',
+            delivered: 'bg-emerald-500',
+            refunded: 'bg-orange-500',
         };
-        return colors[status] || 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-900/20 dark:text-gray-400 dark:border-gray-800';
-    };
-
-    const getStatusIcon = (status: string) => {
-        switch (status) {
-            case 'delivered':
-                return <CheckCircle className="h-4 w-4" />;
-            case 'shipped':
-                return <Truck className="h-4 w-4" />;
-            case 'processing':
-                return <Package className="h-4 w-4" />;
-            default:
-                return <Clock className="h-4 w-4" />;
-        }
+        return colors[status] || 'bg-gray-500';
     };
 
     const formatStatusLabel = (status: string) => {
@@ -85,323 +75,325 @@ export default function CustomerDashboard() {
         <CustomerLayout>
             <Head title="Dashboard" />
             
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-                {/* Welcome Header */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl p-6 sm:p-8 text-white shadow-xl"
-                >
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                        <div>
-                            <h1 className="text-2xl sm:text-3xl font-bold mb-2">
-                                Welcome back, {auth.user?.name}! 👋
-                            </h1>
-                            <p className="text-green-100 flex items-center gap-2">
-                                <Calendar className="h-4 w-4" />
-                                {new Date().toLocaleDateString('en-US', { 
-                                    weekday: 'long', 
-                                    year: 'numeric', 
-                                    month: 'long', 
-                                    day: 'numeric' 
-                                })}
-                            </p>
-                        </div>
-                        <Link
-                            href="/products"
-                            className="inline-flex items-center px-6 py-3 bg-white text-green-600 rounded-lg font-semibold hover:bg-green-50 transition-all shadow-lg hover:shadow-xl"
+            <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                    {/* Hero Section - Horizontal Layout */}
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
+                        {/* Left - Welcome Card */}
+                        <motion.div
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            className="lg:col-span-8"
                         >
-                            <ShoppingBag className="h-5 w-5 mr-2" />
-                            Browse Products
-                        </Link>
-                    </div>
-                </motion.div>
-
-                {/* Stats Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {/* Total Orders */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.1 }}
-                    >
-                        <Card className="p-6 hover:shadow-lg transition-shadow">
-                            <div className="flex items-center justify-between">
-                                <div className="flex-1">
-                                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Orders</p>
-                                    <h3 className="text-3xl font-bold text-gray-900 dark:text-white mt-2">
-                                        {stats.total_orders}
-                                    </h3>
-                                    <Link 
-                                        href="/orders"
-                                        className="inline-flex items-center text-xs text-green-600 dark:text-green-400 hover:underline mt-2"
-                                    >
-                                        View all
-                                        <ChevronRight className="h-3 w-3 ml-1" />
-                                    </Link>
-                                </div>
-                                <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-xl">
-                                    <ShoppingBag className="h-8 w-8 text-blue-600 dark:text-blue-400" />
-                                </div>
-                            </div>
-                        </Card>
-                    </motion.div>
-
-                    {/* Pending Orders */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.2 }}
-                    >
-                        <Card className="p-6 hover:shadow-lg transition-shadow">
-                            <div className="flex items-center justify-between">
-                                <div className="flex-1">
-                                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Pending Orders</p>
-                                    <h3 className="text-3xl font-bold text-gray-900 dark:text-white mt-2">
-                                        {stats.pending_orders}
-                                    </h3>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                                        In progress
-                                    </p>
-                                </div>
-                                <div className="p-3 bg-orange-100 dark:bg-orange-900/20 rounded-xl">
-                                    <Clock className="h-8 w-8 text-orange-600 dark:text-orange-400" />
-                                </div>
-                            </div>
-                        </Card>
-                    </motion.div>
-
-                    {/* Total Spent */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.3 }}
-                    >
-                        <Card className="p-6 hover:shadow-lg transition-shadow">
-                            <div className="flex items-center justify-between">
-                                <div className="flex-1">
-                                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Spent</p>
-                                    <h3 className="text-3xl font-bold text-gray-900 dark:text-white mt-2">
-                                        {formatCurrency(stats.total_spent)}
-                                    </h3>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                                        All time
-                                    </p>
-                                </div>
-                                <div className="p-3 bg-green-100 dark:bg-green-900/20 rounded-xl">
-                                    <DollarSign className="h-8 w-8 text-green-600 dark:text-green-400" />
-                                </div>
-                            </div>
-                        </Card>
-                    </motion.div>
-
-                    {/* Wishlist */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.4 }}
-                    >
-                        <Card className="p-6 hover:shadow-lg transition-shadow">
-                            <div className="flex items-center justify-between">
-                                <div className="flex-1">
-                                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Wishlist Items</p>
-                                    <h3 className="text-3xl font-bold text-gray-900 dark:text-white mt-2">
-                                        {stats.wishlist_count}
-                                    </h3>
-                                    <Link 
-                                        href="/wishlist"
-                                        className="inline-flex items-center text-xs text-pink-600 dark:text-pink-400 hover:underline mt-2"
-                                    >
-                                        View wishlist
-                                        <ChevronRight className="h-3 w-3 ml-1" />
-                                    </Link>
-                                </div>
-                                <div className="p-3 bg-pink-100 dark:bg-pink-900/20 rounded-xl">
-                                    <Heart className="h-8 w-8 text-pink-600 dark:text-pink-400" />
-                                </div>
-                            </div>
-                        </Card>
-                    </motion.div>
-                </div>
-
-                {/* Content Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Recent Orders - Takes 2 columns */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.5 }}
-                        className="lg:col-span-2"
-                    >
-                        <Card className="overflow-hidden">
-                            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Recent Orders</h3>
-                                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Track your recent purchases</p>
+                            <Card className="relative overflow-hidden bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-600 border-0 shadow-2xl">
+                                <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48cGF0dGVybiBpZD0iZ3JpZCIgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBwYXR0ZXJuVW5pdHM9InVzZXJTcGFjZU9uVXNlIj48cGF0aCBkPSJNIDQwIDAgTCAwIDAgMCA0MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLW9wYWNpdHk9IjAuMSIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9wYXR0ZXJuPjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2dyaWQpIi8+PC9zdmc+')] opacity-20"></div>
+                                <div className="relative p-8">
+                                    <div className="flex items-start justify-between mb-6">
+                                        <div>
+                                            <p className="text-emerald-100 text-sm font-medium mb-2">Dashboard Overview</p>
+                                            <h1 className="text-4xl font-bold text-white mb-2">
+                                                Hello, {auth.user?.name?.split(' ')[0]} 👋
+                                            </h1>
+                                            <p className="text-emerald-50 text-lg">Welcome back to your shopping hub</p>
+                                        </div>
                                     </div>
-                                    <Link
-                                        href="/orders"
-                                        className="inline-flex items-center px-4 py-2 text-sm font-medium text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
-                                    >
-                                        View All
-                                        <ChevronRight className="h-4 w-4 ml-1" />
+                                    <div className="flex items-center gap-4">
+                                        <Link
+                                            href="/products"
+                                            className="inline-flex items-center gap-2 px-6 py-3 bg-white text-emerald-600 rounded-xl font-semibold hover:bg-emerald-50 transition-all shadow-xl"
+                                        >
+                                            <ShoppingCart className="h-5 w-5" />
+                                            Start Shopping
+                                        </Link>
+                                        <Link
+                                            href="/stores"
+                                            className="inline-flex items-center gap-2 px-6 py-3 bg-white/10 backdrop-blur-sm text-white rounded-xl font-semibold hover:bg-white/20 transition-all border border-white/20"
+                                        >
+                                            <MapPin className="h-5 w-5" />
+                                            Explore Stores
+                                        </Link>
+                                    </div>
+                                </div>
+                            </Card>
+                        </motion.div>
+
+                        {/* Right - Quick Stats Vertical */}
+                        <motion.div
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            className="lg:col-span-4 space-y-4"
+                        >
+                            <Card className="p-6 border-0 shadow-lg">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 rounded-2xl bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center">
+                                        <ShoppingBag className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Orders</p>
+                                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.total_orders}</p>
+                                    </div>
+                                    <Link href="/orders" className="text-blue-600 dark:text-blue-400">
+                                        <Eye className="h-5 w-5" />
                                     </Link>
                                 </div>
-                            </div>
+                            </Card>
 
-                            {recent_orders.length > 0 ? (
-                                <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                                    {recent_orders.map((order) => (
+                            <Card className="p-6 border-0 shadow-lg">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 rounded-2xl bg-pink-100 dark:bg-pink-900/20 flex items-center justify-center">
+                                        <Heart className="h-6 w-6 text-pink-600 dark:text-pink-400" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Saved</p>
+                                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.wishlist_count}</p>
+                                    </div>
+                                    <Link href="/wishlist" className="text-pink-600 dark:text-pink-400">
+                                        <Eye className="h-5 w-5" />
+                                    </Link>
+                                </div>
+                            </Card>
+                        </motion.div>
+                    </div>
+
+                    {/* Metrics Row - Horizontal Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.1 }}
+                        >
+                            <Card className="p-6 border-0 shadow-lg hover:shadow-xl transition-shadow">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="w-10 h-10 rounded-xl bg-green-100 dark:bg-green-900/20 flex items-center justify-center">
+                                        <DollarSign className="h-5 w-5 text-green-600 dark:text-green-400" />
+                                    </div>
+                                    <Badge className="bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400 text-xs">
+                                        <TrendingUp className="h-3 w-3 mr-1" />
+                                        +12.5%
+                                    </Badge>
+                                </div>
+                                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Spent</p>
+                                <p className="text-3xl font-bold text-gray-900 dark:text-white mb-1">
+                                    {formatCurrency(stats.total_spent)}
+                                </p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">Lifetime purchases</p>
+                            </Card>
+                        </motion.div>
+
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.2 }}
+                        >
+                            <Card className="p-6 border-0 shadow-lg hover:shadow-xl transition-shadow">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-900/20 flex items-center justify-center">
+                                        <Clock className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                                    </div>
+                                    <Badge className="bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400 text-xs">
+                                        Active
+                                    </Badge>
+                                </div>
+                                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Pending Orders</p>
+                                <p className="text-3xl font-bold text-gray-900 dark:text-white mb-1">
+                                    {stats.pending_orders}
+                                </p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">In processing</p>
+                            </Card>
+                        </motion.div>
+
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.3 }}
+                        >
+                            <Card className="p-6 border-0 shadow-lg hover:shadow-xl transition-shadow">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/20 flex items-center justify-center">
+                                        <Activity className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                                    </div>
+                                    <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400 text-xs">
+                                        <TrendingUp className="h-3 w-3 mr-1" />
+                                        +8.2%
+                                    </Badge>
+                                </div>
+                                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Avg Order Value</p>
+                                <p className="text-3xl font-bold text-gray-900 dark:text-white mb-1">
+                                    {stats.total_orders > 0 ? formatCurrency(stats.total_spent / stats.total_orders) : '$0.00'}
+                                </p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">Per transaction</p>
+                            </Card>
+                        </motion.div>
+                    </div>
+
+                    {/* Main Content - Bento Grid Layout */}
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                        {/* Recent Orders - Larger Section */}
+                        <div className="lg:col-span-8 space-y-6">
+                            <Card className="border-0 shadow-lg">
+                                <div className="p-6 border-b border-gray-100 dark:border-gray-800">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <h3 className="text-xl font-bold text-gray-900 dark:text-white">Recent Orders</h3>
+                                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                                {recent_orders.length} orders in the last 30 days
+                                            </p>
+                                        </div>
                                         <Link
-                                            key={order.id}
-                                            href={`/orders/${order.id}`}
-                                            className="block p-6 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                                            href="/orders"
+                                            className="flex items-center gap-1 text-sm font-semibold text-emerald-600 dark:text-emerald-400 hover:gap-2 transition-all"
                                         >
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-4 flex-1">
-                                                    <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-xl">
-                                                        {getStatusIcon(order.status)}
+                                            View All
+                                            <ChevronRight className="h-4 w-4" />
+                                        </Link>
+                                    </div>
+                                </div>
+
+                                {recent_orders.length > 0 ? (
+                                    <div className="p-6 space-y-4">
+                                        {recent_orders.map((order, index) => (
+                                            <Link
+                                                key={order.id}
+                                                href={`/orders/${order.id}`}
+                                                className="flex items-center gap-4 p-4 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all group border border-transparent hover:border-gray-200 dark:hover:border-gray-700"
+                                            >
+                                                <div className={`w-1 h-14 rounded-full ${getStatusColor(order.status)}`}></div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <p className="font-semibold text-gray-900 dark:text-white">
+                                                            {order.order_number}
+                                                        </p>
+                                                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                                                            • {order.items_count} items
+                                                        </span>
                                                     </div>
-                                                    <div className="flex-1">
-                                                        <div className="flex items-center gap-3 mb-1">
-                                                            <h4 className="font-semibold text-gray-900 dark:text-white">
-                                                                {order.order_number}
-                                                            </h4>
-                                                            <Badge className={`text-xs border ${getStatusColor(order.status)}`}>
-                                                                {formatStatusLabel(order.status)}
-                                                            </Badge>
-                                                        </div>
-                                                        <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
-                                                            <span className="flex items-center gap-1">
-                                                                <Package className="h-4 w-4" />
-                                                                {order.items_count} {order.items_count === 1 ? 'item' : 'items'}
-                                                            </span>
-                                                            <span>•</span>
-                                                            <span>{order.created_at}</span>
-                                                        </div>
+                                                    <div className="flex items-center gap-3 text-sm">
+                                                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(order.status)} text-white`}>
+                                                            {formatStatusLabel(order.status)}
+                                                        </span>
+                                                        <span className="text-gray-500 dark:text-gray-400 text-xs">
+                                                            {order.created_at}
+                                                        </span>
                                                     </div>
                                                 </div>
-                                                <div className="text-right">
+                                                <div className="flex items-center gap-3">
                                                     <p className="text-lg font-bold text-gray-900 dark:text-white">
                                                         {formatCurrency(order.total_amount)}
                                                     </p>
-                                                    <ChevronRight className="h-5 w-5 text-gray-400 ml-auto mt-1" />
+                                                    <ChevronRight className="h-5 w-5 text-gray-400 group-hover:translate-x-1 transition-transform" />
                                                 </div>
-                                            </div>
-                                        </Link>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="p-12 text-center">
-                                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 mb-4">
-                                        <ShoppingBag className="h-8 w-8 text-gray-400" />
+                                            </Link>
+                                        ))}
                                     </div>
-                                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                                        No orders yet
-                                    </h3>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-                                        Start shopping to see your orders here
-                                    </p>
+                                ) : (
+                                    <div className="p-12 text-center">
+                                        <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-4">
+                                            <Package className="h-8 w-8 text-gray-400" />
+                                        </div>
+                                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                                            No orders yet
+                                        </h3>
+                                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+                                            Start your shopping journey today
+                                        </p>
+                                        <Link
+                                            href="/products"
+                                            className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 transition-colors"
+                                        >
+                                            <ShoppingBag className="h-5 w-5" />
+                                            Browse Products
+                                        </Link>
+                                    </div>
+                                )}
+                            </Card>
+                        </div>
+
+                        {/* Right Sidebar - Stacked Cards */}
+                        <div className="lg:col-span-4 space-y-6">
+                            {/* Quick Links */}
+                            <Card className="p-6 border-0 shadow-lg">
+                                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Quick Links</h3>
+                                <div className="space-y-2">
                                     <Link
                                         href="/products"
-                                        className="inline-flex items-center px-6 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors"
+                                        className="flex items-center justify-between p-3 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/10 transition-colors group"
                                     >
-                                        <ShoppingBag className="h-5 w-5 mr-2" />
-                                        Browse Products
+                                        <div className="flex items-center gap-3">
+                                            <ShoppingBag className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                                            <span className="font-medium text-gray-900 dark:text-white text-sm">All Products</span>
+                                        </div>
+                                        <ChevronRight className="h-4 w-4 text-gray-400 group-hover:translate-x-1 transition-transform" />
+                                    </Link>
+
+                                    <Link
+                                        href="/orders"
+                                        className="flex items-center justify-between p-3 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors group"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <Package className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                                            <span className="font-medium text-gray-900 dark:text-white text-sm">My Orders</span>
+                                        </div>
+                                        <ChevronRight className="h-4 w-4 text-gray-400 group-hover:translate-x-1 transition-transform" />
+                                    </Link>
+
+                                    <Link
+                                        href="/wishlist"
+                                        className="flex items-center justify-between p-3 rounded-lg hover:bg-pink-50 dark:hover:bg-pink-900/10 transition-colors group"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <Heart className="h-5 w-5 text-pink-600 dark:text-pink-400" />
+                                            <span className="font-medium text-gray-900 dark:text-white text-sm">Wishlist</span>
+                                        </div>
+                                        <ChevronRight className="h-4 w-4 text-gray-400 group-hover:translate-x-1 transition-transform" />
+                                    </Link>
+
+                                    <Link
+                                        href="/stores"
+                                        className="flex items-center justify-between p-3 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/10 transition-colors group"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <MapPin className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                                            <span className="font-medium text-gray-900 dark:text-white text-sm">Find Stores</span>
+                                        </div>
+                                        <ChevronRight className="h-4 w-4 text-gray-400 group-hover:translate-x-1 transition-transform" />
                                     </Link>
                                 </div>
+                            </Card>
+
+                            {/* Order Status Breakdown */}
+                            {stats.total_orders > 0 && (
+                                <Card className="p-6 border-0 shadow-lg">
+                                    <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Order Status</h3>
+                                    <div className="space-y-3">
+                                        {Object.entries(stats.orders_by_status || {}).map(([status, count]) => (
+                                            <div key={status} className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <div className={`w-2 h-2 rounded-full ${getStatusColor(status)}`}></div>
+                                                    <span className="text-sm text-gray-600 dark:text-gray-400 capitalize">
+                                                        {formatStatusLabel(status)}
+                                                    </span>
+                                                </div>
+                                                <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                                                    {count}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </Card>
                             )}
-                        </Card>
-                    </motion.div>
 
-                    {/* Quick Actions Sidebar */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.6 }}
-                        className="space-y-6"
-                    >
-                        {/* Quick Actions */}
-                        <Card className="p-6">
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Quick Actions</h3>
-                            <div className="space-y-3">
-                                <Link
-                                    href="/products"
-                                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group"
-                                >
-                                    <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg group-hover:bg-green-200 dark:group-hover:bg-green-900/30 transition-colors">
-                                        <ShoppingBag className="h-5 w-5 text-green-600 dark:text-green-400" />
-                                    </div>
-                                    <div className="flex-1">
-                                        <p className="font-medium text-gray-900 dark:text-white">Shop Now</p>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400">Browse products</p>
-                                    </div>
-                                    <ChevronRight className="h-5 w-5 text-gray-400" />
-                                </Link>
-
-                                <Link
-                                    href="/orders"
-                                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group"
-                                >
-                                    <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg group-hover:bg-blue-200 dark:group-hover:bg-blue-900/30 transition-colors">
-                                        <Package className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                                    </div>
-                                    <div className="flex-1">
-                                        <p className="font-medium text-gray-900 dark:text-white">My Orders</p>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400">Track orders</p>
-                                    </div>
-                                    <ChevronRight className="h-5 w-5 text-gray-400" />
-                                </Link>
-
-                                <Link
-                                    href="/wishlist"
-                                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group"
-                                >
-                                    <div className="p-2 bg-pink-100 dark:bg-pink-900/20 rounded-lg group-hover:bg-pink-200 dark:group-hover:bg-pink-900/30 transition-colors">
-                                        <Heart className="h-5 w-5 text-pink-600 dark:text-pink-400" />
-                                    </div>
-                                    <div className="flex-1">
-                                        <p className="font-medium text-gray-900 dark:text-white">Wishlist</p>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400">Saved items</p>
-                                    </div>
-                                    <ChevronRight className="h-5 w-5 text-gray-400" />
-                                </Link>
-
-                                <Link
-                                    href="/stores"
-                                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group"
-                                >
-                                    <div className="p-2 bg-purple-100 dark:bg-purple-900/20 rounded-lg group-hover:bg-purple-200 dark:group-hover:bg-purple-900/30 transition-colors">
-                                        <MapPin className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                                    </div>
-                                    <div className="flex-1">
-                                        <p className="font-medium text-gray-900 dark:text-white">Find Stores</p>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400">Near you</p>
-                                    </div>
-                                    <ChevronRight className="h-5 w-5 text-gray-400" />
-                                </Link>
-                            </div>
-                        </Card>
-
-                        {/* Support Card */}
-                        <Card className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/10 dark:to-emerald-900/10 border-green-200 dark:border-green-800">
-                            <div className="flex items-start gap-3 mb-4">
-                                <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg">
-                                    <TrendingUp className="h-5 w-5 text-green-600 dark:text-green-400" />
-                                </div>
-                                <div>
-                                    <h4 className="font-semibold text-gray-900 dark:text-white mb-1">Need Help?</h4>
-                                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                                        Our support team is here to assist you
-                                    </p>
-                                </div>
-                            </div>
-                            <button className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium">
-                                Contact Support
-                            </button>
-                        </Card>
-                    </motion.div>
+                            {/* Support */}
+                            <Card className="p-6 border-0 shadow-lg bg-gradient-to-br from-blue-600 to-cyan-600 text-white">
+                                <h3 className="text-lg font-bold mb-2">Need Help?</h3>
+                                <p className="text-blue-100 text-sm mb-4">
+                                    Our support team is ready to assist you 24/7
+                                </p>
+                                <button className="w-full px-4 py-2.5 bg-white text-blue-600 rounded-lg font-semibold hover:bg-blue-50 transition-colors text-sm">
+                                    Contact Support
+                                </button>
+                            </Card>
+                        </div>
+                    </div>
                 </div>
             </div>
         </CustomerLayout>

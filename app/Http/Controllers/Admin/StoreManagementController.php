@@ -35,6 +35,17 @@ class StoreManagementController extends Controller
             }
         }
 
+        // Filter by location
+        if ($request->has('location')) {
+            if ($request->location === 'no_location') {
+                $query->where('latitude', 0)->where('longitude', 0);
+            } elseif ($request->location === 'has_location') {
+                $query->where(function ($q) {
+                    $q->where('latitude', '!=', 0)->orWhere('longitude', '!=', 0);
+                });
+            }
+        }
+
         // Sort
         $sortBy = $request->get('sort_by', 'created_at');
         $sortOrder = $request->get('sort_order', 'desc');
@@ -53,6 +64,7 @@ class StoreManagementController extends Controller
             'filters' => [
                 'search' => $request->search,
                 'status' => $request->status,
+                'location' => $request->location,
                 'sort_by' => $sortBy,
                 'sort_order' => $sortOrder,
             ],
@@ -70,12 +82,30 @@ class StoreManagementController extends Controller
     }
 
     /**
+     * Get products for a specific store (API endpoint)
+     */
+    public function getProducts($id)
+    {
+        $store = Store::findOrFail($id);
+        
+        $products = $store->products()
+            ->with('category')
+            ->orderBy('name')
+            ->get();
+
+        return response()->json([
+            'products' => $products,
+        ]);
+    }
+
+    /**
      * Store a newly created store in storage
      */
     public function store(Request $request)
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
+            'image' => 'nullable|string',
             'address' => 'nullable|string',
             'phone' => 'nullable|string|max:20',
             'latitude' => 'nullable|numeric|between:-90,90',
@@ -109,6 +139,7 @@ class StoreManagementController extends Controller
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
+            'image' => 'nullable|string',
             'address' => 'nullable|string',
             'phone' => 'nullable|string|max:20',
             'latitude' => 'nullable|numeric|between:-90,90',
@@ -162,6 +193,47 @@ class StoreManagementController extends Controller
         $store->save();
 
         return back()->with('success', 'Store status updated successfully!');
+    }
+
+    /**
+     * Upload store image
+     */
+    public function uploadImage(Request $request)
+    {
+        $request->validate([
+            'image' => 'required|image|mimes:jpeg,jpg,png,gif,webp|max:5120', // 5MB max
+        ]);
+
+        try {
+            if ($request->hasFile('image')) {
+                $image = $request->file('image');
+                $filename = time() . '_' . uniqid() . '.' . $image->getClientOriginalExtension();
+                
+                // Store in public disk under 'stores' folder
+                $path = $image->storeAs('stores', $filename, 'public');
+                
+                // Return the public URL
+                $url = '/storage/' . $path;
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Image uploaded successfully',
+                    'url' => $url,
+                    'path' => $path,
+                ]);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'No image file provided',
+            ], 400);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to upload image: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 }
 

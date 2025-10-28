@@ -63,7 +63,14 @@ class ProductManagementController extends Controller
         $sortOrder = $request->get('sort_order', 'desc');
         $query->orderBy($sortBy, $sortOrder);
 
-        $products = $query->paginate(20);
+        // Per page (allow user to choose: 10, 20, 50, 100)
+        $perPage = $request->get('per_page', 20);
+        $allowedPerPage = [10, 20, 50, 100];
+        if (!in_array($perPage, $allowedPerPage)) {
+            $perPage = 20; // Default fallback
+        }
+
+        $products = $query->paginate($perPage);
 
         // Get categories and stores for filters
         $categories = Category::orderBy('name')->get();
@@ -97,6 +104,7 @@ class ProductManagementController extends Controller
                 'stock_status' => $request->stock_status,
                 'sort_by' => $sortBy,
                 'sort_order' => $sortOrder,
+                'per_page' => $perPage,
             ],
         ]);
     }
@@ -369,5 +377,68 @@ class ProductManagementController extends Controller
                 'message' => 'Failed to upload image: ' . $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Duplicate product to another store
+     */
+    public function duplicate(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'store_id' => 'required|exists:stores,id',
+        ]);
+
+        $originalProduct = Product::findOrFail($id);
+        $targetStore = Store::findOrFail($validated['store_id']);
+
+        // Check if the target store already has the original product (without "(Copy)")
+        $existingOriginal = Product::where('store_id', $validated['store_id'])
+            ->where('name', $originalProduct->name)
+            ->first();
+
+        if ($existingOriginal) {
+            return response()->json([
+                'success' => false,
+                'message' => "Cannot duplicate: {$targetStore->name} already has '{$originalProduct->name}'",
+                'store_name' => $targetStore->name,
+                'product_name' => $originalProduct->name,
+            ], 422);
+        }
+
+        // Generate the new product name with (Copy) suffix
+        $newProductName = $originalProduct->name . ' (Copy)';
+        
+        // Check if a product with "(Copy)" suffix already exists in target store
+        $existingCopy = Product::where('store_id', $validated['store_id'])
+            ->where('name', $newProductName)
+            ->first();
+
+        if ($existingCopy) {
+            return response()->json([
+                'success' => false,
+                'message' => "A product named '{$newProductName}' already exists in {$targetStore->name}. Please rename the existing duplicate first.",
+            ], 422);
+        }
+
+        // Clone product data
+        $newProduct = $originalProduct->replicate();
+        $newProduct->store_id = $validated['store_id'];
+        $newProduct->name = $newProductName; // Already calculated above
+        $newProduct->is_active = false; // Set to inactive - admin must review and activate
+        $newProduct->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => "Product duplicated to {$targetStore->name} successfully!",
+            'note' => 'The duplicated product is set to INACTIVE. Please review and adjust price/stock before activating.',
+            'product' => [
+                'id' => $newProduct->id,
+                'name' => $newProduct->name,
+                'store' => [
+                    'id' => $targetStore->id,
+                    'name' => $targetStore->name,
+                ],
+            ],
+        ]);
     }
 }

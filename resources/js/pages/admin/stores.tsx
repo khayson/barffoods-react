@@ -21,6 +21,7 @@ import { toast } from 'sonner';
 interface Store {
     id: number;
     name: string;
+    image: string | null;
     address: string;
     phone: string;
     latitude: number;
@@ -45,6 +46,7 @@ interface StoresPageProps {
     filters: {
         search?: string;
         status?: string;
+        location?: string;
         sort_by?: string;
         sort_order?: string;
     };
@@ -53,12 +55,19 @@ interface StoresPageProps {
 export default function StoresPage({ stores, filters }: StoresPageProps) {
     const [searchTerm, setSearchTerm] = useState(filters.search || '');
     const [selectedStatus, setSelectedStatus] = useState(filters.status || '');
+    const [selectedLocation, setSelectedLocation] = useState(filters.location || '');
     const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
 
     // Off-canvas state
     const [offCanvasOpen, setOffCanvasOpen] = useState(false);
     const [offCanvasMode, setOffCanvasMode] = useState<'view' | 'edit' | 'create'>('view');
     const [selectedStoreId, setSelectedStoreId] = useState<number | null>(null);
+
+    // Helper function to check if image is a URL (not emoji)
+    const isImageUrl = (image: string | null) => {
+        if (!image) return false;
+        return image.startsWith('http://') || image.startsWith('https://') || image.startsWith('/');
+    };
 
     const handleSearch = () => {
         applyFilters();
@@ -68,6 +77,7 @@ export default function StoresPage({ stores, filters }: StoresPageProps) {
         const params: Record<string, any> = { page };
         if (searchTerm) params.search = searchTerm;
         if (selectedStatus) params.status = selectedStatus;
+        if (selectedLocation) params.location = selectedLocation;
         if (filters.sort_by) params.sort_by = filters.sort_by;
         if (filters.sort_order) params.sort_order = filters.sort_order;
 
@@ -156,7 +166,7 @@ export default function StoresPage({ stores, filters }: StoresPageProps) {
         return pages;
     };
 
-    const activeFiltersCount = [searchTerm, selectedStatus].filter(Boolean).length;
+    const activeFiltersCount = [searchTerm, selectedStatus, selectedLocation].filter(Boolean).length;
 
     return (
         <AdminLayout>
@@ -286,6 +296,22 @@ export default function StoresPage({ stores, filters }: StoresPageProps) {
                             <option value="inactive">Inactive</option>
                         </select>
 
+                        {/* Location Filter */}
+                        <select
+                            value={selectedLocation}
+                            onChange={(e) => {
+                                setSelectedLocation(e.target.value);
+                                setTimeout(() => {
+                                    applyFilters();
+                                }, 100);
+                            }}
+                            className="px-4 py-3.5 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all"
+                        >
+                            <option value="">All Locations</option>
+                            <option value="no_location">⚠️ Needs Location</option>
+                            <option value="has_location">Has Location</option>
+                        </select>
+
                         {/* Search Button */}
                         <motion.button
                             whileHover={{ scale: 1.02 }}
@@ -336,6 +362,21 @@ export default function StoresPage({ stores, filters }: StoresPageProps) {
                                         </button>
                                     </Badge>
                                 )}
+                                
+                                {selectedLocation && (
+                                    <Badge variant="secondary" className="gap-2">
+                                        Location: {selectedLocation === 'no_location' ? '⚠️ Needs Location' : 'Has Location'}
+                                        <button
+                                            onClick={() => {
+                                                setSelectedLocation('');
+                                                applyFilters();
+                                            }}
+                                            className="ml-1 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-full p-0.5"
+                                        >
+                                            ×
+                                        </button>
+                                    </Badge>
+                                )}
                             </motion.div>
                         )}
                     </AnimatePresence>
@@ -371,33 +412,65 @@ export default function StoresPage({ stores, filters }: StoresPageProps) {
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: index * 0.05 }}
                                 whileHover={{ y: -4, boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)' }}
-                                className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 space-y-4 cursor-pointer group relative"
+                                className={`rounded-xl border border-gray-200 dark:border-gray-700 p-6 space-y-4 cursor-pointer group relative overflow-hidden ${
+                                    !isImageUrl(store.image) ? 'bg-white dark:bg-gray-800' : ''
+                                }`}
+                                style={isImageUrl(store.image) ? {
+                                    backgroundImage: `url(${store.image})`,
+                                    backgroundSize: 'cover',
+                                    backgroundPosition: 'center',
+                                } : {}}
                                 onClick={() => handleViewStore(store.id)}
                             >
-                                {/* Store Header */}
-                                <div className="flex items-start justify-between">
-                                    <div className="flex-1">
-                                        <h3 className="font-semibold text-lg text-gray-900 dark:text-white line-clamp-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                                            {store.name}
-                                        </h3>
-                                        <div className="flex items-center gap-2 mt-2">
-                                            <Badge
-                                                variant={store.is_active ? 'default' : 'secondary'}
-                                                className={store.is_active 
-                                                    ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' 
-                                                    : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'}
-                                            >
-                                                {store.is_active ? 'Active' : 'Inactive'}
-                                            </Badge>
+                                {/* Background Overlay (only when image exists) */}
+                                {isImageUrl(store.image) && (
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/50 to-black/30 dark:from-black/90 dark:via-black/60 dark:to-black/40 z-0 h-full w-full"></div>
+                                )}
+                                
+                                {/* Content Wrapper */}
+                                <div className="relative z-10">
+                                    {/* Store Header */}
+                                    <div className="flex items-start justify-between">
+                                        <div className="flex-1">
+                                            <h3 className={`font-semibold text-lg line-clamp-1 transition-colors ${
+                                                isImageUrl(store.image) 
+                                                    ? 'text-white group-hover:text-blue-300' 
+                                                    : 'text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400'
+                                            }`}>
+                                                {store.name}
+                                            </h3>
+                                            <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                                <Badge
+                                                    variant={store.is_active ? 'default' : 'secondary'}
+                                                    className={store.is_active 
+                                                        ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' 
+                                                        : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'}
+                                                >
+                                                    {store.is_active ? 'Active' : 'Inactive'}
+                                                </Badge>
+                                                {(store.latitude === 0 && store.longitude === 0) && (
+                                                    <Badge
+                                                        variant="secondary"
+                                                        className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 border-yellow-300 dark:border-yellow-700"
+                                                    >
+                                                        ⚠️ Location Not Set
+                                                    </Badge>
+                                                )}
+                                            </div>
                                         </div>
-                                    </div>
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger
-                                            onClick={(e) => e.stopPropagation()}
-                                            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                                        >
-                                            <MoreVertical className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                                        </DropdownMenuTrigger>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger
+                                                onClick={(e) => e.stopPropagation()}
+                                                className={`p-2 rounded-lg transition-colors opacity-0 group-hover:opacity-100 ${
+                                                    isImageUrl(store.image) 
+                                                        ? 'hover:bg-white/20' 
+                                                        : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                                                }`}
+                                            >
+                                                <MoreVertical className={`h-5 w-5 ${
+                                                    isImageUrl(store.image) ? 'text-white' : 'text-gray-600 dark:text-gray-400'
+                                                }`} />
+                                            </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
                                             <DropdownMenuItem onClick={() => handleViewStore(store.id)}>
                                                 <Eye className="h-4 w-4 mr-2" />
@@ -422,41 +495,63 @@ export default function StoresPage({ stores, filters }: StoresPageProps) {
                                     </DropdownMenu>
                                 </div>
 
-                                {/* Store Details */}
-                                <div className="space-y-3">
-                                    <div className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400">
-                                        <MapPin className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                                        <span className="line-clamp-2">{store.address}</span>
-                                    </div>
-                                    
-                                    {store.phone && (
-                                        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                                            <Phone className="h-4 w-4 flex-shrink-0" />
-                                            <span>{store.phone}</span>
+                                    {/* Store Details */}
+                                    <div className="space-y-3">
+                                        <div className={`flex items-start gap-2 text-sm ${
+                                            isImageUrl(store.image) ? 'text-gray-200' : 'text-gray-600 dark:text-gray-400'
+                                        }`}>
+                                            <MapPin className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                                            <span className="line-clamp-2">{store.address}</span>
                                         </div>
-                                    )}
+                                        
+                                        {store.phone && (
+                                            <div className={`flex items-center gap-2 text-sm ${
+                                                isImageUrl(store.image) ? 'text-gray-200' : 'text-gray-600 dark:text-gray-400'
+                                            }`}>
+                                                <Phone className="h-4 w-4 flex-shrink-0" />
+                                                <span>{store.phone}</span>
+                                            </div>
+                                        )}
 
-                                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                                        <Package className="h-4 w-4 flex-shrink-0" />
-                                        <span>{store.products_count} products</span>
+                                        <div className={`flex items-center gap-2 text-sm ${
+                                            isImageUrl(store.image) ? 'text-gray-200' : 'text-gray-600 dark:text-gray-400'
+                                        }`}>
+                                            <Package className="h-4 w-4 flex-shrink-0" />
+                                            <span>{store.products_count} products</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Store Stats */}
+                                    <div className={`grid grid-cols-3 gap-2 pt-4 border-t ${
+                                        isImageUrl(store.image) ? 'border-gray-400' : 'border-gray-200 dark:border-gray-700'
+                                    }`}>
+                                        <div className="text-center">
+                                            <div className={`text-xs mb-1 ${
+                                                isImageUrl(store.image) ? 'text-gray-300' : 'text-gray-500 dark:text-gray-400'
+                                            }`}>Radius</div>
+                                            <div className={`text-sm font-semibold ${
+                                                isImageUrl(store.image) ? 'text-white' : 'text-gray-900 dark:text-white'
+                                            }`}>{store.delivery_radius}mi</div>
+                                        </div>
+                                        <div className="text-center">
+                                            <div className={`text-xs mb-1 ${
+                                                isImageUrl(store.image) ? 'text-gray-300' : 'text-gray-500 dark:text-gray-400'
+                                            }`}>Min. Order</div>
+                                            <div className={`text-sm font-semibold ${
+                                                isImageUrl(store.image) ? 'text-white' : 'text-gray-900 dark:text-white'
+                                            }`}>${store.min_order_amount}</div>
+                                        </div>
+                                        <div className="text-center">
+                                            <div className={`text-xs mb-1 ${
+                                                isImageUrl(store.image) ? 'text-gray-300' : 'text-gray-500 dark:text-gray-400'
+                                            }`}>Del. Fee</div>
+                                            <div className={`text-sm font-semibold ${
+                                                isImageUrl(store.image) ? 'text-white' : 'text-gray-900 dark:text-white'
+                                            }`}>${store.delivery_fee}</div>
+                                        </div>
                                     </div>
                                 </div>
-
-                                {/* Store Stats */}
-                                <div className="grid grid-cols-3 gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
-                                    <div className="text-center">
-                                        <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Radius</div>
-                                        <div className="text-sm font-semibold text-gray-900 dark:text-white">{store.delivery_radius}mi</div>
-                                    </div>
-                                    <div className="text-center">
-                                        <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Min. Order</div>
-                                        <div className="text-sm font-semibold text-gray-900 dark:text-white">${store.min_order_amount}</div>
-                                    </div>
-                                    <div className="text-center">
-                                        <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Del. Fee</div>
-                                        <div className="text-sm font-semibold text-gray-900 dark:text-white">${store.delivery_fee}</div>
-                                    </div>
-                                </div>
+                                {/* End Content Wrapper */}
                             </motion.div>
                         ))}
                     </div>

@@ -23,7 +23,8 @@ interface Product {
     image: string;
     store: { 
         id: string; 
-        name: string; 
+        name: string;
+        image?: string | null;
         address?: string;
         delivery_fee?: number;
         min_order_amount?: number;
@@ -719,7 +720,26 @@ export default function ProductPage({ product, reviews, relatedProducts, shippin
                                                 
                                                 {/* Store Delivery Info */}
                                                 <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-                                                    <h4 className="font-medium text-gray-900 dark:text-white mb-3">Delivery from {productData.store?.name}</h4>
+                                                    <div className="flex items-center gap-3 mb-3">
+                                                        {productData.store?.image ? (
+                                                            productData.store.image.startsWith('http') || productData.store.image.startsWith('/') ? (
+                                                                <img
+                                                                    src={productData.store.image}
+                                                                    alt={productData.store.name}
+                                                                    className="w-12 h-12 rounded-lg object-cover"
+                                                                />
+                                                            ) : (
+                                                                <div className="w-12 h-12 rounded-lg bg-white dark:bg-gray-700 flex items-center justify-center text-2xl">
+                                                                    {productData.store.image}
+                                                                </div>
+                                                            )
+                                                        ) : (
+                                                            <div className="w-12 h-12 rounded-lg bg-white dark:bg-gray-700 flex items-center justify-center">
+                                                                <Package className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                                                            </div>
+                                                        )}
+                                                        <h4 className="font-medium text-gray-900 dark:text-white">Delivery from {productData.store?.name}</h4>
+                                                    </div>
                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                                                         {productData.store?.delivery_fee && (
                                                             <div>
