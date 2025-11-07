@@ -86,6 +86,7 @@ export default function ProductPage({ product, reviews, relatedProducts, shippin
     const [userRating, setUserRating] = useState(0);
     const [hoveredRating, setHoveredRating] = useState(0);
     const [reviewsState, setReviewsState] = useState(reviews);
+    const [showFullDescription, setShowFullDescription] = useState(false);
 
     // Review form state
     const [reviewData, setReviewData] = useState({
@@ -525,10 +526,32 @@ export default function ProductPage({ product, reviews, relatedProducts, shippin
                                             </Button>
                                         </div>
 
-                                        {/* Description */}
-                                        <p className="text-sm sm:text-base text-gray-700 dark:text-gray-300 leading-relaxed">
-                                            {productData.description}
-                                        </p>
+                                        {/* Description Preview */}
+                                        <div className="text-sm sm:text-base text-gray-700 dark:text-gray-300 leading-relaxed">
+                                            <p className={`${!showFullDescription && productData.description.length > 150 ? 'line-clamp-3' : ''}`}>
+                                                {showFullDescription || productData.description.length <= 150
+                                                    ? productData.description
+                                                    : `${productData.description.substring(0, 150)}...`}
+                                            </p>
+                                            {productData.description.length > 150 && (
+                                                <button
+                                                    onClick={() => setShowFullDescription(!showFullDescription)}
+                                                    className="text-green-600 dark:text-green-400 hover:underline text-sm font-medium mt-1 inline-flex items-center gap-1"
+                                                >
+                                                    {showFullDescription ? (
+                                                        <>
+                                                            Show less
+                                                            <ChevronLeft className="w-4 h-4" />
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            Read more
+                                                            <ChevronRight className="w-4 h-4" />
+                                                        </>
+                                                    )}
+                                                </button>
+                                            )}
+                                        </div>
 
                                         {/* Pricing */}
                                         <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
