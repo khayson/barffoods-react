@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Models\OrderStatusHistory;
 use App\Events\OrderStatusChanged;
 use App\Jobs\SendOrderStatusNotificationJob;
+use App\Notifications\OrderStatusUpdatedNotification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -125,7 +126,27 @@ class OrderStatusService
         // Dispatch event for other listeners
         event(new OrderStatusChanged($order, $oldStatus, $newStatus));
 
-        // Queue notification job
+        // Send email notification to customer
+        try {
+            if ($order->user) {
+                $order->user->notify(new OrderStatusUpdatedNotification($order, $oldStatus, $newStatus));
+                
+                Log::info('Order status update notification sent', [
+                    'order_id' => $order->id,
+                    'old_status' => $oldStatus,
+                    'new_status' => $newStatus
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to send order status update notification', [
+                'order_id' => $order->id,
+                'old_status' => $oldStatus,
+                'new_status' => $newStatus,
+                'error' => $e->getMessage()
+            ]);
+        }
+
+        // Queue notification job for in-app notifications
         SendOrderStatusNotificationJob::dispatch($order, $oldStatus, $newStatus);
     }
 

@@ -316,6 +316,53 @@ class EasyPostService
     }
 
     /**
+     * Get rates for an existing shipment by ID
+     */
+    public function getRatesForShipment(string $shipmentId): array
+    {
+        try {
+            $response = $this->getHttpClient()->get($this->baseUrl . '/shipments/' . $shipmentId);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                $rates = [];
+                
+                foreach ($data['rates'] as $rate) {
+                    $rates[] = [
+                        'id' => $rate['id'],
+                        'carrier' => $rate['carrier'],
+                        'service' => $rate['service'],
+                        'rate' => (float) $rate['rate'],
+                        'delivery_days' => $rate['delivery_days'] ?? null,
+                        'delivery_date' => $rate['delivery_date'] ?? null,
+                    ];
+                }
+                
+                return [
+                    'success' => true,
+                    'rates' => $rates
+                ];
+            }
+
+            return [
+                'success' => false,
+                'error' => 'Failed to retrieve shipment rates'
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('EasyPost getRatesForShipment failed', [
+                'shipment_id' => $shipmentId,
+                'error' => $e->getMessage()
+            ]);
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
      * Get shipping rates from EasyPost
      */
     public function getRates(array $shipmentData): array

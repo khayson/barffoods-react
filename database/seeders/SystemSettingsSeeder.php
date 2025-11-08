@@ -143,5 +143,37 @@ class SystemSettingsSeeder extends Seeder
             'json',
             'Default map location used when user location is not available or not set'
         );
+
+        // Contact Information
+        SystemSetting::set(
+            'contact_info',
+            json_encode([
+                'email' => 'support@grocerybazar.com',
+                'phone' => '+1 (555) 123-4567',
+                'address' => '123 Market Street, City, State 12345',
+                'business_hours' => 'Monday - Friday: 9:00 AM - 6:00 PM\nSaturday - Sunday: 10:00 AM - 4:00 PM'
+            ]),
+            'json',
+            'Contact information displayed on the contact page'
+        );
+
+        // About Page Team Information
+        SystemSetting::set(
+            'about_team',
+            json_encode([
+                [
+                    'name' => 'Sarah Johnson',
+                    'title' => 'FOUNDER AND PRINCIPAL',
+                    'image' => null
+                ],
+                [
+                    'name' => 'Michael Chen',
+                    'title' => 'FOUNDER AND PRINCIPAL',
+                    'image' => null
+                ]
+            ]),
+            'json',
+            'Team members displayed on the about page'
+        );
     }
 }

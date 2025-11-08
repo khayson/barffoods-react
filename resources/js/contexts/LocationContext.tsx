@@ -68,7 +68,7 @@ export function LocationProvider({
           longitude: location.longitude,
           radius: 25
         },
-        timeout: 10000 // 10 second timeout
+        timeout: 30000 // 30 second timeout
       });
 
       const stores = response.data.map((store: any) => ({
@@ -92,7 +92,7 @@ export function LocationProvider({
           latitude: location.latitude,
           longitude: location.longitude
         },
-        timeout: 10000
+        timeout: 30000 // 30 second timeout
       });
 
       const allStoresData = allResponse.data.map((store: any) => ({

@@ -17,6 +17,14 @@ use Inertia\Inertia;
 
 Route::get('/', [WelcomeController::class, 'index'])->name('home');
 
+// Static pages
+Route::get('/about', function () {
+    return Inertia::render('about');
+})->name('about');
+
+Route::get('/contact', [App\Http\Controllers\ContactController::class, 'index'])->name('contact');
+Route::post('/contact', [App\Http\Controllers\ContactController::class, 'store'])->name('contact.store');
+
 // Broadcasting authentication is handled by routes/channels.php
 
 // Product routes
@@ -42,6 +50,7 @@ Route::middleware(['auth'])->group(function () {
         Route::patch('/orders/{id}/ready', [App\Http\Controllers\Admin\OrderManagementController::class, 'markAsReady'])->name('admin.orders.mark-ready');
         Route::patch('/orders/{orderId}/items/{itemId}/status', [App\Http\Controllers\Admin\OrderManagementController::class, 'updateItemStatus'])->name('admin.orders.update-item-status');
         Route::post('/orders/{id}/create-label', [App\Http\Controllers\Admin\OrderManagementController::class, 'createLabel'])->name('admin.orders.create-label');
+        Route::post('/orders/{id}/reset-label', [App\Http\Controllers\Admin\OrderManagementController::class, 'resetLabel'])->name('admin.orders.reset-label');
         Route::get('/orders/{id}/create-label', function($id) {
             return redirect()->route('admin.orders.show', $id)->with('info', 'Please use the "Create Label" button to create shipping labels.');
         });

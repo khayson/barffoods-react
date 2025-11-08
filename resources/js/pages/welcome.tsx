@@ -384,16 +384,18 @@ export default function Welcome() {
                 />
 
                 {/* Product Section */}
-                <ProductSection 
-                    nearbyStores={props.nearbyStores}
-                    allStores={props.allStores}
-                    initialProducts={props.products}
-                    initialCategories={props.categories}
-                    selectedCategory={selectedCategory}
-                    onCategoryChange={setSelectedCategory}
-                    externalSelectedStores={selectedStores}
-                    onStoresChange={setSelectedStores}
-                />
+                <div id="products">
+                    <ProductSection 
+                        nearbyStores={props.nearbyStores}
+                        allStores={props.allStores}
+                        initialProducts={props.products}
+                        initialCategories={props.categories}
+                        selectedCategory={selectedCategory}
+                        onCategoryChange={setSelectedCategory}
+                        externalSelectedStores={selectedStores}
+                        onStoresChange={setSelectedStores}
+                    />
+                </div>
                 
                 {/* Store Locations & Delivery Zones */}
                 <StoreLocationsMap defaultMapLocation={props.defaultMapLocation} />

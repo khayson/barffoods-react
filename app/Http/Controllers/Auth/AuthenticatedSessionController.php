@@ -89,12 +89,12 @@ class AuthenticatedSessionController extends Controller
             return Inertia::location($redirectUrl);
         }
 
-        // Role-based redirect
+        // Role-based redirect - use Inertia::location() to force full page reload and refresh CSRF token
         if ($user->role === 'super_admin') {
-            return redirect()->intended(route('admin.dashboard', absolute: false));
+            return Inertia::location(route('admin.dashboard', absolute: false));
         }
 
-        return redirect()->intended(route('customer.dashboard', absolute: false));
+        return Inertia::location(route('customer.dashboard', absolute: false));
     }
 
     /**

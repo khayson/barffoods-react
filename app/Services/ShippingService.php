@@ -7,6 +7,7 @@ use App\Models\OrderItem;
 use App\Models\SystemSetting;
 use App\Exceptions\Shipping\ShippingException;
 use App\Jobs\RetryShippingLabelJob;
+use App\Notifications\ShippingLabelCreatedNotification;
 use Illuminate\Support\Facades\Log;
 
 class ShippingService
@@ -204,16 +205,36 @@ class ShippingService
     {
         try {
             // Use retry logic for label creation
-            return $this->retryWithBackoff(function () use ($order, $rateId) {
-                // First get shipment ID by calculating rates
-                $ratesResult = $this->calculateShippingRates($order);
-                
-                if (!$ratesResult['success']) {
-                    throw new \Exception($ratesResult['error']);
+            $labelResult = $this->retryWithBackoff(function () use ($order, $rateId) {
+                // Check if order already has a shipment_id
+                if ($order->shipment_id) {
+                    \Log::info('Using existing shipment ID for label creation', [
+                        'order_id' => $order->id,
+                        'shipment_id' => $order->shipment_id
+                    ]);
+                    $shipmentId = $order->shipment_id;
+                    
+                    // Get rates for the existing shipment
+                    $ratesResult = $this->easyPostService->getRatesForShipment($shipmentId);
+                    if (!$ratesResult['success']) {
+                        throw new \Exception($ratesResult['error']);
+                    }
+                    $rates = $ratesResult['rates'];
+                } else {
+                    // Create new shipment and get rates
+                    $ratesResult = $this->calculateShippingRates($order);
+                    
+                    if (!$ratesResult['success']) {
+                        throw new \Exception($ratesResult['error']);
+                    }
+                    
+                    $shipmentId = $ratesResult['shipment_id'];
+                    $rates = $ratesResult['rates'];
+                    
+                    // Store the shipment_id for future use (set directly to bypass guarded)
+                    $order->shipment_id = $shipmentId;
+                    $order->save();
                 }
-                
-                $shipmentId = $ratesResult['shipment_id'];
-                $rates = $ratesResult['rates'];
                 
                 // Find a matching rate or use the first available rate
                 $selectedRate = null;
@@ -241,6 +262,15 @@ class ShippingService
                 // Create the label using the selected rate
                 $labelResult = $this->easyPostService->createLabel($shipmentId, $selectedRate['id']);
                 
+                \Log::info('EasyPost label creation result', [
+                    'order_id' => $order->id,
+                    'success' => $labelResult['success'],
+                    'has_tracking_code' => isset($labelResult['tracking_code']) && !empty($labelResult['tracking_code']),
+                    'has_label_url' => isset($labelResult['label_url']) && !empty($labelResult['label_url']),
+                    'tracking_code' => $labelResult['tracking_code'] ?? 'null',
+                    'label_url' => $labelResult['label_url'] ?? 'null',
+                ]);
+                
                 if (!$labelResult['success']) {
                     throw new \Exception($labelResult['error'] ?? 'Label creation failed');
                 }
@@ -248,23 +278,7 @@ class ShippingService
                 return $labelResult;
             }, 'create_shipping_label');
             
-        } catch (ShippingException $e) {
-            // Already logged and formatted by retryWithBackoff
-            $labelResult = [
-                'success' => false,
-                'error' => $e->getMessage(),
-            ];
-
-            // Queue job to retry label creation
-            Log::info('Queueing retry job for failed shipping label', [
-                'order_id' => $order->id,
-                'order_number' => $order->order_number,
-                'rate_id' => $rateId,
-            ]);
-
-            RetryShippingLabelJob::dispatch($order->id, $rateId)
-                ->delay(now()->addMinutes(5)); // First retry after 5 minutes
-            
+            // If successful, update the order
             if ($labelResult['success']) {
                 // Calculate estimated delivery date from days
                 $estimatedDeliveryDate = null;
@@ -272,18 +286,93 @@ class ShippingService
                     $estimatedDeliveryDate = now()->addDays($labelResult['estimated_delivery_date']);
                 }
                 
-                // Update order with tracking information
-                $order->update([
-                    'tracking_code' => $labelResult['tracking_code'],
-                    'label_url' => $labelResult['label_url'],
-                    'tracker_id' => $labelResult['tracker_id'],
-                    'carrier' => $labelResult['carrier'] ?? $order->carrier,
-                    'service' => $labelResult['service'] ?? $order->service,
-                    'estimated_delivery_date' => $estimatedDeliveryDate,
-                    'delivery_status' => 'pre_transit',
-                    'last_tracking_update' => now(),
-                    'status' => 'processing', // Move to processing when label is created
-                ]);
+                // Refresh order to get latest version
+                $order->refresh();
+                
+                // Update order with tracking information - retry on optimistic locking failure
+                $maxRetries = 3;
+                $retryCount = 0;
+                $updateResult = false;
+                
+                while (!$updateResult && $retryCount < $maxRetries) {
+                    try {
+                        // Set attributes directly (bypasses mass assignment protection for guarded fields)
+                        $order->tracking_code = $labelResult['tracking_code'];
+                        $order->label_url = $labelResult['label_url'];
+                        $order->tracker_id = $labelResult['tracker_id'];
+                        $order->carrier = $labelResult['carrier'] ?? $order->carrier;
+                        $order->service = $labelResult['service'] ?? $order->service;
+                        $order->estimated_delivery_date = $estimatedDeliveryDate;
+                        $order->delivery_status = 'pre_transit';
+                        $order->last_tracking_update = now();
+                        $order->status = 'processing';
+                        
+                        // Save with optimistic locking check
+                        $updateResult = $order->save();
+                        
+                        if ($updateResult) {
+                            Log::info('Successfully updated order with tracking information', [
+                                'order_id' => $order->id,
+                                'tracking_code' => $labelResult['tracking_code'],
+                                'label_url' => $labelResult['label_url'],
+                                'retry_count' => $retryCount
+                            ]);
+                            
+                            // Send shipping label created notification
+                            try {
+                                if ($order->user) {
+                                    $order->user->notify(new ShippingLabelCreatedNotification($order));
+                                    
+                                    Log::info('Shipping label notification sent', [
+                                        'order_id' => $order->id,
+                                        'tracking_code' => $labelResult['tracking_code']
+                                    ]);
+                                }
+                            } catch (\Exception $e) {
+                                Log::error('Failed to send shipping label notification', [
+                                    'order_id' => $order->id,
+                                    'error' => $e->getMessage()
+                                ]);
+                            }
+                        } else {
+                            // Update returned false - increment retry and try again
+                            $retryCount++;
+                            if ($retryCount < $maxRetries) {
+                                Log::warning('Order update returned false, retrying...', [
+                                    'order_id' => $order->id,
+                                    'retry' => $retryCount,
+                                    'tracking_code' => $labelResult['tracking_code'],
+                                ]);
+                                $order->refresh(); // Refresh before retry
+                                usleep(100000); // Wait 100ms before retry
+                            } else {
+                                Log::error('Order update failed after all retries (returned false)', [
+                                    'order_id' => $order->id,
+                                    'tracking_code' => $labelResult['tracking_code'],
+                                    'label_url' => $labelResult['label_url'],
+                                ]);
+                            }
+                        }
+                    } catch (\Exception $e) {
+                        $retryCount++;
+                        if ($retryCount < $maxRetries) {
+                            Log::warning('Order update threw exception, retrying...', [
+                                'order_id' => $order->id,
+                                'retry' => $retryCount,
+                                'error' => $e->getMessage()
+                            ]);
+                            $order->refresh(); // Refresh before retry
+                            usleep(100000); // Wait 100ms before retry
+                        } else {
+                            Log::error('Failed to update order with tracking information after retries', [
+                                'order_id' => $order->id,
+                                'tracking_code' => $labelResult['tracking_code'],
+                                'label_url' => $labelResult['label_url'],
+                                'error' => $e->getMessage()
+                            ]);
+                        }
+                    }
+                }
                 
                 // Create initial tracking event
                 \App\Models\ShipmentTrackingEvent::create([
@@ -302,6 +391,25 @@ class ShippingService
                     'tracker_id' => $labelResult['tracker_id'],
                 ]);
             }
+            
+            return $labelResult;
+            
+        } catch (ShippingException $e) {
+            // Already logged and formatted by retryWithBackoff
+            $labelResult = [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+
+            // Queue job to retry label creation
+            Log::info('Queueing retry job for failed shipping label', [
+                'order_id' => $order->id,
+                'order_number' => $order->order_number,
+                'rate_id' => $rateId,
+            ]);
+
+            RetryShippingLabelJob::dispatch($order->id, $rateId)
+                ->delay(now()->addMinutes(5)); // First retry after 5 minutes
             
             return $labelResult;
             

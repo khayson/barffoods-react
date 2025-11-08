@@ -112,9 +112,13 @@ class AdminController extends Controller
         $ordersByStatus = Order::select('status', DB::raw('count(*) as count'))
             ->groupBy('status')
             ->get()
-            ->mapWithKeys(function ($item) {
-                return [$item->status => $item->count];
-            });
+            ->map(function ($item) {
+                return [
+                    'status' => $item->status,
+                    'count' => $item->count
+                ];
+            })
+            ->values();
 
         return Inertia::render('admin/dashboard', [
             'stats' => [

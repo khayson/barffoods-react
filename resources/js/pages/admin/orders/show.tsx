@@ -72,6 +72,8 @@ interface Order {
     delivery_status: string | null;
     estimated_delivery_date: string | null;
     last_tracking_update: string | null;
+    rate_id: string | null;
+    shipment_id: string | null;
 }
 
 interface ProgressData {
@@ -93,9 +95,33 @@ interface OrderShowPageProps {
 
 export default function OrderShowPage({ order, progressData }: OrderShowPageProps) {
     const [localOrder, setLocalOrder] = useState(order);
+    const { props } = usePage<any>();
     
     // Use real-time tracking updates for admin
     useAdminTrackingUpdates();
+    
+    // Update local order when prop changes (after label creation, etc.)
+    React.useEffect(() => {
+        setLocalOrder(order);
+    }, [order]);
+    
+    // Handle flash messages
+    React.useEffect(() => {
+        if (props.flash) {
+            if (props.flash.success) {
+                toast.success(props.flash.success);
+            }
+            if (props.flash.error) {
+                toast.error(props.flash.error);
+            }
+            if (props.flash.warning) {
+                toast.warning(props.flash.warning);
+            }
+            if (props.flash.info) {
+                toast.info(props.flash.info);
+            }
+        }
+    }, [props.flash]);
     const formatDate = (dateString: string) => {
         return new Date(dateString).toLocaleDateString('en-US', {
             month: 'long',
@@ -131,15 +157,13 @@ export default function OrderShowPage({ order, progressData }: OrderShowPageProp
         });
         
         router.post(`/admin/orders/${localOrder.id}/create-label`, {}, {
-            preserveState: true,
+            preserveState: false, // Allow state to update with new order data
             preserveScroll: true,
             onSuccess: (page) => {
                 console.log('Label creation successful');
                 console.log('Page props:', page.props);
-                toast.success('Shipping label created successfully!', {
-                    id: 'create-label'
-                });
-                // The page will be redirected and reloaded with updated data
+                toast.dismiss('create-label');
+                // Page will automatically update with new order data
             },
             onError: (errors) => {
                 console.error('Label creation failed:', errors);
@@ -499,15 +523,33 @@ export default function OrderShowPage({ order, progressData }: OrderShowPageProp
                                         </div>
                                         <div className="flex items-center space-x-2">
                                             {!localOrder.tracking_code && (
-                                                <Button 
-                                                    type="button"
-                                                    onClick={handleCreateLabel}
-                                                    size="sm"
-                                                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                                                >
-                                                    <Plus className="w-4 h-4 mr-2" />
-                                                    Create Label
-                                                </Button>
+                                                <>
+                                                    <Button 
+                                                        type="button"
+                                                        onClick={handleCreateLabel}
+                                                        size="sm"
+                                                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                                                    >
+                                                        <Plus className="w-4 h-4 mr-2" />
+                                                        Create Label
+                                                    </Button>
+                                                    {localOrder.rate_id && (
+                                                        <Button 
+                                                            type="button"
+                                                            onClick={() => {
+                                                                if (confirm('This will reset the shipping label data and allow you to create a new label. Continue?')) {
+                                                                    router.post(`/admin/orders/${localOrder.id}/reset-label`);
+                                                                }
+                                                            }}
+                                                            size="sm"
+                                                            variant="outline"
+                                                            className="border-orange-600 text-orange-600 hover:bg-orange-50 dark:border-orange-500 dark:text-orange-400 dark:hover:bg-orange-900/20"
+                                                        >
+                                                            <Trash2 className="w-4 h-4 mr-2" />
+                                                            Reset Label
+                                                        </Button>
+                                                    )}
+                                                </>
                                             )}
                                             {localOrder.label_url && (
                                                 <Button 

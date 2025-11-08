@@ -38,6 +38,28 @@ class SystemSettingsController extends Controller
                 'phone' => '+1 (555) 123-4567',
                 'email' => 'orders@barffoods.com'
             ],
+            'contact_info' => isset($settings['contact_info'])
+                ? (is_string($settings['contact_info']) ? json_decode($settings['contact_info'], true) : (array) $settings['contact_info'])
+                : [
+                'email' => 'support@grocerybazar.com',
+                'phone' => '+1 (555) 123-4567',
+                'address' => '123 Market Street, City, State 12345',
+                'business_hours' => 'Monday - Friday: 9:00 AM - 6:00 PM\nSaturday - Sunday: 10:00 AM - 4:00 PM'
+            ],
+            'about_team' => isset($settings['about_team'])
+                ? (is_string($settings['about_team']) ? json_decode($settings['about_team'], true) : (array) $settings['about_team'])
+                : [
+                [
+                    'name' => 'Sarah Johnson',
+                    'title' => 'FOUNDER AND PRINCIPAL',
+                    'image' => null
+                ],
+                [
+                    'name' => 'Michael Chen',
+                    'title' => 'FOUNDER AND PRINCIPAL',
+                    'image' => null
+                ]
+            ],
         ];
         
         // Debug: Log the settings being sent to frontend
@@ -69,6 +91,12 @@ class SystemSettingsController extends Controller
             'store_address.company_name' => 'required|string|max:255',
             'store_address.phone' => 'nullable|string|max:20',
             'store_address.email' => 'nullable|email|max:255',
+            'contact_info' => 'nullable|array',
+            'contact_info.email' => 'nullable|email|max:255',
+            'contact_info.phone' => 'nullable|string|max:20',
+            'contact_info.address' => 'nullable|string|max:500',
+            'contact_info.business_hours' => 'nullable|string|max:500',
+            'about_team' => 'nullable|array',
         ]);
 
         // Update global delivery fee
@@ -110,6 +138,26 @@ class SystemSettingsController extends Controller
             'json',
             'Store address used as shipping origin for all orders'
         );
+
+        // Update contact information
+        if ($request->has('contact_info')) {
+            SystemSetting::set(
+                'contact_info',
+                json_encode($request->contact_info),
+                'json',
+                'Contact information displayed on the contact page'
+            );
+        }
+
+        // Update about team information
+        if ($request->has('about_team')) {
+            SystemSetting::set(
+                'about_team',
+                json_encode($request->about_team),
+                'json',
+                'Team members displayed on the about page'
+            );
+        }
 
         return redirect()->back()->with('success', 'System settings updated successfully!');
     }

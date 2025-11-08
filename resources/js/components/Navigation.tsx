@@ -201,24 +201,38 @@ export default function Navigation() {
                         >
                             Home
                         </Link>
-                        {[
-                            'About',
-                            'Products',
-                            'Blog',
-                            'Career',
-                            'Contact'
-                        ].map((item, index) => (
-                            <button
-                                key={index}
-                                onClick={() => toast.info(`${item} page coming soon! 🚀`, {
-                                    description: 'This feature is under development',
-                                    duration: 3000,
-                                })}
-                                className="text-sm font-medium text-gray-900 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-500 transition-colors"
-                            >
-                                {item}
-                            </button>
-                        ))}
+                        <Link
+                            href="/about"
+                            className={`text-sm font-medium transition-colors pb-1 inline-block ${
+                                isActive('/about')
+                                    ? 'text-green-600 dark:text-green-500 font-bold border-b-2 border-green-600 dark:border-green-500'
+                                    : 'text-gray-900 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-500'
+                            }`}
+                        >
+                            About
+                        </Link>
+                        {/* <a
+                            href="/#products"
+                            className="text-sm font-medium transition-colors pb-1 inline-block text-gray-900 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-500"
+                            onClick={(e) => {
+                                if (window.location.pathname === '/') {
+                                    e.preventDefault();
+                                    document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' });
+                                }
+                            }}
+                        >
+                            Products
+                        </a> */}
+                        <Link
+                            href="/contact"
+                            className={`text-sm font-medium transition-colors pb-1 inline-block ${
+                                isActive('/contact')
+                                    ? 'text-green-600 dark:text-green-500 font-bold border-b-2 border-green-600 dark:border-green-500'
+                                    : 'text-gray-900 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-500'
+                            }`}
+                        >
+                            Contact
+                        </Link>
                     </nav>
 
                     {/* Right Section */}
@@ -286,9 +300,9 @@ export default function Navigation() {
                             </Link>
                             {[
                                 'About',
-                                'Products',
-                                'Blog',
-                                'Career',
+                                // 'Products',
+                                // 'Blog',
+                                // 'Career',
                                 'Contact'
                             ].map((item, index) => (
                                 <button

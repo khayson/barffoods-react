@@ -60,21 +60,33 @@ export function CartProvider({ children, user }: CartProviderProps) {
             'Content-Type': 'application/json',
         };
 
-        // Add Sanctum token if user is authenticated
+        // Always add CSRF token from meta tag (required for web routes)
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        if (csrfToken) {
+            headers['X-CSRF-TOKEN'] = csrfToken;
+        }
+
+        // Add Sanctum token if user is authenticated (for API routes)
         if (user) {
             const token = localStorage.getItem('sanctum_token');
             if (token) {
                 headers['Authorization'] = `Bearer ${token}`;
             }
-        } else {
-            // Add CSRF token for anonymous users (web routes)
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-            if (csrfToken) {
-                headers['X-CSRF-TOKEN'] = csrfToken;
-            }
         }
 
         return headers;
+    };
+
+    // Helper function to make API calls with proper credentials
+    const apiFetch = async (url: string, options: RequestInit = {}) => {
+        return fetch(url, {
+            ...options,
+            credentials: 'same-origin', // Include cookies for CSRF
+            headers: {
+                ...getApiHeaders(),
+                ...(options.headers || {}),
+            },
+        });
     };
 
     // Helper function to get the correct API endpoint based on authentication
@@ -150,9 +162,8 @@ export function CartProvider({ children, user }: CartProviderProps) {
         try {
             const endpoint = getApiEndpoint('/cart');
             
-            const response = await fetch(endpoint, {
+            const response = await apiFetch(endpoint, {
                 method: 'POST',
-                headers: getApiHeaders(),
                 body: JSON.stringify({
                     product_id: parseInt(productId), // Convert string to number
                     quantity: quantity,

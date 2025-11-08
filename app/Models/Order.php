@@ -39,6 +39,7 @@ class Order extends Model
         'service',
         'shipping_cost',
         'rate_id',
+        'shipment_id',
         'tracker_id',
         'estimated_delivery_date',
         'delivery_status',

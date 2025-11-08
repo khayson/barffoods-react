@@ -32,7 +32,7 @@ import {
     ChevronDown,
     Calendar
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { SharedData } from '@/types';
 import { 
     LineChart, 
@@ -116,6 +116,13 @@ export default function AdminDashboard() {
     const formatStatusLabel = (status: string) => {
         return status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
     };
+
+    const [isMounted, setIsMounted] = useState(false);
+
+    // Set mounted state after component mounts
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('en-US', {
@@ -286,7 +293,8 @@ export default function AdminDashboard() {
                                 
                                 {/* Interactive Mini Chart */}
                                 <div className="h-40 mt-4">
-                                    <ResponsiveContainer width="100%" height="100%">
+                                    {isMounted && (
+                                    <ResponsiveContainer width="100%" height="100%" minHeight={160}>
                                         <AreaChart data={sales_chart_data}>
                                             <defs>
                                                 <linearGradient id="miniSales" x1="0" y1="0" x2="0" y2="1">
@@ -338,6 +346,7 @@ export default function AdminDashboard() {
                                             />
                                         </AreaChart>
                                     </ResponsiveContainer>
+                                    )}
                                 </div>
                             </div>
                         </Card>
@@ -508,7 +517,8 @@ export default function AdminDashboard() {
                                 </div>
                             </div>
                             <div className="h-80">
-                                <ResponsiveContainer width="100%" height="100%">
+                                {isMounted && (
+                                <ResponsiveContainer width="100%" height="100%" minHeight={320}>
                                     <BarChart data={sales_chart_data}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                                         <XAxis 
@@ -537,6 +547,7 @@ export default function AdminDashboard() {
                                         </Bar>
                                     </BarChart>
                                 </ResponsiveContainer>
+                                )}
                             </div>
                         </Card>
                     </motion.div>

@@ -4,6 +4,9 @@ namespace App\Observers;
 
 use App\Models\Order;
 use App\Models\OrderStatusHistory;
+use App\Models\User;
+use App\Notifications\OrderPlacedNotification;
+use App\Notifications\NewOrderNotification;
 use App\Services\OrderStatusService;
 use App\Services\AuditService;
 use Illuminate\Support\Facades\Log;
@@ -38,6 +41,30 @@ class OrderObserver
             'status' => $order->status,
             'user_id' => $order->user_id
         ]);
+
+        // Send notifications
+        try {
+            // Notify customer
+            if ($order->user) {
+                $order->user->notify(new OrderPlacedNotification($order));
+            }
+
+            // Notify all admins
+            $admins = User::where('role', 'super_admin')->get();
+            foreach ($admins as $admin) {
+                $admin->notify(new NewOrderNotification($order));
+            }
+
+            Log::info('Order placed notifications sent', [
+                'order_id' => $order->id,
+                'order_number' => $order->order_number
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to send order placed notifications', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage()
+            ]);
+        }
     }
 
     /**

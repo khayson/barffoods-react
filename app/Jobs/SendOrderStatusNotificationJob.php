@@ -54,9 +54,12 @@ class SendOrderStatusNotificationJob implements ShouldQueue
                 'customer_email' => $this->order->user->email
             ]);
 
-            // Send email notification to customer
-            Mail::to($this->order->user->email)
-                ->send(new OrderStatusUpdateMail($this->order, $this->oldStatus, $this->newStatus));
+            // Send notification to customer (email + in-app)
+            $this->order->user->notify(new \App\Notifications\OrderStatusUpdatedNotification(
+                $this->order,
+                $this->oldStatus,
+                $this->newStatus
+            ));
 
             Log::info('Order status notification sent successfully', [
                 'order_id' => $this->order->id,

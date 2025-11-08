@@ -225,6 +225,8 @@ class OrderManagementController extends Controller
             'service' => $order->service,
             'shipping_cost' => $order->shipping_cost,
             'shipping_method' => $order->shipping_method,
+            'rate_id' => $order->rate_id,
+            'shipment_id' => $order->shipment_id,
             'tracking_events' => $order->trackingEvents->map(function ($event) {
                 return [
                     'id' => $event->id,
@@ -641,6 +643,44 @@ class OrderManagementController extends Controller
     }
 
     /**
+     * Reset shipping label for an order (for broken labels)
+     */
+    public function resetLabel($id)
+    {
+        try {
+            $order = Order::findOrFail($id);
+            
+            // Clear shipping-related fields to allow recreation
+            $order->update([
+                'shipment_id' => null,
+                'rate_id' => null,  // Clear rate_id as it's tied to the old shipment
+                'tracking_code' => null,
+                'label_url' => null,
+                'tracker_id' => null,
+                'carrier' => null,
+                'service' => null,
+                'shipping_cost' => null,
+            ]);
+            
+            \Log::info("Shipping label reset for order", [
+                'order_id' => $id,
+                'order_number' => $order->order_number,
+                'reset_by' => auth()->user()->name ?? 'Admin'
+            ]);
+            
+            return back()->with('warning', 'Shipping label has been reset. Note: If EasyPost still has the old shipment, you may need to wait a few minutes or contact EasyPost support to remove it before creating a new label.');
+            
+        } catch (\Exception $e) {
+            \Log::error("Failed to reset shipping label", [
+                'order_id' => $id,
+                'error' => $e->getMessage()
+            ]);
+            
+            return back()->with('error', 'Failed to reset shipping label: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * Create shipping label for an order
      */
     public function createLabel($id)
@@ -654,7 +694,12 @@ class OrderManagementController extends Controller
             }
             
             if ($order->tracking_code) {
-                return back()->with('error', 'Shipping label already exists for this order');
+                return back()->with('info', 'Shipping label already exists for this order. Tracking: ' . $order->tracking_code);
+            }
+            
+            // Check if label_url exists (indicates postage was purchased)
+            if ($order->label_url) {
+                return back()->with('info', 'Shipping label already created for this order. You can download it from the order details.');
             }
             
             // Check if order has carrier information
@@ -766,14 +811,27 @@ class OrderManagementController extends Controller
                     'success' => 'Shipping label created successfully!'
                 ]);
             } else {
+                $errorMessage = $result['error'] ?? 'Unknown error';
+                
+                // Check if this is a duplicate postage error
+                if (str_contains($errorMessage, 'Postage already exists')) {
+                    \Log::warning("Attempted to create duplicate shipping label", [
+                        'order_id' => $id,
+                        'error' => $errorMessage,
+                        'created_by' => auth()->user()->name ?? 'Admin'
+                    ]);
+                    
+                    return back()->with('warning', 'A shipping label may have already been created for this order. Please check the order details or contact support if the label is not visible.');
+                }
+                
                 \Log::error("Shipping label creation failed", [
                     'order_id' => $id,
-                    'error' => $result['error'] ?? 'Unknown error',
+                    'error' => $errorMessage,
                     'created_by' => auth()->user()->name ?? 'Admin'
                 ]);
                 
                 // Return to show page with error message
-                return back()->with('error', 'Failed to create shipping label: ' . ($result['error'] ?? 'Unknown error'));
+                return back()->with('error', 'Failed to create shipping label: ' . $errorMessage);
             }
             
         } catch (\Exception $e) {
