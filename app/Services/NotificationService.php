@@ -119,7 +119,7 @@ class NotificationService
         string $status,
         int $userId,
         ?string $actionUrl = null
-    ): Notification {
+    ): ?Notification {
         $statusMessages = [
             'pending' => 'Your order is being processed',
             'confirmed' => 'Your order has been confirmed',
@@ -138,7 +138,7 @@ class NotificationService
             'pending' => 'low',
         ];
 
-        return $this->create(
+        return $this->createWithPreferenceCheck(
             'order',
             "Order #{$orderId} - " . ucfirst($status),
             $statusMessages[$status] ?? "Your order status has been updated to {$status}",
@@ -442,5 +442,172 @@ class NotificationService
     public function cleanupExpired(): int
     {
         return Notification::where('expires_at', '<', now())->delete();
+    }
+
+    /**
+     * Check if user has enabled notifications for a specific type
+     */
+    public function isNotificationEnabled(int $userId, string $type): bool
+    {
+        $user = User::find($userId);
+        
+        if (!$user) {
+            return false;
+        }
+
+        // Check if user has notification preferences
+        $preferences = $user->notification_preferences ?? [];
+        
+        // If no preferences set, default to enabled
+        if (empty($preferences)) {
+            return true;
+        }
+
+        // Check if this notification type is enabled
+        return $preferences[$type] ?? true;
+    }
+
+    /**
+     * Update user notification preferences
+     */
+    public function updatePreferences(int $userId, array $preferences): bool
+    {
+        $user = User::find($userId);
+        
+        if (!$user) {
+            return false;
+        }
+
+        // Validate preference keys
+        $validTypes = [
+            'order', 'product', 'promotion', 'security', 
+            'delivery', 'payment', 'review', 'system', 'customer'
+        ];
+
+        $filteredPreferences = [];
+        foreach ($preferences as $type => $enabled) {
+            if (in_array($type, $validTypes)) {
+                $filteredPreferences[$type] = (bool) $enabled;
+            }
+        }
+
+        $user->notification_preferences = $filteredPreferences;
+        return $user->save();
+    }
+
+    /**
+     * Get user notification preferences
+     */
+    public function getPreferences(int $userId): array
+    {
+        $user = User::find($userId);
+        
+        if (!$user) {
+            return [];
+        }
+
+        // Return preferences or default all enabled
+        return $user->notification_preferences ?? [
+            'order' => true,
+            'product' => true,
+            'promotion' => true,
+            'security' => true,
+            'delivery' => true,
+            'payment' => true,
+            'review' => true,
+            'system' => true,
+            'customer' => true,
+        ];
+    }
+
+    /**
+     * Create notification with preference check
+     */
+    public function createWithPreferenceCheck(
+        string $type,
+        string $title,
+        string $message,
+        ?int $userId = null,
+        string $priority = 'medium',
+        ?array $data = null,
+        ?string $actionUrl = null,
+        ?string $actionText = null,
+        ?string $icon = null,
+        ?string $color = null,
+        ?\DateTime $expiresAt = null
+    ): ?Notification {
+        // Check if user has this notification type enabled
+        if ($userId && !$this->isNotificationEnabled($userId, $type)) {
+            Log::info('Notification skipped due to user preferences', [
+                'user_id' => $userId,
+                'type' => $type,
+                'title' => $title,
+            ]);
+            return null;
+        }
+
+        return $this->create(
+            $type,
+            $title,
+            $message,
+            $userId,
+            $priority,
+            $data,
+            $actionUrl,
+            $actionText,
+            $icon,
+            $color,
+            $expiresAt
+        );
+    }
+
+    /**
+     * Send notification to all admin users
+     */
+    public function sendAdminNotification(
+        string $title,
+        string $message,
+        string $type = 'admin_alert',
+        string $priority = 'high',
+        ?array $data = null,
+        ?string $actionUrl = null,
+        ?string $actionText = null
+    ): int {
+        // Get all admin and super_admin users
+        $admins = User::whereIn('role', ['admin', 'super_admin'])
+            ->where('is_active', true)
+            ->get();
+
+        $notificationCount = 0;
+
+        foreach ($admins as $admin) {
+            try {
+                $this->create(
+                    type: $type,
+                    title: $title,
+                    message: $message,
+                    userId: $admin->id,
+                    priority: $priority,
+                    data: $data,
+                    actionUrl: $actionUrl,
+                    actionText: $actionText,
+                    icon: 'alert-triangle',
+                    color: 'red'
+                );
+                $notificationCount++;
+            } catch (\Exception $e) {
+                Log::error('Failed to send admin notification', [
+                    'admin_id' => $admin->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        Log::info('Admin notifications sent', [
+            'title' => $title,
+            'recipients' => $notificationCount,
+        ]);
+
+        return $notificationCount;
     }
 }

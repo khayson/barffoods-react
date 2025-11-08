@@ -249,6 +249,7 @@ export default function StoresIndex() {
                                                             <img
                                                                 src={store.image || ''}
                                                                 alt={store.name}
+                                                                loading="lazy"
                                                                 className="w-16 h-16 rounded-lg object-cover"
                                                             />
                                                         ) : (

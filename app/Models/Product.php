@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use App\Traits\HasOptimisticLocking;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Product extends Model
 {
+    use HasOptimisticLocking;
+    
     protected $fillable = [
         'name',
         'description',
@@ -17,14 +20,27 @@ class Product extends Model
         'images',
         'category_id',
         'store_id',
-        'stock_quantity',
-        'is_active',
-        'average_rating',
-        'review_count',
         'weight',
         'length',
         'width',
         'height',
+    ];
+
+    /**
+     * The attributes that should be guarded from mass assignment.
+     * These fields are managed programmatically.
+     *
+     * @var list<string>
+     */
+    protected $guarded = [
+        'id',
+        'stock_quantity',
+        'is_active',
+        'average_rating',
+        'review_count',
+        'version',
+        'created_at',
+        'updated_at',
     ];
 
     protected $casts = [

@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class AnonymousCart extends Model
 {
@@ -137,28 +139,115 @@ class AnonymousCart extends Model
     {
         $cartData = $this->cart_data ?? [];
         
-        foreach ($cartData as $item) {
-            // Check if user already has this product in cart
-            $existingCartItem = CartItem::where('user_id', $userId)
-                ->where('product_id', $item['product_id'])
-                ->first();
-            
-            if ($existingCartItem) {
-                // Update existing cart item
-                $existingCartItem->update([
-                    'quantity' => $existingCartItem->quantity + $item['quantity']
-                ]);
-            } else {
-                // Create new cart item
-                CartItem::create([
-                    'user_id' => $userId,
-                    'product_id' => $item['product_id'],
-                    'quantity' => $item['quantity'],
-                ]);
-            }
+        if (empty($cartData)) {
+            \Log::info('No cart data to migrate', ['user_id' => $userId]);
+            $this->delete();
+            return;
         }
         
-        // Delete anonymous cart after migration
-        $this->delete();
+        \DB::beginTransaction();
+        
+        try {
+            $migratedCount = 0;
+            $skippedCount = 0;
+            
+            foreach ($cartData as $item) {
+                // Validate item structure
+                if (!isset($item['product_id']) || !isset($item['quantity'])) {
+                    \Log::warning('Invalid cart item structure during migration', [
+                        'user_id' => $userId,
+                        'item' => $item
+                    ]);
+                    $skippedCount++;
+                    continue;
+                }
+                
+                // Verify product exists
+                $product = Product::find($item['product_id']);
+                if (!$product) {
+                    \Log::warning('Product not found during cart migration', [
+                        'user_id' => $userId,
+                        'product_id' => $item['product_id']
+                    ]);
+                    $skippedCount++;
+                    continue;
+                }
+                
+                // Check if product is active
+                if (!$product->is_active) {
+                    \Log::info('Skipping inactive product during migration', [
+                        'user_id' => $userId,
+                        'product_id' => $item['product_id']
+                    ]);
+                    $skippedCount++;
+                    continue;
+                }
+                
+                // Check stock availability
+                if ($product->stock_quantity < $item['quantity']) {
+                    \Log::warning('Insufficient stock during cart migration', [
+                        'user_id' => $userId,
+                        'product_id' => $item['product_id'],
+                        'requested' => $item['quantity'],
+                        'available' => $product->stock_quantity
+                    ]);
+                    // Adjust quantity to available stock
+                    $item['quantity'] = max(1, $product->stock_quantity);
+                }
+                
+                // Check if user already has this product in cart
+                $existingCartItem = CartItem::where('user_id', $userId)
+                    ->where('product_id', $item['product_id'])
+                    ->first();
+                
+                if ($existingCartItem) {
+                    // Update existing cart item
+                    $newQuantity = $existingCartItem->quantity + $item['quantity'];
+                    
+                    // Check if new quantity exceeds stock
+                    if ($newQuantity > $product->stock_quantity) {
+                        $newQuantity = $product->stock_quantity;
+                        \Log::info('Adjusted merged quantity to available stock', [
+                            'user_id' => $userId,
+                            'product_id' => $item['product_id'],
+                            'adjusted_quantity' => $newQuantity
+                        ]);
+                    }
+                    
+                    $existingCartItem->update(['quantity' => $newQuantity]);
+                    $migratedCount++;
+                } else {
+                    // Create new cart item
+                    CartItem::create([
+                        'user_id' => $userId,
+                        'product_id' => $item['product_id'],
+                        'quantity' => $item['quantity'],
+                    ]);
+                    $migratedCount++;
+                }
+            }
+            
+            \DB::commit();
+            
+            \Log::info('Cart migration completed', [
+                'user_id' => $userId,
+                'migrated' => $migratedCount,
+                'skipped' => $skippedCount
+            ]);
+            
+            // Delete anonymous cart after successful migration
+            $this->delete();
+            
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            
+            \Log::error('Cart migration failed', [
+                'user_id' => $userId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            throw $e;
+        }
     }
 }

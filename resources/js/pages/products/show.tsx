@@ -129,6 +129,7 @@ export default function ProductPage({ product, reviews, relatedProducts, shippin
                 <img 
                     src={image} 
                     alt={productData.name}
+                    loading="lazy"
                     className="w-full h-full object-cover"
                     onError={(e) => {
                         // Fallback to emoji if image fails to load

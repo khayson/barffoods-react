@@ -20,6 +20,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Slow Query Logging
+    |--------------------------------------------------------------------------
+    |
+    | Configure slow query detection and logging. Queries exceeding the
+    | threshold will be logged to the performance channel for analysis.
+    |
+    */
+
+    'log_slow_queries' => env('DB_LOG_SLOW_QUERIES', true),
+    'slow_query_threshold' => env('DB_SLOW_QUERY_THRESHOLD', 1000), // milliseconds
+    'log_all_queries' => env('DB_LOG_ALL_QUERIES', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | Database Connections
     |--------------------------------------------------------------------------
     |

@@ -18,21 +18,28 @@ class NotificationController extends Controller
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 
+        $perPage = $request->get('per_page', 20);
         $notifications = $user->notifications()
             ->orderBy('created_at', 'desc')
-            ->limit(50)
-            ->get();
+            ->paginate($perPage);
 
-        return response()->json($notifications->map(function ($notification) {
-            return [
-                'id' => $notification->id,
-                'type' => $notification->type,
-                'data' => $notification->data,
-                'read_at' => $notification->read_at,
-                'created_at' => $notification->created_at,
-                'updated_at' => $notification->updated_at,
-            ];
-        }));
+        return response()->json([
+            'data' => $notifications->items(),
+            'current_page' => $notifications->currentPage(),
+            'last_page' => $notifications->lastPage(),
+            'per_page' => $notifications->perPage(),
+            'total' => $notifications->total(),
+            'notifications' => $notifications->map(function ($notification) {
+                return [
+                    'id' => $notification->id,
+                    'type' => $notification->type,
+                    'data' => $notification->data,
+                    'read_at' => $notification->read_at,
+                    'created_at' => $notification->created_at,
+                    'updated_at' => $notification->updated_at,
+                ];
+            })
+        ]);
     }
 
     /**

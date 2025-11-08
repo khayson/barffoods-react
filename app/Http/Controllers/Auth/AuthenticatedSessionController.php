@@ -8,6 +8,7 @@ use App\Models\AnonymousCart;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Validation\ValidationException;
@@ -22,17 +23,33 @@ class AuthenticatedSessionController extends Controller
      */
     public function create(Request $request): Response
     {
+        // Get rate limit information from session if available
+        $maxAttempts = 5;
+        $lastEmail = $request->session()->get('last_login_email');
+        
+        if ($lastEmail) {
+            $throttleKey = strtolower($lastEmail) . '|' . $request->ip();
+            $remainingAttempts = RateLimiter::remaining($throttleKey, $maxAttempts);
+        } else {
+            // No previous attempts, start at max
+            $remainingAttempts = $maxAttempts;
+        }
+        
         return Inertia::render('auth/login', [
             'canResetPassword' => Route::has('password.request'),
             'status' => $request->session()->get('status'),
             'redirect' => $request->get('redirect'),
+            'rateLimitInfo' => [
+                'remaining' => $remainingAttempts,
+                'max' => $maxAttempts,
+            ],
         ]);
     }
 
     /**
      * Handle an incoming authentication request.
      */
-    public function store(LoginRequest $request): RedirectResponse
+    public function store(LoginRequest $request): RedirectResponse|\Illuminate\Http\Response
     {
         $user = $request->validateCredentials();
 
@@ -68,7 +85,8 @@ class AuthenticatedSessionController extends Controller
         // Handle redirect parameter
         $redirectUrl = $request->get('redirect');
         if ($redirectUrl) {
-            return redirect($redirectUrl);
+            // Use Inertia::location() to force a full page reload and get new CSRF token
+            return Inertia::location($redirectUrl);
         }
 
         // Role-based redirect
@@ -99,16 +117,47 @@ class AuthenticatedSessionController extends Controller
     {
         try {
             $sessionId = Session::getId();
+            
+            \Log::info('Attempting to migrate anonymous cart', [
+                'user_id' => $userId,
+                'session_id' => $sessionId
+            ]);
+            
             $anonymousCart = AnonymousCart::where('session_id', $sessionId)->first();
             
-            if ($anonymousCart && !empty($anonymousCart->cart_data)) {
-                $anonymousCart->migrateToUser($userId);
+            if ($anonymousCart) {
+                $cartData = $anonymousCart->cart_data ?? [];
+                
+                \Log::info('Found anonymous cart', [
+                    'user_id' => $userId,
+                    'session_id' => $sessionId,
+                    'items_count' => count($cartData)
+                ]);
+                
+                if (!empty($cartData)) {
+                    $anonymousCart->migrateToUser($userId);
+                    
+                    \Log::info('Successfully migrated anonymous cart', [
+                        'user_id' => $userId,
+                        'items_migrated' => count($cartData)
+                    ]);
+                } else {
+                    \Log::info('Anonymous cart is empty, nothing to migrate', [
+                        'user_id' => $userId
+                    ]);
+                }
+            } else {
+                \Log::info('No anonymous cart found for session', [
+                    'user_id' => $userId,
+                    'session_id' => $sessionId
+                ]);
             }
         } catch (\Exception $e) {
             // Log error but don't break login process
-            \Log::warning('Failed to migrate anonymous cart', [
+            \Log::error('Failed to migrate anonymous cart', [
                 'user_id' => $userId,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
         }
     }

@@ -16,59 +16,69 @@ class ProductController extends Controller
      */
     public function browse(Request $request)
     {
-        $categories = Category::where('is_active', true)
-            ->orderBy('sort_order')
-            ->withCount(['products' => function ($query) {
-                $query->where('is_active', true);
-            }])
-            ->get()
-            ->map(function ($category) {
-                return [
-                    'id' => $category->id,
-                    'name' => $category->name,
-                    'icon' => $category->icon,
-                    'products_count' => $category->products_count,
-                ];
-            });
+        // Cache categories for 1 hour (they don't change often)
+        $categories = \Cache::remember('categories_active', 3600, function () {
+            return Category::where('is_active', true)
+                ->orderBy('sort_order')
+                ->withCount(['products' => function ($query) {
+                    $query->where('is_active', true);
+                }])
+                ->get()
+                ->map(function ($category) {
+                    return [
+                        'id' => $category->id,
+                        'name' => $category->name,
+                        'icon' => $category->icon,
+                        'products_count' => $category->products_count,
+                    ];
+                });
+        });
 
-        $stores = Store::where('is_active', true)
-            ->orderBy('name')
-            ->withCount(['products' => function ($query) {
-                $query->where('is_active', true);
-            }])
-            ->get()
-            ->map(function ($store) {
-                return [
-                    'id' => $store->id,
-                    'name' => $store->name,
-                    'address' => $store->address,
-                    'products_count' => $store->products_count,
-                ];
-            });
+        // Cache stores for 1 hour
+        $stores = \Cache::remember('stores_active', 3600, function () {
+            return Store::where('is_active', true)
+                ->orderBy('name')
+                ->withCount(['products' => function ($query) {
+                    $query->where('is_active', true);
+                }])
+                ->get()
+                ->map(function ($store) {
+                    return [
+                        'id' => $store->id,
+                        'name' => $store->name,
+                        'address' => $store->address,
+                        'products_count' => $store->products_count,
+                    ];
+                });
+        });
 
-        // Fetch all active products with reviews
-        $products = Product::with(['category', 'store'])
-            ->where('is_active', true)
-            ->get()
-            ->map(function ($product) {
-                // Calculate actual review count and average rating
-                $actualReviewCount = $product->reviews()->approved()->count();
-                $actualAverageRating = $product->reviews()->approved()->avg('rating') ?? 0;
-                
-                return [
-                    'id' => (string) $product->id,
-                    'name' => $product->name,
-                    'price' => $product->price,
-                    'originalPrice' => $product->original_price,
-                    'rating' => $actualAverageRating,
-                    'reviews' => $actualReviewCount,
-                    'image' => $product->images[0] ?? $product->image ?? '📦',
-                    'images' => $product->images ?? [],
-                    'store' => $product->store->name,
-                    'category' => $product->category->name,
-                    'badges' => $this->generateBadges($product),
-                ];
-            });
+        // Cache products for 30 minutes (they change more frequently)
+        $products = \Cache::remember('products_browse', 1800, function () {
+            return Product::with(['category', 'store'])
+                ->withCount('reviews')
+                ->withAvg('reviews', 'rating')
+                ->where('is_active', true)
+                ->get()
+                ->map(function ($product) {
+                    // Use eager loaded counts and averages
+                    $actualReviewCount = $product->reviews_count ?? 0;
+                    $actualAverageRating = $product->reviews_avg_rating ?? 0;
+                    
+                    return [
+                        'id' => (string) $product->id,
+                        'name' => $product->name,
+                        'price' => $product->price,
+                        'originalPrice' => $product->original_price,
+                        'rating' => $actualAverageRating,
+                        'reviews' => $actualReviewCount,
+                        'image' => $product->images[0] ?? $product->image ?? '📦',
+                        'images' => $product->images ?? [],
+                        'store' => $product->store->name,
+                        'category' => $product->category->name,
+                        'badges' => $this->generateBadges($product),
+                    ];
+                });
+        });
 
         return Inertia::render('products/index', [
             'categories' => $categories,
@@ -84,65 +94,111 @@ class ProductController extends Controller
 
     public function index(Request $request)
     {
-        $query = Product::with(['category', 'store'])
-            ->where('is_active', true);
+        try {
+            $query = Product::with(['category', 'store'])
+                ->withCount(['reviews as approved_reviews_count' => function ($q) {
+                    $q->where('is_approved', true);
+                }])
+                ->withAvg(['reviews as approved_reviews_avg_rating' => function ($q) {
+                    $q->where('is_approved', true);
+                }], 'rating')
+                ->where('is_active', true);
+                
+            // Filter by store
+            if ($request->has('store_id')) {
+                $query->where('store_id', $request->input('store_id'));
+            }
             
-        // Filter by store
-        if ($request->has('store_id')) {
-            $query->where('store_id', $request->input('store_id'));
-        }
-        
-        // Filter by category
-        if ($request->has('category_id')) {
-            $query->where('category_id', $request->input('category_id'));
-        }
-        
-        // Search
-        if ($request->has('search')) {
-            $query->where('name', 'like', '%' . $request->input('search') . '%');
-        }
-        
-        $products = $query->orderBy('name')->get();
-        
-        // Format products for frontend
-        $formattedProducts = $products->map(function ($product) {
-            // Calculate actual review count and average rating
-            $actualReviewCount = $product->reviews()->approved()->count();
-            $actualAverageRating = $product->reviews()->approved()->avg('rating') ?? 0;
+            // Filter by category
+            if ($request->has('category_id')) {
+                $query->where('category_id', $request->input('category_id'));
+            }
             
-            return [
-                'id' => (string) $product->id,
-                'name' => $product->name,
-                'price' => $product->price,
-                'originalPrice' => $product->original_price,
-                'rating' => $actualAverageRating,
-                'reviews' => $actualReviewCount,
-                'image' => $product->image,
-                'store' => $product->store->name,
-                'category' => $product->category->name,
-                'badges' => $this->generateBadges($product),
-            ];
-        });
-        
-        return response()->json([
-            'products' => $formattedProducts,
-            'stores' => Store::active()->get()->map(function ($store) {
+            // Search
+            if ($request->has('search')) {
+                $query->where('name', 'like', '%' . $request->input('search') . '%');
+            }
+            
+            // Pagination
+            $perPage = $request->get('per_page', 20);
+            $products = $query->orderBy('name')->paginate($perPage);
+            
+            // Format products for frontend
+            $formattedProducts = $products->getCollection()->map(function ($product) {
+                // Use eager loaded counts and averages
+                $actualReviewCount = $product->approved_reviews_count ?? 0;
+                $actualAverageRating = $product->approved_reviews_avg_rating ?? 0;
+                
+                // Null checks for relationships
+                if (!$product->store || !$product->category) {
+                    \Log::warning('Product missing store or category', [
+                        'product_id' => $product->id,
+                        'has_store' => $product->store !== null,
+                        'has_category' => $product->category !== null
+                    ]);
+                    return null;
+                }
+                
                 return [
-                    'id' => (string) $store->id,
-                    'name' => $store->name,
-                    'address' => $store->address,
+                    'id' => (string) $product->id,
+                    'name' => $product->name,
+                    'price' => (float) $product->price,
+                    'originalPrice' => $product->original_price ? (float) $product->original_price : null,
+                    'rating' => round($actualAverageRating, 1),
+                    'reviews' => $actualReviewCount,
+                    'image' => $product->image,
+                    'store' => $product->store->name,
+                    'category' => $product->category->name,
+                    'badges' => $this->generateBadges($product),
                 ];
-            }),
-            'categories' => Category::active()->ordered()->get()->map(function ($category) {
-                return [
-                    'id' => (string) $category->id,
-                    'name' => $category->name,
-                    'product_count' => $category->products()->where('is_active', true)->count(),
-                ];
-            })
-        ])->header('Cache-Control', 'no-cache, no-store, must-revalidate')
-          ->header('Pragma', 'no-cache')
-          ->header('Expires', '0');
+            })->filter(); // Remove null values
+            
+            return response()->json([
+                'products' => [
+                    'data' => $formattedProducts->values(), // Re-index array
+                    'current_page' => $products->currentPage(),
+                    'last_page' => $products->lastPage(),
+                    'per_page' => $products->perPage(),
+                    'total' => $products->total(),
+                ],
+                'stores' => Store::active()->limit(50)->get()->map(function ($store) {
+                    return [
+                        'id' => (string) $store->id,
+                        'name' => $store->name,
+                        'address' => $store->address,
+                    ];
+                }),
+                'categories' => Category::active()->ordered()->limit(50)->get()->map(function ($category) {
+                    return [
+                        'id' => (string) $category->id,
+                        'name' => $category->name,
+                        'product_count' => $category->products()->where('is_active', true)->count(),
+                    ];
+                })
+            ])->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+              ->header('Pragma', 'no-cache')
+              ->header('Expires', '0');
+              
+        } catch (\Exception $e) {
+            \Log::error('Product index API error', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'error' => 'Failed to load products',
+                'message' => $e->getMessage(),
+                'products' => [
+                    'data' => [],
+                    'current_page' => 1,
+                    'last_page' => 1,
+                    'per_page' => 20,
+                    'total' => 0,
+                ],
+                'stores' => [],
+                'categories' => []
+            ], 500);
+        }
     }
 
     /**

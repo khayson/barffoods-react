@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Helpers\LogHelper;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -17,15 +18,38 @@ class CheckRole
     public function handle(Request $request, Closure $next, string $role): Response
     {
         if (!auth()->check()) {
+            LogHelper::security('Unauthenticated access attempt', [
+                'required_role' => $role,
+                'route' => $request->route()?->getName(),
+                'path' => $request->path(),
+            ]);
             return redirect()->route('login');
         }
 
-        if (!auth()->user()->is_active) {
+        $user = auth()->user();
+
+        if (!$user->is_active) {
+            LogHelper::security('Inactive user access attempt', [
+                'user_id' => $user->id,
+                'user_email' => $user->email,
+                'required_role' => $role,
+                'route' => $request->route()?->getName(),
+            ]);
             auth()->logout();
             return redirect()->route('login')->with('error', 'Your account has been deactivated.');
         }
 
-        if (auth()->user()->role !== $role) {
+        if ($user->role !== $role) {
+            LogHelper::security('Unauthorized role access attempt', [
+                'user_id' => $user->id,
+                'user_email' => $user->email,
+                'user_role' => $user->role,
+                'required_role' => $role,
+                'route' => $request->route()?->getName(),
+                'path' => $request->path(),
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+            ]);
             abort(403, 'Unauthorized access.');
         }
 

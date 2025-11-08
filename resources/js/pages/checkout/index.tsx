@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Head, useForm, Link } from '@inertiajs/react';
+import { Head, useForm, Link, usePage } from '@inertiajs/react';
 import { ArrowLeft, CreditCard, MapPin, Phone, ShoppingBag, CheckCircle, ChevronRight, Search, MapPinIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -109,6 +109,36 @@ export default function CheckoutPage({
     const [carriers, setCarriers] = useState<Carrier[]>([]);
     const [isCalculatingDelivery, setIsCalculatingDelivery] = useState(false);
     const [shippingConfigError, setShippingConfigError] = useState(false);
+    
+    // Get flash messages from Inertia
+    const { flash } = usePage().props as any;
+    
+    // Handle flash messages from server
+    useEffect(() => {
+        if (flash?.error) {
+            toast.error(flash.error, {
+                duration: 5000,
+            });
+        }
+        
+        if (flash?.success) {
+            toast.success(flash.success, {
+                duration: 5000,
+            });
+        }
+        
+        if (flash?.warning) {
+            toast.warning(flash.warning, {
+                duration: 5000,
+            });
+        }
+        
+        if (flash?.info) {
+            toast.info(flash.info, {
+                duration: 5000,
+            });
+        }
+    }, [flash]);
     
     // Address autocomplete state
     const [addressAutocomplete, setAddressAutocomplete] = useState<AddressAutocompleteState>({
@@ -393,12 +423,25 @@ export default function CheckoutPage({
     
     const finalTotal = calculations.subtotal - calculations.discount + totalDeliveryCost + calculations.tax;
 
+    // Validation state
+    const [validationErrors, setValidationErrors] = useState<string[]>([]);
+    const [showValidationSummary, setShowValidationSummary] = useState(false);
+    const [touchedFields, setTouchedFields] = useState<Set<string>>(new Set());
+
     // Helper functions for validation display
-    const getFieldError = (fieldName: string) => {
-        const validationErrors = validateCheckoutForm();
-        return validationErrors.find(error => 
+    const getFieldError = (fieldName: string): string | undefined => {
+        if (!touchedFields.has(fieldName) && !showValidationSummary) {
+            return undefined;
+        }
+        
+        const errors = validateCheckoutForm();
+        return errors.find(error => 
             error.toLowerCase().includes(fieldName.toLowerCase())
         );
+    };
+
+    const markFieldAsTouched = (fieldName: string) => {
+        setTouchedFields(prev => new Set(prev).add(fieldName));
     };
 
     const isFieldValid = (fieldName: string) => {
@@ -406,8 +449,8 @@ export default function CheckoutPage({
     };
 
     const getFieldClassName = (fieldName: string, baseClassName: string = '') => {
-        const hasError = !isFieldValid(fieldName);
-        return `${baseClassName} ${hasError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`;
+        const hasError = getFieldError(fieldName);
+        return `${baseClassName} ${hasError ? 'border-red-500 dark:border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`;
     };
 
     // Comprehensive validation function
@@ -477,18 +520,37 @@ export default function CheckoutPage({
         e.preventDefault();
         
         // Comprehensive validation
-        const validationErrors = validateCheckoutForm();
+        const errors = validateCheckoutForm();
         
-        if (validationErrors.length > 0) {
+        if (errors.length > 0) {
+            // Show validation summary
+            setValidationErrors(errors);
+            setShowValidationSummary(true);
+            
+            // Mark all fields as touched to show errors
+            setTouchedFields(new Set(['street_address', 'city', 'state', 'zip_code', 'type']));
+            
             // Show the first error as a toast
-            toast.error(validationErrors[0], {
-                description: validationErrors.length > 1 ? `${validationErrors.length - 1} more error${validationErrors.length > 2 ? 's' : ''} found` : undefined
+            toast.error('Please fix the errors below', {
+                description: `${errors.length} error${errors.length > 1 ? 's' : ''} found`
             });
             
+            // Scroll to validation summary
+            setTimeout(() => {
+                document.getElementById('validation-summary')?.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'center' 
+                });
+            }, 100);
+            
             // Log all errors for debugging
-            console.error('Checkout validation errors:', validationErrors);
+            console.error('Checkout validation errors:', errors);
             return;
         }
+        
+        // Clear validation errors if form is valid
+        setValidationErrors([]);
+        setShowValidationSummary(false);
 
         // Additional checks before proceeding
         if (isProcessing || processing) {
@@ -636,19 +698,41 @@ export default function CheckoutPage({
                                 
                                 <form onSubmit={handleSubmit} className="space-y-6">
                                     {/* Validation Summary */}
-                                    {validateCheckoutForm().length > 0 && (
-                                        <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                                            <h3 className="text-sm font-medium text-red-800 dark:text-red-200 mb-2">
-                                                Please fix the following issues:
-                                            </h3>
-                                            <ul className="text-sm text-red-700 dark:text-red-300 space-y-1">
-                                                {validateCheckoutForm().map((error, index) => (
-                                                    <li key={index} className="flex items-center">
-                                                        <span className="mr-2">•</span>
-                                                        {error}
-                                                    </li>
-                                                ))}
-                                            </ul>
+                                    {showValidationSummary && validationErrors.length > 0 && (
+                                        <div 
+                                            id="validation-summary"
+                                            className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border-2 border-red-300 dark:border-red-700 rounded-lg shadow-sm animate-in fade-in slide-in-from-top-2 duration-300"
+                                        >
+                                            <div className="flex items-start">
+                                                <div className="flex-shrink-0">
+                                                    <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                                    </svg>
+                                                </div>
+                                                <div className="ml-3 flex-1">
+                                                    <h3 className="text-sm font-semibold text-red-800 dark:text-red-200 mb-2">
+                                                        {validationErrors.length === 1 
+                                                            ? 'Please fix the following issue:' 
+                                                            : `Please fix the following ${validationErrors.length} issues:`
+                                                        }
+                                                    </h3>
+                                                    <ul className="text-sm text-red-700 dark:text-red-300 space-y-1.5 list-disc list-inside">
+                                                        {validationErrors.map((error, index) => (
+                                                            <li key={index}>{error}</li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowValidationSummary(false)}
+                                                    className="ml-3 flex-shrink-0 text-red-400 hover:text-red-600 dark:hover:text-red-300"
+                                                >
+                                                    <span className="sr-only">Dismiss</span>
+                                                    <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                                                    </svg>
+                                                </button>
+                                            </div>
                                         </div>
                                     )}
 
@@ -674,14 +758,18 @@ export default function CheckoutPage({
                                     {/* Address Fields */}
                                     <div className="space-y-4 address-dropdown-container">
                                         <div className="relative">
-                                            <Label htmlFor="street_address">Street Address</Label>
+                                            <Label htmlFor="street_address" className="text-gray-900 dark:text-white">
+                                                Street Address <span className="text-red-500">*</span>
+                                            </Label>
                                             <div className="relative">
                                                 <Input
                                                     id="street_address"
                                                     value={data.street_address}
                                                     onChange={(e) => handleStreetAddressChange(e.target.value)}
-                                                    className="mt-1 pr-10"
+                                                    onBlur={() => markFieldAsTouched('street_address')}
+                                                    className={getFieldClassName('street_address', 'mt-1 pr-10')}
                                                     placeholder="Enter street address"
+                                                    aria-invalid={!isFieldValid('street_address')}
                                                 />
                                                 {addressAutocomplete.isLoading && (
                                                     <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -713,21 +801,30 @@ export default function CheckoutPage({
                                                 </div>
                                             )}
                                             
-                                            {errors.street_address && (
-                                                <p className="text-red-500 text-sm mt-1">{errors.street_address}</p>
+                                            {getFieldError('street_address') && (
+                                                <p id="street_address-error" className="text-red-600 dark:text-red-400 text-sm mt-1.5 flex items-center">
+                                                    <svg className="w-4 h-4 mr-1 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                                    </svg>
+                                                    {getFieldError('street_address')}
+                                                </p>
                                             )}
                                         </div>
                                         
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                             <div className="relative">
-                                                <Label htmlFor="city">City</Label>
+                                                <Label htmlFor="city" className="text-gray-900 dark:text-white">
+                                                    City <span className="text-red-500">*</span>
+                                                </Label>
                                                 <div className="relative">
                                                     <Input
                                                         id="city"
                                                         value={data.city}
                                                         onChange={(e) => handleCityChange(e.target.value)}
-                                                        className="mt-1 pr-10"
+                                                        onBlur={() => markFieldAsTouched('city')}
+                                                        className={getFieldClassName('city', 'mt-1 pr-10')}
                                                         placeholder="Enter city"
+                                                        aria-invalid={!isFieldValid('city')}
                                                     />
                                                     {addressAutocomplete.isLoading && (
                                                         <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -751,20 +848,29 @@ export default function CheckoutPage({
                                                     </div>
                                                 )}
                                                 
-                                                {errors.city && (
-                                                    <p className="text-red-500 text-sm mt-1">{errors.city}</p>
+                                                {getFieldError('city') && (
+                                                    <p id="city-error" className="text-red-600 dark:text-red-400 text-sm mt-1.5 flex items-center">
+                                                        <svg className="w-4 h-4 mr-1 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                                        </svg>
+                                                        {getFieldError('city')}
+                                                    </p>
                                                 )}
                                             </div>
                                             
                                             <div className="relative">
-                                                <Label htmlFor="state">State</Label>
+                                                <Label htmlFor="state" className="text-gray-900 dark:text-white">
+                                                    State <span className="text-red-500">*</span>
+                                                </Label>
                                                 <div className="relative">
                                                     <Input
                                                         id="state"
                                                         value={data.state}
                                                         onChange={(e) => handleStateChange(e.target.value)}
-                                                        className="mt-1 pr-10"
+                                                        onBlur={() => markFieldAsTouched('state')}
+                                                        className={getFieldClassName('state', 'mt-1 pr-10')}
                                                         placeholder="Enter state"
+                                                        aria-invalid={!isFieldValid('state')}
                                                     />
                                                     {addressAutocomplete.isLoading && (
                                                         <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -788,20 +894,29 @@ export default function CheckoutPage({
                                                     </div>
                                                 )}
                                                 
-                                                {errors.state && (
-                                                    <p className="text-red-500 text-sm mt-1">{errors.state}</p>
+                                                {getFieldError('state') && (
+                                                    <p id="state-error" className="text-red-600 dark:text-red-400 text-sm mt-1.5 flex items-center">
+                                                        <svg className="w-4 h-4 mr-1 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                                        </svg>
+                                                        {getFieldError('state')}
+                                                    </p>
                                                 )}
                                             </div>
                                             
                                             <div className="relative">
-                                                <Label htmlFor="zip_code">Zip Code</Label>
+                                                <Label htmlFor="zip_code" className="text-gray-900 dark:text-white">
+                                                    Zip Code <span className="text-red-500">*</span>
+                                                </Label>
                                                 <div className="relative">
                                                     <Input
                                                         id="zip_code"
                                                         value={data.zip_code}
                                                         onChange={(e) => handleZipChange(e.target.value)}
-                                                        className="mt-1 pr-10"
+                                                        onBlur={() => markFieldAsTouched('zip_code')}
+                                                        className={getFieldClassName('zip_code', 'mt-1 pr-10')}
                                                         placeholder="Enter zip code"
+                                                        aria-invalid={!isFieldValid('zip_code')}
                                                     />
                                                     {addressAutocomplete.isLoading && (
                                                         <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -825,8 +940,13 @@ export default function CheckoutPage({
                                                     </div>
                                                 )}
                                                 
-                                                {errors.zip_code && (
-                                                    <p className="text-red-500 text-sm mt-1">{errors.zip_code}</p>
+                                                {getFieldError('zip_code') && (
+                                                    <p id="zip_code-error" className="text-red-600 dark:text-red-400 text-sm mt-1.5 flex items-center">
+                                                        <svg className="w-4 h-4 mr-1 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                                        </svg>
+                                                        {getFieldError('zip_code')}
+                                                    </p>
                                                 )}
                                             </div>
                                         </div>
@@ -834,19 +954,28 @@ export default function CheckoutPage({
 
                                     {/* Address Type */}
                                     <div>
-                                        <Label htmlFor="type">Address Type</Label>
+                                        <Label htmlFor="type" className="text-gray-900 dark:text-white">
+                                            Address Type <span className="text-red-500">*</span>
+                                        </Label>
                                         <select
                                             id="type"
                                             value={data.type}
                                             onChange={(e) => setData('type', e.target.value as 'home' | 'work' | 'other')}
-                                            className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            onBlur={() => markFieldAsTouched('type')}
+                                            className={getFieldClassName('type', 'mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500')}
+                                            aria-invalid={!isFieldValid('type')}
                                         >
                                             <option value="home">Home</option>
                                             <option value="work">Work</option>
                                             <option value="other">Other</option>
                                         </select>
-                                        {errors.type && (
-                                            <p className="text-red-500 text-sm mt-1">{errors.type}</p>
+                                        {getFieldError('type') && (
+                                            <p id="type-error" className="text-red-600 dark:text-red-400 text-sm mt-1.5 flex items-center">
+                                                <svg className="w-4 h-4 mr-1 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                                </svg>
+                                                {getFieldError('type')}
+                                            </p>
                                         )}
                                     </div>
 

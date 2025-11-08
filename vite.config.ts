@@ -25,6 +25,14 @@ export default defineConfig(({ isSsrBuild }) => ({
     },
     build: {
         chunkSizeWarningLimit: 1000,
+        // Enable minification for production
+        minify: 'esbuild',
+        // Enable CSS code splitting
+        cssCodeSplit: true,
+        // Optimize dependencies
+        commonjsOptions: {
+            transformMixedEsModules: true,
+        },
         rollupOptions: {
             output: !isSsrBuild ? {
                 // Only apply manual chunks for client build, not SSR
@@ -75,6 +83,22 @@ export default defineConfig(({ isSsrBuild }) => ({
                         'tailwind-merge',
                         'emoji-picker-react',
                     ],
+                },
+                // Optimize chunk file names for better caching
+                chunkFileNames: 'js/[name]-[hash].js',
+                entryFileNames: 'js/[name]-[hash].js',
+                assetFileNames: (assetInfo) => {
+                    // Organize assets by type
+                    if (assetInfo.name?.endsWith('.css')) {
+                        return 'css/[name]-[hash][extname]';
+                    }
+                    if (/\.(png|jpe?g|svg|gif|webp|avif)$/.test(assetInfo.name || '')) {
+                        return 'images/[name]-[hash][extname]';
+                    }
+                    if (/\.(woff2?|eot|ttf|otf)$/.test(assetInfo.name || '')) {
+                        return 'fonts/[name]-[hash][extname]';
+                    }
+                    return 'assets/[name]-[hash][extname]';
                 },
             } : {},
         },

@@ -79,8 +79,9 @@ export default function CartPage({
     const { cartItems, updateQuantity, removeFromCart, clearCart } = useCart();
     const { auth } = usePage().props as unknown as { auth: { user: any } | null };
 
-    // Use cartItems from context if available, otherwise use initial data
-    const currentCartItems = cartItems.length > 0 ? cartItems : initialCartItems;
+    // Always use initialCartItems from server as source of truth
+    // The context cartItems will sync after the page loads
+    const currentCartItems = initialCartItems.length > 0 ? initialCartItems : cartItems;
     const calculations = initialCalculations;
     
     // Group items by store dynamically

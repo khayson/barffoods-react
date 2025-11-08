@@ -8,16 +8,22 @@ use App\Models\PaymentTransaction;
 use App\Models\CartItem;
 use App\Models\AnonymousCart;
 use App\Models\UserAddress;
+use App\Models\PaymentIdempotency;
 use App\Services\CartCalculationService;
 use App\Services\DiscountService;
 use App\Services\AddressService;
 use App\Services\StripeService;
 use App\Services\ShippingService;
+use App\Services\InventoryService;
+use App\Services\AuditService;
+use App\Services\NotificationService;
 use App\Jobs\ProcessStripePaymentJob;
+use App\Jobs\ProcessRefundJob;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 class CheckoutController extends Controller
@@ -26,13 +32,26 @@ class CheckoutController extends Controller
     protected $discountService;
     protected $addressService;
     protected $stripeService;
+    protected $inventoryService;
+    protected $auditService;
+    protected $notificationService;
 
-    public function __construct(CartCalculationService $cartCalculationService, DiscountService $discountService, AddressService $addressService, StripeService $stripeService)
-    {
+    public function __construct(
+        CartCalculationService $cartCalculationService,
+        DiscountService $discountService,
+        AddressService $addressService,
+        StripeService $stripeService,
+        InventoryService $inventoryService,
+        AuditService $auditService,
+        NotificationService $notificationService
+    ) {
         $this->cartCalculationService = $cartCalculationService;
         $this->discountService = $discountService;
         $this->addressService = $addressService;
         $this->stripeService = $stripeService;
+        $this->inventoryService = $inventoryService;
+        $this->auditService = $auditService;
+        $this->notificationService = $notificationService;
     }
 
     /**
@@ -297,7 +316,9 @@ class CheckoutController extends Controller
             \Log::info('Stripe session retrieved', [
                 'session_id' => $sessionId,
                 'payment_status' => $session->payment_status,
+                'payment_intent' => $session->payment_intent,
                 'customer_email' => $session->customer_email,
+                'amount_total' => $session->amount_total,
             ]);
             
             if ($session->payment_status !== 'paid') {
@@ -305,38 +326,123 @@ class CheckoutController extends Controller
                     'session_id' => $sessionId,
                     'payment_status' => $session->payment_status,
                 ]);
-                return redirect('/checkout')->with('error', 'Payment not completed');
+                return redirect('/checkout')->with('error', 'Payment not completed. Please try again.');
             }
 
             // Get checkout data from session
             $checkoutData = session('checkout_data');
             
-            // If session data is missing, try to get carrier data from Stripe metadata as fallback
-            if (!$checkoutData || !isset($checkoutData['carrier_name'])) {
-                \Log::warning('Session data missing carrier info, checking Stripe metadata', [
-                    'session_has_data' => !empty($checkoutData),
-                    'session_carrier_name' => $checkoutData['carrier_name'] ?? 'NOT_SET',
+            // If session data is missing, reconstruct from Stripe session and current cart
+            if (!$checkoutData) {
+                \Log::warning('Session data missing, reconstructing from Stripe and cart', [
+                    'session_id' => $sessionId,
+                    'user_id' => Auth::id(),
                 ]);
                 
-                // Get carrier data from Stripe metadata as fallback
-                if (isset($session->metadata)) {
-                    $checkoutData = $checkoutData ?: [];
-                    $checkoutData['shipping_method'] = $session->metadata['shipping_method'] ?? 'shipping';
-                    $checkoutData['carrier_name'] = $session->metadata['carrier_name'] ?? null;
-                    $checkoutData['carrier_service'] = $session->metadata['carrier_service'] ?? null;
-                    $checkoutData['carrier_cost'] = $session->metadata['carrier_cost'] ?? null;
-                    $checkoutData['carrier_id'] = $session->metadata['carrier_id'] ?? null;
-                    
-                    \Log::info('Retrieved carrier data from Stripe metadata', [
-                        'carrier_name' => $checkoutData['carrier_name'],
-                        'carrier_service' => $checkoutData['carrier_service'],
-                        'carrier_cost' => $checkoutData['carrier_cost'],
+                // Get current cart items
+                $cartItems = CartItem::where('user_id', Auth::id())
+                    ->with(['product.store', 'product.category'])
+                    ->get();
+                
+                if ($cartItems->isEmpty()) {
+                    \Log::error('Cart is empty during checkout success', [
+                        'session_id' => $sessionId,
+                        'user_id' => Auth::id(),
                     ]);
+                    ProcessRefundJob::dispatch($session->payment_intent, null, 'Cart empty during checkout completion');
+                    return redirect('/checkout')->with('error', 'Your cart is empty. Refund will be processed automatically.');
                 }
+                
+                // Get address from Stripe session
+                $shippingAddress = $session->shipping_details->address ?? $session->customer_details->address ?? null;
+                
+                if (!$shippingAddress) {
+                    \Log::error('No shipping address in Stripe session', [
+                        'session_id' => $sessionId,
+                    ]);
+                    ProcessRefundJob::dispatch($session->payment_intent, null, 'No shipping address found');
+                    return redirect('/checkout')->with('error', 'Shipping address not found. Refund will be processed automatically.');
+                }
+                
+                // Find or create user address
+                $userAddress = \App\Models\UserAddress::firstOrCreate([
+                    'user_id' => Auth::id(),
+                    'street_address' => $shippingAddress->line1,
+                    'city' => $shippingAddress->city,
+                    'state' => $shippingAddress->state,
+                    'zip_code' => $shippingAddress->postal_code,
+                ], [
+                    'type' => 'home',
+                    'label' => 'Checkout Address',
+                    'is_default' => false,
+                    'is_active' => true,
+                ]);
+                
+                // Recalculate totals
+                $calculations = $this->cartCalculationService->calculateCartTotals(
+                    $cartItems->toArray(),
+                    Auth::id()
+                );
+                
+                // Add delivery fee from Stripe metadata or session
+                $deliveryFee = isset($session->metadata['carrier_cost']) 
+                    ? floatval($session->metadata['carrier_cost']) 
+                    : 0;
+                
+                $calculations['delivery_fee'] = $deliveryFee;
+                $calculations['total'] = $calculations['subtotal'] - $calculations['discount'] + $deliveryFee + $calculations['tax'];
+                
+                // Reconstruct checkout data
+                $checkoutData = [
+                    'address_data' => [
+                        'street_address' => $shippingAddress->line1,
+                        'city' => $shippingAddress->city,
+                        'state' => $shippingAddress->state,
+                        'zip_code' => $shippingAddress->postal_code,
+                    ],
+                    'user_address_id' => $userAddress->id,
+                    'cart_items' => $cartItems->toArray(),
+                    'calculations' => $calculations,
+                    'shipping_method' => $session->metadata['shipping_method'] ?? 'shipping',
+                    'carrier_id' => $session->metadata['carrier_id'] ?? null,
+                    'carrier_name' => $session->metadata['carrier_name'] ?? null,
+                    'carrier_service' => $session->metadata['carrier_service'] ?? null,
+                    'carrier_cost' => $session->metadata['carrier_cost'] ?? null,
+                    'discount_code' => null,
+                ];
+                
+                \Log::info('Successfully reconstructed checkout data', [
+                    'cart_items_count' => count($cartItems),
+                    'total' => $calculations['total'],
+                    'carrier_name' => $checkoutData['carrier_name'],
+                ]);
             }
+
+            // Generate idempotency key from session ID
+            $idempotencyKey = 'checkout_' . $sessionId;
             
-            if (!$checkoutData) {
-                return redirect('/checkout')->with('error', 'Checkout data not found');
+            // Check for duplicate order using idempotency
+            $idempotencyRecord = PaymentIdempotency::check($idempotencyKey);
+            if ($idempotencyRecord && $idempotencyRecord->status === 'completed') {
+                \Log::info('Duplicate order prevented by idempotency', [
+                    'idempotency_key' => $idempotencyKey,
+                    'existing_order_id' => $idempotencyRecord->order_id,
+                ]);
+
+                return redirect('/orders/' . $idempotencyRecord->order_id)->with([
+                    'success' => 'Order already processed',
+                    'order_confirmed' => true,
+                    'order_number' => $idempotencyRecord->order->order_number,
+                ]);
+            }
+
+            // Create idempotency record
+            if (!$idempotencyRecord) {
+                $idempotencyRecord = PaymentIdempotency::createOrRetrieve(
+                    $idempotencyKey,
+                    Auth::id(),
+                    ['session_id' => $sessionId, 'payment_intent' => $session->payment_intent]
+                );
             }
 
             // Debug shipping data in session
@@ -350,30 +456,68 @@ class CheckoutController extends Controller
 
             DB::beginTransaction();
 
-            // Create a single order with all items (simplified structure)
-            $order = Order::create([
-                'order_number' => Order::generateOrderNumber(),
-                'user_id' => Auth::id(),
-                'user_address_id' => $checkoutData['user_address_id'],
-                'status' => 'confirmed',
-                'total_amount' => $checkoutData['calculations']['total'],
-                'subtotal' => $checkoutData['calculations']['subtotal'],
-                'tax' => $checkoutData['calculations']['tax'],
-                'delivery_fee' => $checkoutData['calculations']['delivery_fee'],
-                'delivery_address' => $checkoutData['address_data']['street_address'] . ', ' . 
-                                     $checkoutData['address_data']['city'] . ', ' . 
-                                     $checkoutData['address_data']['state'] . ' ' . 
-                                     $checkoutData['address_data']['zip_code'],
-                'shipping_method' => $checkoutData['shipping_method'],
-                'carrier' => $checkoutData['carrier_name'] ?? null,
-                'service' => $checkoutData['carrier_service'] ?? null,
-                'shipping_cost' => $checkoutData['carrier_cost'] ?? null,
-                'rate_id' => $checkoutData['carrier_id'] ?? null,
-                'is_ready_for_delivery' => false,
+            // STEP 1: Create order FIRST
+            // Temporarily unguard to allow setting protected fields
+            $order = Order::unguarded(function () use ($checkoutData) {
+                return Order::create([
+                    'order_number' => Order::generateOrderNumber(),
+                    'user_id' => Auth::id(),
+                    'user_address_id' => $checkoutData['user_address_id'],
+                    'status' => 'confirmed',
+                    'total_amount' => $checkoutData['calculations']['total'],
+                    'subtotal' => $checkoutData['calculations']['subtotal'],
+                    'tax' => $checkoutData['calculations']['tax'],
+                    'delivery_fee' => $checkoutData['calculations']['delivery_fee'],
+                    'delivery_address' => $checkoutData['address_data']['street_address'] . ', ' . 
+                                         $checkoutData['address_data']['city'] . ', ' . 
+                                         $checkoutData['address_data']['state'] . ' ' . 
+                                         $checkoutData['address_data']['zip_code'],
+                    'shipping_method' => $checkoutData['shipping_method'],
+                    'carrier' => $checkoutData['carrier_name'] ?? null,
+                    'service' => $checkoutData['carrier_service'] ?? null,
+                    'shipping_cost' => $checkoutData['carrier_cost'] ?? null,
+                    'rate_id' => $checkoutData['carrier_id'] ?? null,
+                    'is_ready_for_delivery' => false,
+                ]);
+            });
+
+            \Log::info('Order created successfully', [
+                'order_id' => $order->id,
+                'order_number' => $order->order_number,
             ]);
 
-            // Create order items for all cart items
+            // STEP 2: Create payment transaction with order_id
+            // Temporarily unguard to allow setting protected fields
+            $paymentTransaction = PaymentTransaction::unguarded(function () use ($checkoutData, $session, $sessionId, $idempotencyKey, $order) {
+                return PaymentTransaction::create([
+                    'order_id' => $order->id,
+                    'amount' => $checkoutData['calculations']['total'],
+                    'payment_method' => 'stripe',
+                    'transaction_id' => $session->payment_intent,
+                    'status' => 'completed',
+                    'metadata' => json_encode([
+                        'session_id' => $sessionId,
+                        'user_id' => Auth::id(),
+                        'idempotency_key' => $idempotencyKey,
+                    ]),
+                ]);
+            });
+
+            \Log::info('Payment transaction record created', [
+                'transaction_id' => $paymentTransaction->id,
+                'payment_intent' => $session->payment_intent,
+                'amount' => $paymentTransaction->amount,
+                'order_id' => $order->id,
+            ]);
+
+            // STEP 3: Create order items and decrement inventory
             foreach ($checkoutData['cart_items'] as $cartItem) {
+                // Decrement stock using InventoryService (with pessimistic locking)
+                $this->inventoryService->decrementStock(
+                    $cartItem['product']['id'],
+                    $cartItem['quantity']
+                );
+
                 OrderItem::create([
                     'order_id' => $order->id,
                     'product_id' => $cartItem['product']['id'],
@@ -383,15 +527,6 @@ class CheckoutController extends Controller
                     'total_price' => $cartItem['quantity'] * $cartItem['product']['price'],
                 ]);
             }
-
-            // Create payment transaction
-            PaymentTransaction::create([
-                'order_id' => $order->id,
-                'amount' => $checkoutData['calculations']['total'],
-                'payment_method' => 'stripe',
-                'transaction_id' => $session->payment_intent,
-                'status' => 'completed',
-            ]);
 
             // Create initial status history
             \App\Models\OrderStatusHistory::create([
@@ -403,6 +538,30 @@ class CheckoutController extends Controller
             // Note: Shipping labels are now created manually by admin via the admin panel
             // This ensures proper control over when labels are generated and reduces costs
 
+            // Log order creation for audit trail
+            $this->auditService->log(
+                'order_created',
+                $order,
+                null,
+                [
+                    'order_number' => $order->order_number,
+                    'total_amount' => $order->total_amount,
+                    'items_count' => count($checkoutData['cart_items']),
+                    'payment_method' => 'stripe',
+                ],
+                "Order {$order->order_number} created with status confirmed"
+            );
+
+            // Mark idempotency as completed
+            $idempotencyRecord->update([
+                'order_id' => $order->id,
+                'payment_intent_id' => $session->payment_intent,
+            ]);
+            $idempotencyRecord->markCompleted([
+                'order_id' => $order->id,
+                'order_number' => $order->order_number,
+            ], $session->payment_intent);
+
             // Clear cart
             CartItem::where('user_id', Auth::id())->delete();
 
@@ -410,6 +569,27 @@ class CheckoutController extends Controller
             session()->forget('checkout_data');
 
             DB::commit();
+
+            // Send order confirmation notification (after commit)
+            try {
+                $this->notificationService->create(
+                    userId: Auth::id(),
+                    type: 'order_confirmed',
+                    title: 'Order Confirmed',
+                    message: "Your order #{$order->order_number} has been confirmed and is being processed.",
+                    data: [
+                        'order_id' => $order->id,
+                        'order_number' => $order->order_number,
+                        'total_amount' => $order->total_amount,
+                    ]
+                );
+            } catch (\Exception $e) {
+                // Log notification failure but don't fail the order
+                \Log::warning('Failed to send order confirmation notification', [
+                    'order_id' => $order->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
 
             $successMessage = "Order placed successfully! Order #{$order->order_number}";
 
@@ -429,13 +609,71 @@ class CheckoutController extends Controller
 
         } catch (\Exception $e) {
             DB::rollback();
-            \Log::error('Checkout success error', [
-                'error' => $e->getMessage(),
-                'session_id' => $sessionId,
-                'user_id' => Auth::id(),
-            ]);
             
-            return redirect('/checkout')->with('error', 'Failed to process order: ' . $e->getMessage());
+            // Mark idempotency as failed
+            if (isset($idempotencyRecord)) {
+                $idempotencyRecord->markFailed([
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+            }
+
+            // Mark payment transaction as pending_refund if it was created
+            if (isset($paymentTransaction)) {
+                try {
+                    // Update payment transaction status outside of rolled-back transaction
+                    DB::connection()->table('payment_transactions')
+                        ->where('id', $paymentTransaction->id)
+                        ->update([
+                            'status' => 'pending_refund',
+                            'metadata' => json_encode([
+                                'session_id' => $sessionId,
+                                'user_id' => Auth::id(),
+                                'idempotency_key' => $idempotencyKey,
+                                'refund_reason' => 'Order creation failed: ' . $e->getMessage(),
+                                'failed_at' => now()->toISOString(),
+                            ]),
+                            'updated_at' => now(),
+                        ]);
+                    
+                    \Log::info('Payment transaction marked as pending_refund', [
+                        'transaction_id' => $paymentTransaction->id,
+                        'payment_intent' => $session->payment_intent ?? 'unknown',
+                    ]);
+                } catch (\Exception $updateError) {
+                    \Log::error('Failed to update payment transaction status', [
+                        'error' => $updateError->getMessage(),
+                        'transaction_id' => $paymentTransaction->id ?? 'unknown',
+                    ]);
+                }
+            }
+
+            // Queue automatic refund for failed order
+            if (isset($session) && isset($session->payment_intent)) {
+                ProcessRefundJob::dispatch(
+                    $session->payment_intent,
+                    null,
+                    'Order creation failed: ' . $e->getMessage()
+                );
+                
+                \Log::error('Order creation failed - Refund queued', [
+                    'payment_intent_id' => $session->payment_intent,
+                    'payment_transaction_id' => $paymentTransaction->id ?? null,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                    'session_id' => $sessionId,
+                    'user_id' => Auth::id(),
+                ]);
+            } else {
+                \Log::error('Order creation failed - No payment intent to refund', [
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                    'session_id' => $sessionId,
+                    'user_id' => Auth::id(),
+                ]);
+            }
+            
+            return redirect('/checkout')->with('error', 'Failed to process order: ' . $e->getMessage() . '. A refund will be processed automatically.');
         }
     }
 
@@ -458,6 +696,35 @@ class CheckoutController extends Controller
             'payment_intent_id' => 'required|string',
         ]);
 
+        // Generate or retrieve idempotency key
+        $idempotencyKey = $request->header('X-Idempotency-Key') ?? Str::uuid()->toString();
+        
+        // Check for duplicate payment using idempotency
+        $idempotencyRecord = PaymentIdempotency::check($idempotencyKey);
+        if ($idempotencyRecord && $idempotencyRecord->status === 'completed') {
+            \Log::info('Duplicate payment prevented by idempotency', [
+                'idempotency_key' => $idempotencyKey,
+                'existing_order_id' => $idempotencyRecord->order_id,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'order_id' => $idempotencyRecord->order_id,
+                'order_number' => $idempotencyRecord->order->order_number,
+                'message' => 'Order already processed',
+                'duplicate' => true,
+            ]);
+        }
+
+        // Create idempotency record
+        if (!$idempotencyRecord) {
+            $idempotencyRecord = PaymentIdempotency::createOrRetrieve(
+                $idempotencyKey,
+                Auth::id(),
+                ['payment_intent_id' => $request->payment_intent_id]
+            );
+        }
+
         DB::beginTransaction();
 
         try {
@@ -465,13 +732,32 @@ class CheckoutController extends Controller
             $paymentResult = $this->stripeService->getPaymentIntent($request->payment_intent_id);
             
             if (!$paymentResult['success'] || $paymentResult['status'] !== 'succeeded') {
+                $idempotencyRecord->markFailed(['error' => 'Payment not completed']);
                 return response()->json(['error' => 'Payment not completed'], 400);
+            }
+
+            // Check payment intent timeout (30 minutes)
+            if (isset($paymentResult['created'])) {
+                $paymentAge = time() - $paymentResult['created'];
+                if ($paymentAge > 1800) { // 30 minutes
+                    $idempotencyRecord->markFailed(['error' => 'Payment intent expired']);
+                    
+                    // Queue refund for expired payment
+                    ProcessRefundJob::dispatch($request->payment_intent_id, null, 'Payment timeout - order not completed within 30 minutes');
+                    
+                    return response()->json(['error' => 'Payment session expired. Refund will be processed automatically.'], 400);
+                }
             }
 
             // Get checkout data from session
             $checkoutData = session('checkout_data');
             if (!$checkoutData) {
-                return response()->json(['error' => 'Checkout session expired'], 400);
+                $idempotencyRecord->markFailed(['error' => 'Checkout session expired']);
+                
+                // Queue refund for session expiry
+                ProcessRefundJob::dispatch($request->payment_intent_id, null, 'Checkout session expired');
+                
+                return response()->json(['error' => 'Checkout session expired. Refund will be processed automatically.'], 400);
             }
 
             // Log shipping data for debugging
@@ -511,8 +797,14 @@ class CheckoutController extends Controller
                 'is_ready_for_delivery' => false,
             ]);
 
-            // Create order items for all cart items
+            // Create order items for all cart items and decrement inventory
             foreach ($cartItems as $cartItem) {
+                // Decrement stock using InventoryService (with pessimistic locking)
+                $this->inventoryService->decrementStock(
+                    $cartItem['product']['id'],
+                    $cartItem['quantity']
+                );
+
                 OrderItem::create([
                     'order_id' => $order->id,
                     'product_id' => $cartItem['product']['id'],
@@ -542,6 +834,30 @@ class CheckoutController extends Controller
             // Note: Shipping labels are now created manually by admin via the admin panel
             // This ensures proper control over when labels are generated and reduces costs
 
+            // Log order creation for audit trail
+            $this->auditService->log(
+                'order_created',
+                $order,
+                null,
+                [
+                    'order_number' => $order->order_number,
+                    'total_amount' => $order->total_amount,
+                    'items_count' => $cartItems->count(),
+                    'payment_method' => 'stripe',
+                ],
+                "Order {$order->order_number} created with status confirmed"
+            );
+
+            // Mark idempotency as completed
+            $idempotencyRecord->update([
+                'order_id' => $order->id,
+                'payment_intent_id' => $request->payment_intent_id,
+            ]);
+            $idempotencyRecord->markCompleted([
+                'order_id' => $order->id,
+                'order_number' => $order->order_number,
+            ], $request->payment_intent_id);
+
             // Clear cart
             CartItem::where('user_id', Auth::id())->delete();
 
@@ -549,6 +865,27 @@ class CheckoutController extends Controller
             session()->forget('checkout_data');
 
             DB::commit();
+
+            // Send order confirmation notification (after commit)
+            try {
+                $this->notificationService->create(
+                    userId: Auth::id(),
+                    type: 'order_confirmed',
+                    title: 'Order Confirmed',
+                    message: "Your order #{$order->order_number} has been confirmed and is being processed.",
+                    data: [
+                        'order_id' => $order->id,
+                        'order_number' => $order->order_number,
+                        'total_amount' => $order->total_amount,
+                    ]
+                );
+            } catch (\Exception $e) {
+                // Log notification failure but don't fail the order
+                \Log::warning('Failed to send order confirmation notification', [
+                    'order_id' => $order->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
 
             $successMessage = "Order placed successfully! Order #{$order->order_number}";
 
@@ -568,6 +905,29 @@ class CheckoutController extends Controller
 
         } catch (\Exception $e) {
             DB::rollback();
+            
+            // Mark idempotency as failed
+            if (isset($idempotencyRecord)) {
+                $idempotencyRecord->markFailed([
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+            }
+
+            // Queue automatic refund for failed order
+            if (isset($request->payment_intent_id)) {
+                ProcessRefundJob::dispatch(
+                    $request->payment_intent_id,
+                    null,
+                    'Order creation failed: ' . $e->getMessage()
+                );
+                
+                \Log::info('Refund queued for failed order', [
+                    'payment_intent_id' => $request->payment_intent_id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+            
             \Log::error('Checkout store error', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),

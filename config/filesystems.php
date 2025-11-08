@@ -60,6 +60,44 @@ return [
             'report' => false,
         ],
 
+        // Dedicated backup storage with encryption and geographically separate region
+        'backup' => [
+            'driver' => 's3',
+            'key' => env('AWS_BACKUP_ACCESS_KEY_ID', env('AWS_ACCESS_KEY_ID')),
+            'secret' => env('AWS_BACKUP_SECRET_ACCESS_KEY', env('AWS_SECRET_ACCESS_KEY')),
+            'region' => env('AWS_BACKUP_REGION', env('AWS_DEFAULT_REGION')),
+            'bucket' => env('AWS_BACKUP_BUCKET', env('AWS_BUCKET')),
+            'url' => env('AWS_BACKUP_URL'),
+            'endpoint' => env('AWS_BACKUP_ENDPOINT'),
+            'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+            'throw' => true, // Throw exceptions for backup failures
+            'report' => true, // Report backup storage errors
+            'options' => [
+                // Enable server-side encryption with AES-256
+                'ServerSideEncryption' => 'AES256',
+                // Optional: Use AWS KMS for encryption
+                // 'ServerSideEncryption' => 'aws:kms',
+                // 'SSEKMSKeyId' => env('AWS_BACKUP_KMS_KEY_ID'),
+            ],
+        ],
+
+        // Optional: Secondary backup storage in different geographic region for disaster recovery
+        'backup_secondary' => [
+            'driver' => 's3',
+            'key' => env('AWS_BACKUP_SECONDARY_ACCESS_KEY_ID', env('AWS_BACKUP_ACCESS_KEY_ID')),
+            'secret' => env('AWS_BACKUP_SECONDARY_SECRET_ACCESS_KEY', env('AWS_BACKUP_SECRET_ACCESS_KEY')),
+            'region' => env('AWS_BACKUP_SECONDARY_REGION'), // e.g., 'us-west-2' if primary is 'us-east-1'
+            'bucket' => env('AWS_BACKUP_SECONDARY_BUCKET'),
+            'url' => env('AWS_BACKUP_SECONDARY_URL'),
+            'endpoint' => env('AWS_BACKUP_SECONDARY_ENDPOINT'),
+            'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+            'throw' => false, // Don't fail backup if secondary upload fails
+            'report' => true,
+            'options' => [
+                'ServerSideEncryption' => 'AES256',
+            ],
+        ],
+
     ],
 
     /*

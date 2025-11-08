@@ -54,7 +54,7 @@ return [
 
         'stack' => [
             'driver' => 'stack',
-            'channels' => explode(',', env('LOG_STACK', 'single')),
+            'channels' => explode(',', env('LOG_STACK', 'daily,slack')),
             'ignore_exceptions' => false,
         ],
 
@@ -76,9 +76,9 @@ return [
         'slack' => [
             'driver' => 'slack',
             'url' => env('LOG_SLACK_WEBHOOK_URL'),
-            'username' => env('LOG_SLACK_USERNAME', 'Laravel Log'),
-            'emoji' => env('LOG_SLACK_EMOJI', ':boom:'),
-            'level' => env('LOG_LEVEL', 'critical'),
+            'username' => env('LOG_SLACK_USERNAME', 'E-Commerce App'),
+            'emoji' => env('LOG_SLACK_EMOJI', ':rotating_light:'),
+            'level' => env('LOG_SLACK_LEVEL', 'critical'),
             'replace_placeholders' => true,
         ],
 
@@ -125,6 +125,105 @@ return [
 
         'emergency' => [
             'path' => storage_path('logs/laravel.log'),
+        ],
+
+        // Custom channels for system error proofing
+        
+        // Security events: authentication, authorization, suspicious activity
+        'security' => [
+            'driver' => 'stack',
+            'channels' => ['security_daily', 'security_slack'],
+            'ignore_exceptions' => false,
+        ],
+
+        'security_daily' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/security.log'),
+            'level' => env('LOG_SECURITY_LEVEL', 'info'),
+            'days' => env('LOG_SECURITY_DAYS', 90), // Keep security logs for 90 days
+            'replace_placeholders' => true,
+        ],
+
+        'security_slack' => [
+            'driver' => 'slack',
+            'url' => env('LOG_SLACK_WEBHOOK_URL'),
+            'username' => 'Security Alert',
+            'emoji' => ':shield:',
+            'level' => 'warning', // Notify on warnings and above
+            'replace_placeholders' => true,
+        ],
+
+        // Payment processing: transactions, refunds, failures
+        'payment' => [
+            'driver' => 'stack',
+            'channels' => ['payment_daily', 'payment_slack'],
+            'ignore_exceptions' => false,
+        ],
+
+        'payment_daily' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/payment.log'),
+            'level' => env('LOG_PAYMENT_LEVEL', 'info'),
+            'days' => env('LOG_PAYMENT_DAYS', 365), // Keep payment logs for 1 year (compliance)
+            'replace_placeholders' => true,
+        ],
+
+        'payment_slack' => [
+            'driver' => 'slack',
+            'url' => env('LOG_SLACK_WEBHOOK_URL'),
+            'username' => 'Payment Alert',
+            'emoji' => ':credit_card:',
+            'level' => 'error', // Only notify on errors
+            'replace_placeholders' => true,
+        ],
+
+        // Shipping operations: rate calculation, label generation, tracking
+        'shipping' => [
+            'driver' => 'stack',
+            'channels' => ['shipping_daily', 'shipping_slack'],
+            'ignore_exceptions' => false,
+        ],
+
+        'shipping_daily' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/shipping.log'),
+            'level' => env('LOG_SHIPPING_LEVEL', 'info'),
+            'days' => env('LOG_SHIPPING_DAYS', 30),
+            'replace_placeholders' => true,
+        ],
+
+        'shipping_slack' => [
+            'driver' => 'slack',
+            'url' => env('LOG_SLACK_WEBHOOK_URL'),
+            'username' => 'Shipping Alert',
+            'emoji' => ':package:',
+            'level' => 'error', // Only notify on errors
+            'replace_placeholders' => true,
+        ],
+
+        // Performance metrics: slow queries, API response times
+        'performance' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/performance.log'),
+            'level' => env('LOG_PERFORMANCE_LEVEL', 'info'),
+            'days' => env('LOG_PERFORMANCE_DAYS', 14),
+            'replace_placeholders' => true,
+        ],
+
+        // Audit trail: data changes, admin actions (compliance requirement)
+        'audit' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/audit.log'),
+            'level' => env('LOG_AUDIT_LEVEL', 'info'),
+            'days' => env('LOG_AUDIT_DAYS', 2555), // Keep audit logs for 7 years
+            'replace_placeholders' => true,
+        ],
+
+        // Critical errors with immediate Slack notifications
+        'critical' => [
+            'driver' => 'stack',
+            'channels' => ['daily', 'slack'],
+            'ignore_exceptions' => false,
         ],
 
     ],

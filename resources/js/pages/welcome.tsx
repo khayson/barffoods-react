@@ -5,9 +5,11 @@ import HowItWorksBanner from '@/components/HowItWorksBanner';
 import HeroCarousel from '@/components/HeroCarousel';
 import FeaturesSection from '@/components/FeaturesSection';
 import ShopByCategory from '@/components/ShopByCategory';
+import ShopByStore from '@/components/ShopByStore';
 import ProductSection from '@/components/ProductSection';
 import StoreLocationsMap from '@/components/StoreLocationsMap';
 import Footer from '@/components/Footer';
+import { LocationProvider } from '@/contexts/LocationContext';
 import { MapPin, X, Navigation as NavigationIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import axios from 'axios';
@@ -70,6 +72,7 @@ interface PageProps {
 export default function Welcome() {
     const { props } = usePage<PageProps>();
     const [selectedCategory, setSelectedCategory] = useState<string>("All Categories");
+    const [selectedStores, setSelectedStores] = useState<string[]>([]);
     const [showLocationModal, setShowLocationModal] = useState(false);
     const [locationInput, setLocationInput] = useState('');
     const [isSearching, setIsSearching] = useState(false);
@@ -237,7 +240,12 @@ export default function Welcome() {
                 />
             </Head>
             
-            <div className="min-h-screen bg-white dark:bg-gray-900 transition-colors">
+            <LocationProvider
+                initialLocation={props.userLocation}
+                initialNearbyStores={props.nearbyStores}
+                initialAllStores={props.allStores}
+            >
+                <div className="min-h-screen bg-white dark:bg-gray-900 transition-colors">
                 {/* First Visit Location Modal */}
                 {showLocationModal && (
                     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
@@ -363,6 +371,18 @@ export default function Welcome() {
                     selectedCategory={selectedCategory}
                 />
 
+                {/* Shop By Store */}
+                <ShopByStore 
+                    onStoreSelect={(storeName) => {
+                        setSelectedStores(prev => 
+                            prev.includes(storeName) 
+                                ? prev.filter(s => s !== storeName)
+                                : [...prev, storeName]
+                        );
+                    }}
+                    selectedStores={selectedStores}
+                />
+
                 {/* Product Section */}
                 <ProductSection 
                     nearbyStores={props.nearbyStores}
@@ -371,6 +391,8 @@ export default function Welcome() {
                     initialCategories={props.categories}
                     selectedCategory={selectedCategory}
                     onCategoryChange={setSelectedCategory}
+                    externalSelectedStores={selectedStores}
+                    onStoresChange={setSelectedStores}
                 />
                 
                 {/* Store Locations & Delivery Zones */}
@@ -378,7 +400,8 @@ export default function Welcome() {
                 
                 {/* Footer */}
                 <Footer />
-            </div>
+                </div>
+            </LocationProvider>
         </>
     );
 }

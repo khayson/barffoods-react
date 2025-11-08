@@ -1,8 +1,16 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { ChevronDown, Package, Search, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronDown, Package, Search, Sparkles, ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import ProductCard from '@/components/ProductCard';
-import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ProductListSkeleton } from '@/components/ui/skeleton';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+    DropdownMenuSeparator,
+    DropdownMenuLabel,
+} from '@/components/ui/dropdown-menu';
 
 interface Product {
     id: string;
@@ -41,13 +49,14 @@ interface ProductSectionProps {
     initialCategories: Category[];
     selectedCategory?: string;
     onCategoryChange?: (category: string) => void;
+    externalSelectedStores?: string[];
+    onStoresChange?: (stores: string[]) => void;
 }
 
-export default function ProductSection({ nearbyStores, allStores, initialProducts, initialCategories, selectedCategory: externalSelectedCategory, onCategoryChange }: ProductSectionProps) {
-    const [selectedStores, setSelectedStores] = useState<string[]>([]);
+export default function ProductSection({ nearbyStores, allStores, initialProducts, initialCategories, selectedCategory: externalSelectedCategory, onCategoryChange, externalSelectedStores, onStoresChange }: ProductSectionProps) {
+    const [selectedStores, setSelectedStores] = useState<string[]>(externalSelectedStores || []);
     const [selectedCategory, setSelectedCategory] = useState("All Categories");
     const [selectedSort, setSelectedSort] = useState("Sort by");
-    const [showSortDropdown, setShowSortDropdown] = useState(false);
     const [displayedProducts, setDisplayedProducts] = useState<Product[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [allProducts, setAllProducts] = useState<Product[]>([]);
@@ -65,18 +74,39 @@ export default function ProductSection({ nearbyStores, allStores, initialProduct
 
     // Initialize with props data
     useEffect(() => {
+        console.log('ProductSection initializing with:', {
+            initialProducts: initialProducts.length,
+            nearbyStores: nearbyStores.length,
+            allStores: allStores.length,
+            initialCategories: initialCategories.length
+        });
+        
         // Remove duplicates based on ID
         const uniqueProducts = initialProducts.filter((product, index, self) => 
             index === self.findIndex(p => p.id === product.id)
         );
         
+        console.log('Unique products after deduplication:', uniqueProducts.length);
+        
         setAllProducts(uniqueProducts);
         setStores(allStores); // Use allStores for dropdown
         setCategories(initialCategories);
         
-        // Auto-select nearby stores if available
-        if (nearbyStores.length > 0) {
-            setSelectedStores(nearbyStores.map(store => store.name));
+        // Auto-select nearby stores ONLY if there are nearby stores AND products from those stores
+        if (nearbyStores.length > 0 && uniqueProducts.length > 0) {
+            // Check if any products are from nearby stores
+            const nearbyStoreNames = nearbyStores.map(store => store.name);
+            const hasProductsFromNearbyStores = uniqueProducts.some(product => 
+                nearbyStoreNames.includes(product.store)
+            );
+            
+            console.log('Has products from nearby stores:', hasProductsFromNearbyStores);
+            
+            // Only auto-select if there are products from nearby stores
+            if (hasProductsFromNearbyStores) {
+                setSelectedStores(nearbyStoreNames);
+            }
+            // Otherwise leave selectedStores empty to show all products
         }
         
         // Calculate total pages
@@ -84,16 +114,27 @@ export default function ProductSection({ nearbyStores, allStores, initialProduct
         setTotalPages(pages);
         
         // Initialize with first page of products
-        setDisplayedProducts(uniqueProducts.slice(0, itemsPerPage));
+        const firstPageProducts = uniqueProducts.slice(0, itemsPerPage);
+        console.log('Setting displayed products:', firstPageProducts.length);
+        setDisplayedProducts(firstPageProducts);
         setIsInitialLoad(false);
     }, [nearbyStores, allStores, initialProducts, initialCategories, itemsPerPage]);
 
     // Sync external category selection
     useEffect(() => {
-        if (externalSelectedCategory && externalSelectedCategory !== selectedCategory) {
+        if (externalSelectedCategory !== undefined && externalSelectedCategory !== selectedCategory) {
             setSelectedCategory(externalSelectedCategory);
+        } else if (externalSelectedCategory === undefined && selectedCategory !== "All Categories") {
+            setSelectedCategory("All Categories");
         }
     }, [externalSelectedCategory, selectedCategory]);
+
+    // Sync external selected stores
+    useEffect(() => {
+        if (externalSelectedStores) {
+            setSelectedStores(externalSelectedStores);
+        }
+    }, [externalSelectedStores]);
 
     // Clear filters function
     const clearFilters = () => {
@@ -539,26 +580,42 @@ export default function ProductSection({ nearbyStores, allStores, initialProduct
                     {/* Filters */}
                     <div className="flex flex-wrap items-center gap-4 mb-6">
                         {/* Store Filter */}
-                        <div className="relative">
-                            <select
-                                onChange={(e) => {
-                                    const storeName = e.target.value;
-                                    if (storeName && !selectedStores.includes(storeName)) {
-                                        setSelectedStores(prev => [...prev, storeName]);
-                                    }
-                                    e.target.value = '';
-                                }}
-                                className="appearance-none bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 pr-8 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500"
-                            >
-                                <option value="">Add Store</option>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <button className="flex items-center space-x-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 text-sm text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                                    <span>Add Store</span>
+                                    <ChevronDown className="h-4 w-4 text-gray-400" />
+                                </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-56 max-h-[300px] overflow-y-auto">
+                                <DropdownMenuLabel>Select Stores</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
                                 {stores.map((store) => (
-                                    <option key={store.id} value={store.name}>
-                                        {store.name} {store.distance ? `(${store.distance.toFixed(1)} mi)` : ''}
-                                    </option>
+                                    <DropdownMenuItem
+                                        key={store.id}
+                                        onClick={() => {
+                                            if (!selectedStores.includes(store.name)) {
+                                                setSelectedStores(prev => [...prev, store.name]);
+                                            }
+                                        }}
+                                        disabled={selectedStores.includes(store.name)}
+                                        className="cursor-pointer"
+                                    >
+                                        <div className="flex items-center justify-between w-full">
+                                            <span>{store.name}</span>
+                                            {store.distance && (
+                                                <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
+                                                    {store.distance.toFixed(1)} mi
+                                                </span>
+                                            )}
+                                        </div>
+                                        {selectedStores.includes(store.name) && (
+                                            <Check className="h-4 w-4 ml-auto text-green-600" />
+                                        )}
+                                    </DropdownMenuItem>
                                 ))}
-                            </select>
-                            <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-                        </div>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                         
                         {/* Selected Stores with Animations */}
                         <AnimatePresence mode="popLayout">
@@ -596,52 +653,68 @@ export default function ProductSection({ nearbyStores, allStores, initialProduct
                         </AnimatePresence>
 
                         {/* Category Filter */}
-                        <div className="relative">
-                            <select
-                                value={selectedCategory}
-                                onChange={(e) => {
-                                    setSelectedCategory(e.target.value);
-                                    onCategoryChange?.(e.target.value);
-                                }}
-                                className="appearance-none bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 pr-8 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500"
-                            >
-                                <option value="All Categories">All Categories</option>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <button className="flex items-center space-x-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 text-sm text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                                    <span>{selectedCategory}</span>
+                                    <ChevronDown className="h-4 w-4 text-gray-400" />
+                                </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-48">
+                                <DropdownMenuItem
+                                    onClick={() => {
+                                        setSelectedCategory("All Categories");
+                                        onCategoryChange?.("All Categories");
+                                    }}
+                                    className="cursor-pointer"
+                                >
+                                    <span>All Categories</span>
+                                    {selectedCategory === "All Categories" && (
+                                        <Check className="h-4 w-4 ml-auto text-green-600" />
+                                    )}
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
                                 {categories.map((category) => (
-                                    <option key={category.id} value={category.name}>
-                                        {category.name}
-                                    </option>
+                                    <DropdownMenuItem
+                                        key={category.id}
+                                        onClick={() => {
+                                            setSelectedCategory(category.name);
+                                            onCategoryChange?.(category.name);
+                                        }}
+                                        className="cursor-pointer"
+                                    >
+                                        <span>{category.name}</span>
+                                        {selectedCategory === category.name && (
+                                            <Check className="h-4 w-4 ml-auto text-green-600" />
+                                        )}
+                                    </DropdownMenuItem>
                                 ))}
-                            </select>
-                            <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-                        </div>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
 
                         {/* Sort Dropdown */}
-                        <div className="relative">
-                            <button
-                                onClick={() => setShowSortDropdown(!showSortDropdown)}
-                                className="flex items-center space-x-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 text-sm text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                            >
-                                <span>{selectedSort}</span>
-                                <ChevronDown className="h-4 w-4 text-gray-400" />
-                            </button>
-                            
-                            {showSortDropdown && (
-                                <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-10">
-                                    {sortOptions.slice(1).map((option) => (
-                                        <button
-                                            key={option}
-                                            onClick={() => {
-                                                setSelectedSort(option);
-                                                setShowSortDropdown(false);
-                                            }}
-                                            className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                                        >
-                                            {option}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <button className="flex items-center space-x-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 text-sm text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                                    <span>{selectedSort}</span>
+                                    <ChevronDown className="h-4 w-4 text-gray-400" />
+                                </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-48">
+                                {sortOptions.slice(1).map((option) => (
+                                    <DropdownMenuItem
+                                        key={option}
+                                        onClick={() => setSelectedSort(option)}
+                                        className="cursor-pointer"
+                                    >
+                                        <span>{option}</span>
+                                        {selectedSort === option && (
+                                            <Check className="h-4 w-4 ml-auto text-green-600" />
+                                        )}
+                                    </DropdownMenuItem>
+                                ))}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </div>
                 </div>
 
@@ -651,7 +724,7 @@ export default function ProductSection({ nearbyStores, allStores, initialProduct
     }
 
     return (
-        <div ref={productSectionRef} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div id="products-section" ref={productSectionRef} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div className="mb-8">
                 <motion.div
                     initial={{ opacity: 0, y: -20 }}
@@ -733,26 +806,42 @@ export default function ProductSection({ nearbyStores, allStores, initialProduct
                 {/* Filters */}
                 <div className="flex flex-wrap items-center gap-4 mb-6">
                     {/* Store Filter */}
-                    <div className="relative">
-                        <select
-                            onChange={(e) => {
-                                const storeName = e.target.value;
-                                if (storeName && !selectedStores.includes(storeName)) {
-                                    setSelectedStores(prev => [...prev, storeName]);
-                                }
-                                e.target.value = '';
-                            }}
-                            className="appearance-none bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 pr-8 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500"
-                        >
-                            <option value="">Add Store</option>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <button className="flex items-center space-x-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 text-sm text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                                <span>Add Store</span>
+                                <ChevronDown className="h-4 w-4 text-gray-400" />
+                            </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-56 max-h-[300px] overflow-y-auto">
+                            <DropdownMenuLabel>Select Stores</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
                             {stores.map((store) => (
-                                <option key={store.id} value={store.name}>
-                                    {store.name} {store.distance ? `(${store.distance.toFixed(1)} mi)` : ''}
-                                </option>
+                                <DropdownMenuItem
+                                    key={store.id}
+                                    onClick={() => {
+                                        if (!selectedStores.includes(store.name)) {
+                                            setSelectedStores(prev => [...prev, store.name]);
+                                        }
+                                    }}
+                                    disabled={selectedStores.includes(store.name)}
+                                    className="cursor-pointer"
+                                >
+                                    <div className="flex items-center justify-between w-full">
+                                        <span>{store.name}</span>
+                                        {store.distance && (
+                                            <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
+                                                {store.distance.toFixed(1)} mi
+                                            </span>
+                                        )}
+                                    </div>
+                                    {selectedStores.includes(store.name) && (
+                                        <Check className="h-4 w-4 ml-auto text-green-600" />
+                                    )}
+                                </DropdownMenuItem>
                             ))}
-                        </select>
-                        <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-                    </div>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                     
                         {/* Selected Stores with Animations */}
                         <AnimatePresence mode="popLayout">
@@ -790,52 +879,68 @@ export default function ProductSection({ nearbyStores, allStores, initialProduct
                         </AnimatePresence>
 
                     {/* Category Filter */}
-                    <div className="relative">
-                        <select
-                            value={selectedCategory}
-                            onChange={(e) => {
-                                setSelectedCategory(e.target.value);
-                                onCategoryChange?.(e.target.value);
-                            }}
-                            className="appearance-none bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 pr-8 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500"
-                        >
-                            <option value="All Categories">All Categories</option>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <button className="flex items-center space-x-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 text-sm text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                                <span>{selectedCategory}</span>
+                                <ChevronDown className="h-4 w-4 text-gray-400" />
+                            </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-48">
+                            <DropdownMenuItem
+                                onClick={() => {
+                                    setSelectedCategory("All Categories");
+                                    onCategoryChange?.("All Categories");
+                                }}
+                                className="cursor-pointer"
+                            >
+                                <span>All Categories</span>
+                                {selectedCategory === "All Categories" && (
+                                    <Check className="h-4 w-4 ml-auto text-green-600" />
+                                )}
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
                             {categories.map((category) => (
-                                <option key={category.id} value={category.name}>
-                                    {category.name}
-                                </option>
+                                <DropdownMenuItem
+                                    key={category.id}
+                                    onClick={() => {
+                                        setSelectedCategory(category.name);
+                                        onCategoryChange?.(category.name);
+                                    }}
+                                    className="cursor-pointer"
+                                >
+                                    <span>{category.name}</span>
+                                    {selectedCategory === category.name && (
+                                        <Check className="h-4 w-4 ml-auto text-green-600" />
+                                    )}
+                                </DropdownMenuItem>
                             ))}
-                        </select>
-                        <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-                    </div>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
 
                     {/* Sort Dropdown */}
-                    <div className="relative">
-                        <button
-                            onClick={() => setShowSortDropdown(!showSortDropdown)}
-                            className="flex items-center space-x-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 text-sm text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                        >
-                            <span>{selectedSort}</span>
-                            <ChevronDown className="h-4 w-4 text-gray-400" />
-                        </button>
-                        
-                        {showSortDropdown && (
-                            <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-10">
-                                {sortOptions.slice(1).map((option) => (
-                                    <button
-                                        key={option}
-                                        onClick={() => {
-                                            setSelectedSort(option);
-                                            setShowSortDropdown(false);
-                                        }}
-                                        className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                                    >
-                                        {option}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                    </div>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <button className="flex items-center space-x-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 text-sm text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                                <span>{selectedSort}</span>
+                                <ChevronDown className="h-4 w-4 text-gray-400" />
+                            </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-48">
+                            {sortOptions.slice(1).map((option) => (
+                                <DropdownMenuItem
+                                    key={option}
+                                    onClick={() => setSelectedSort(option)}
+                                    className="cursor-pointer"
+                                >
+                                    <span>{option}</span>
+                                    {selectedSort === option && (
+                                        <Check className="h-4 w-4 ml-auto text-green-600" />
+                                    )}
+                                </DropdownMenuItem>
+                            ))}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
             </div>
 
@@ -881,7 +986,7 @@ export default function ProductSection({ nearbyStores, allStores, initialProduct
                         exit={{ opacity: 0 }}
                         className="mt-8"
                     >
-                        <LoadingSkeleton />
+                        <ProductListSkeleton count={itemsPerPage} />
                     </motion.div>
                 )}
             </AnimatePresence>

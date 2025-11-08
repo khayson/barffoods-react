@@ -4,6 +4,7 @@ namespace App\Observers;
 
 use App\Models\PaymentTransaction;
 use App\Models\Order;
+use App\Services\AuditService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use App\Notifications\PaymentCompletedNotification;
@@ -11,11 +12,25 @@ use App\Notifications\PaymentFailedNotification;
 
 class PaymentTransactionObserver
 {
+    protected $auditService;
+
+    public function __construct(AuditService $auditService)
+    {
+        $this->auditService = $auditService;
+    }
     /**
      * Handle the PaymentTransaction "created" event.
      */
     public function created(PaymentTransaction $paymentTransaction): void
     {
+        $this->auditService->log(
+            'payment_transaction_created',
+            $paymentTransaction,
+            null,
+            $paymentTransaction->toArray(),
+            "Payment transaction created for order {$paymentTransaction->order_id} - Amount: {$paymentTransaction->amount}"
+        );
+
         Log::info('Payment transaction created', [
             'transaction_id' => $paymentTransaction->id,
             'order_id' => $paymentTransaction->order_id,
@@ -29,10 +44,33 @@ class PaymentTransactionObserver
      */
     public function updated(PaymentTransaction $paymentTransaction): void
     {
+        // Get all changed attributes
+        $changes = $paymentTransaction->getChanges();
+        $original = array_intersect_key($paymentTransaction->getOriginal(), $changes);
+
+        // Log the update to audit service
+        if (!empty($changes)) {
+            $this->auditService->log(
+                'payment_transaction_updated',
+                $paymentTransaction,
+                $original,
+                $changes,
+                "Payment transaction {$paymentTransaction->id} updated"
+            );
+        }
+
         // Check if status changed
         if ($paymentTransaction->isDirty('status')) {
             $oldStatus = $paymentTransaction->getOriginal('status');
             $newStatus = $paymentTransaction->status;
+
+            $this->auditService->log(
+                'payment_status_changed',
+                $paymentTransaction,
+                ['status' => $oldStatus],
+                ['status' => $newStatus],
+                "Payment transaction {$paymentTransaction->id} status changed from {$oldStatus} to {$newStatus}"
+            );
 
             Log::info('Payment transaction status changed', [
                 'transaction_id' => $paymentTransaction->id,
@@ -47,6 +85,14 @@ class PaymentTransactionObserver
 
         // Check if transaction_id was set (Stripe payment intent ID)
         if ($paymentTransaction->isDirty('transaction_id') && $paymentTransaction->transaction_id) {
+            $this->auditService->log(
+                'payment_transaction_id_set',
+                $paymentTransaction,
+                ['transaction_id' => $paymentTransaction->getOriginal('transaction_id')],
+                ['transaction_id' => $paymentTransaction->transaction_id],
+                "Stripe payment intent ID set for transaction {$paymentTransaction->id}"
+            );
+
             Log::info('Payment transaction ID set', [
                 'transaction_id' => $paymentTransaction->id,
                 'stripe_payment_intent_id' => $paymentTransaction->transaction_id,
@@ -59,6 +105,14 @@ class PaymentTransactionObserver
      */
     public function deleted(PaymentTransaction $paymentTransaction): void
     {
+        $this->auditService->log(
+            'payment_transaction_deleted',
+            $paymentTransaction,
+            $paymentTransaction->toArray(),
+            null,
+            "Payment transaction {$paymentTransaction->id} deleted for order {$paymentTransaction->order_id}"
+        );
+
         Log::info('Payment transaction deleted', [
             'transaction_id' => $paymentTransaction->id,
             'order_id' => $paymentTransaction->order_id,

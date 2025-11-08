@@ -47,6 +47,7 @@ export default function CartItemCard({ item, onQuantityChange, onRemoveItem }: C
                         <img
                             src={item.product.image}
                             alt={item.product.name}
+                            loading="lazy"
                             className="w-16 h-16 object-cover rounded-lg bg-gray-50 dark:bg-gray-700"
                         />
                     ) : (

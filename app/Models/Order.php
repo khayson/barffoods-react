@@ -2,23 +2,37 @@
 
 namespace App\Models;
 
+use App\Traits\HasOptimisticLocking;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Order extends Model
 {
+    use HasOptimisticLocking;
+    
     protected $fillable = [
+        'user_address_id',
+        'delivery_address',
+        'shipping_method',
+        'shipping_preference',
+    ];
+
+    /**
+     * The attributes that should be guarded from mass assignment.
+     * Critical fields that should only be set programmatically.
+     *
+     * @var list<string>
+     */
+    protected $guarded = [
+        'id',
         'order_number',
         'user_id',
-        'user_address_id',
         'status',
         'total_amount',
         'subtotal',
         'tax',
         'delivery_fee',
-        'delivery_address',
-        'shipping_method',
         'tracking_code',
         'label_url',
         'carrier',
@@ -31,8 +45,10 @@ class Order extends Model
         'last_tracking_update',
         'is_ready_for_delivery',
         'ready_at',
-        'shipping_preference',
         'additional_shipping_cost',
+        'version',
+        'created_at',
+        'updated_at',
     ];
 
     protected $casts = [

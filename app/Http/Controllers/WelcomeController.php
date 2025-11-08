@@ -16,42 +16,83 @@ class WelcomeController extends Controller
      */
     public function index(Request $request)
     {
-        // Get default map location from system settings
-        $defaultMapLocation = SystemSetting::get('default_map_location');
-        $defaultMapLocation = is_string($defaultMapLocation) ? json_decode($defaultMapLocation, true) : $defaultMapLocation;
-        
-        $defaultLat = $defaultMapLocation['latitude'] ?? 40.7128;
-        $defaultLng = $defaultMapLocation['longitude'] ?? -74.0060;
-        
-        $userLat = $request->input('latitude', $defaultLat);
-        $userLng = $request->input('longitude', $defaultLng);
-        $radius = $request->input('radius', 25); // Match StoreController API radius
+        try {
+            // Validate location inputs
+            $validated = $request->validate([
+                'latitude' => 'nullable|numeric|between:-90,90',
+                'longitude' => 'nullable|numeric|between:-180,180',
+                'radius' => 'nullable|numeric|min:1|max:100',
+            ]);
+            
+            // Get default map location from system settings
+            $defaultMapLocation = SystemSetting::get('default_map_location');
+            $defaultMapLocation = is_string($defaultMapLocation) ? json_decode($defaultMapLocation, true) : $defaultMapLocation;
+            
+            $defaultLat = $defaultMapLocation['latitude'] ?? 40.7128;
+            $defaultLng = $defaultMapLocation['longitude'] ?? -74.0060;
+            
+            $userLat = $validated['latitude'] ?? $defaultLat;
+            $userLng = $validated['longitude'] ?? $defaultLng;
+            $radius = $validated['radius'] ?? 25;
 
-        // Get nearby stores (within radius)
-        $nearbyStores = $this->getNearbyStores($userLat, $userLng, $radius);
-        
-        // Get all stores with distances (for dropdown)
-        $allStores = $this->getAllStoresWithDistance($userLat, $userLng);
-        
-        // Get products from nearby stores, or all products if no nearby stores
-        $products = $nearbyStores->isEmpty() 
-            ? $this->getAllProducts() 
-            : $this->getProductsFromStores($nearbyStores);
-        
-        // Get all categories
-        $categories = $this->getCategories();
+            // Get nearby stores (within radius)
+            $nearbyStores = $this->getNearbyStores($userLat, $userLng, $radius);
+            
+            // Get all stores with distances (for dropdown) - limited to 50
+            $allStores = $this->getAllStoresWithDistance($userLat, $userLng);
+            
+            // Get products from nearby stores, or all products if no nearby stores
+            $products = $nearbyStores->isEmpty() 
+                ? $this->getAllProducts() 
+                : $this->getProductsFromStores($nearbyStores);
+            
+            // Get all categories (cached)
+            $categories = $this->getCategories();
 
-        return Inertia::render('welcome', [
-            'nearbyStores' => $nearbyStores,
-            'allStores' => $allStores,
-            'products' => $products,
-            'categories' => $categories,
-            'userLocation' => [
-                'latitude' => $userLat,
-                'longitude' => $userLng
-            ],
-            'defaultMapLocation' => $defaultMapLocation
-        ]);
+            \Log::info('Welcome page data', [
+                'nearbyStores_count' => $nearbyStores->count(),
+                'allStores_count' => $allStores->count(),
+                'products_count' => $products->count(),
+                'categories_count' => $categories->count(),
+                'userLocation' => ['lat' => $userLat, 'lng' => $userLng]
+            ]);
+            
+            return Inertia::render('welcome', [
+                'nearbyStores' => $nearbyStores,
+                'allStores' => $allStores,
+                'products' => $products,
+                'categories' => $categories,
+                'userLocation' => [
+                    'latitude' => (float) $userLat,
+                    'longitude' => (float) $userLng
+                ],
+                'defaultMapLocation' => $defaultMapLocation
+            ]);
+            
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            // Return validation errors to frontend
+            return back()->withErrors($e->errors());
+            
+        } catch (\Exception $e) {
+            // Log error and return with default data
+            \Log::error('Welcome page error', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            
+            // Return with default location
+            $defaultMapLocation = ['latitude' => 40.7128, 'longitude' => -74.0060];
+            
+            return Inertia::render('welcome', [
+                'nearbyStores' => collect(),
+                'allStores' => collect(),
+                'products' => $this->getAllProducts()->take(20),
+                'categories' => $this->getCategories(),
+                'userLocation' => $defaultMapLocation,
+                'defaultMapLocation' => $defaultMapLocation,
+                'error' => 'Unable to load location-based data. Showing default results.'
+            ]);
+        }
     }
 
     /**
@@ -59,31 +100,44 @@ class WelcomeController extends Controller
      */
     private function getNearbyStores($userLat, $userLng, $radius)
     {
-        $stores = Store::selectRaw("
-            *, 
-            (3959 * acos(cos(radians(?)) * cos(radians(latitude)) * 
-            cos(radians(longitude) - radians(?)) + 
-            sin(radians(?)) * sin(radians(latitude)))) AS distance
-        ", [$userLat, $userLng, $userLat])
-        ->having('distance', '<', $radius)
-        ->orderBy('distance')
-        ->limit(10) // Match StoreController API limit
-        ->get();
+        try {
+            $stores = Store::where('is_active', true)
+                ->selectRaw("
+                    *, 
+                    (3959 * acos(cos(radians(?)) * cos(radians(latitude)) * 
+                    cos(radians(longitude) - radians(?)) + 
+                    sin(radians(?)) * sin(radians(latitude)))) AS distance
+                ", [$userLat, $userLng, $userLat])
+                ->whereRaw('latitude IS NOT NULL AND longitude IS NOT NULL')
+                ->whereRaw('latitude != 0 OR longitude != 0')
+                ->having('distance', '<', $radius)
+                ->orderBy('distance')
+                ->limit(10)
+                ->get();
 
-        return $stores->map(function ($store) {
-            return [
-                'id' => (string) $store->id,
-                'name' => $store->name,
-                'address' => $store->address,
-                'phone' => $store->phone,
-                'latitude' => $store->latitude,
-                'longitude' => $store->longitude,
-                'delivery_radius' => $store->delivery_radius,
-                'min_order_amount' => $store->min_order_amount,
-                'delivery_fee' => $store->delivery_fee,
-                'distance' => $store->distance
-            ];
-        });
+            return $stores->map(function ($store) {
+                return [
+                    'id' => (string) $store->id,
+                    'name' => $store->name,
+                    'address' => $store->address,
+                    'phone' => $store->phone,
+                    'latitude' => (float) $store->latitude,
+                    'longitude' => (float) $store->longitude,
+                    'delivery_radius' => (float) $store->delivery_radius,
+                    'min_order_amount' => (float) $store->min_order_amount,
+                    'delivery_fee' => (float) $store->delivery_fee,
+                    'distance' => round($store->distance, 2),
+                    'product_count' => \App\Models\Product::where('store_id', $store->id)->where('is_active', true)->count()
+                ];
+            });
+            
+        } catch (\Exception $e) {
+            \Log::error('Error getting nearby stores', [
+                'error' => $e->getMessage(),
+                'location' => ['lat' => $userLat, 'lng' => $userLng, 'radius' => $radius]
+            ]);
+            return collect();
+        }
     }
 
     /**
@@ -91,29 +145,43 @@ class WelcomeController extends Controller
      */
     private function getAllStoresWithDistance($userLat, $userLng)
     {
-        $stores = Store::selectRaw("
-            *, 
-            (3959 * acos(cos(radians(?)) * cos(radians(latitude)) * 
-            cos(radians(longitude) - radians(?)) + 
-            sin(radians(?)) * sin(radians(latitude)))) AS distance
-        ", [$userLat, $userLng, $userLat])
-        ->orderBy('distance')
-        ->get();
+        try {
+            $stores = Store::where('is_active', true)
+                ->selectRaw("
+                    *, 
+                    (3959 * acos(cos(radians(?)) * cos(radians(latitude)) * 
+                    cos(radians(longitude) - radians(?)) + 
+                    sin(radians(?)) * sin(radians(latitude)))) AS distance
+                ", [$userLat, $userLng, $userLat])
+                ->whereRaw('latitude IS NOT NULL AND longitude IS NOT NULL')
+                ->whereRaw('latitude != 0 OR longitude != 0')
+                ->orderBy('distance')
+                ->limit(50) // Limit for performance
+                ->get();
 
-        return $stores->map(function ($store) {
-            return [
-                'id' => (string) $store->id,
-                'name' => $store->name,
-                'address' => $store->address,
-                'phone' => $store->phone,
-                'latitude' => $store->latitude,
-                'longitude' => $store->longitude,
-                'delivery_radius' => $store->delivery_radius,
-                'min_order_amount' => $store->min_order_amount,
-                'delivery_fee' => $store->delivery_fee,
-                'distance' => $store->distance
-            ];
-        });
+            return $stores->map(function ($store) {
+                return [
+                    'id' => (string) $store->id,
+                    'name' => $store->name,
+                    'address' => $store->address,
+                    'phone' => $store->phone,
+                    'latitude' => (float) $store->latitude,
+                    'longitude' => (float) $store->longitude,
+                    'delivery_radius' => (float) $store->delivery_radius,
+                    'min_order_amount' => (float) $store->min_order_amount,
+                    'delivery_fee' => (float) $store->delivery_fee,
+                    'distance' => round($store->distance, 2),
+                    'product_count' => \App\Models\Product::where('store_id', $store->id)->where('is_active', true)->count()
+                ];
+            });
+            
+        } catch (\Exception $e) {
+            \Log::error('Error getting all stores with distance', [
+                'error' => $e->getMessage(),
+                'location' => ['lat' => $userLat, 'lng' => $userLng]
+            ]);
+            return collect();
+        }
     }
 
     /**
@@ -121,39 +189,55 @@ class WelcomeController extends Controller
      */
     private function getProductsFromStores($nearbyStores)
     {
-        if ($nearbyStores->isEmpty()) {
+        try {
+            if ($nearbyStores->isEmpty()) {
+                return collect();
+            }
+
+            $storeIds = $nearbyStores->pluck('id')->map(function ($id) {
+                return (int) $id;
+            });
+
+            $products = Product::with(['category', 'store'])
+                ->withCount(['reviews as approved_reviews_count' => function ($query) {
+                    $query->where('is_approved', true);
+                }])
+                ->withAvg(['reviews as approved_reviews_avg_rating' => function ($query) {
+                    $query->where('is_approved', true);
+                }], 'rating')
+                ->where('is_active', true)
+                ->whereIn('store_id', $storeIds)
+                ->orderBy('name')
+                ->limit(50) // Limit for performance
+                ->get();
+
+            return $products->map(function ($product) {
+                // Use eager loaded counts and averages
+                $actualReviewCount = $product->approved_reviews_count ?? 0;
+                $actualAverageRating = $product->approved_reviews_avg_rating ?? 0;
+                
+                return [
+                    'id' => (string) $product->id,
+                    'name' => $product->name,
+                    'price' => (float) $product->price,
+                    'originalPrice' => $product->original_price ? (float) $product->original_price : null,
+                    'rating' => round($actualAverageRating, 1),
+                    'reviews' => $actualReviewCount,
+                    'image' => $product->image,
+                    'images' => $product->images ?? [],
+                    'store' => $product->store->name,
+                    'category' => $product->category->name,
+                    'badges' => $this->generateBadges($product),
+                ];
+            });
+            
+        } catch (\Exception $e) {
+            \Log::error('Error getting products from stores', [
+                'error' => $e->getMessage(),
+                'store_count' => $nearbyStores->count()
+            ]);
             return collect();
         }
-
-        $storeIds = $nearbyStores->pluck('id')->map(function ($id) {
-            return (int) $id;
-        });
-
-        $products = Product::with(['category', 'store'])
-            ->where('is_active', true)
-            ->whereIn('store_id', $storeIds)
-            ->orderBy('name')
-            ->get();
-
-        return $products->map(function ($product) {
-            // Calculate actual review count and average rating
-            $actualReviewCount = $product->reviews()->approved()->count();
-            $actualAverageRating = $product->reviews()->approved()->avg('rating') ?? 0;
-            
-            return [
-                'id' => (string) $product->id,
-                'name' => $product->name,
-                'price' => $product->price,
-                'originalPrice' => $product->original_price,
-                'rating' => $actualAverageRating,
-                'reviews' => $actualReviewCount,
-                'image' => $product->image,
-                'images' => $product->images ?? [], // Multiple images array
-                'store' => $product->store->name,
-                'category' => $product->category->name,
-                'badges' => $this->generateBadges($product),
-            ];
-        });
     }
 
     /**
@@ -161,44 +245,75 @@ class WelcomeController extends Controller
      */
     private function getAllProducts()
     {
-        $products = Product::with(['category', 'store'])
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get();
+        try {
+            $products = Product::with(['category', 'store'])
+                ->withCount(['reviews as approved_reviews_count' => function ($query) {
+                    $query->where('is_approved', true);
+                }])
+                ->withAvg(['reviews as approved_reviews_avg_rating' => function ($query) {
+                    $query->where('is_approved', true);
+                }], 'rating')
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->limit(50) // Limit for performance
+                ->get();
 
-        return $products->map(function ($product) {
-            // Calculate actual review count and average rating
-            $actualReviewCount = $product->reviews()->approved()->count();
-            $actualAverageRating = $product->reviews()->approved()->avg('rating') ?? 0;
+            return $products->map(function ($product) {
+                // Use eager loaded counts and averages
+                $actualReviewCount = $product->approved_reviews_count ?? 0;
+                $actualAverageRating = $product->approved_reviews_avg_rating ?? 0;
+                
+                return [
+                    'id' => (string) $product->id,
+                    'name' => $product->name,
+                    'price' => (float) $product->price,
+                    'originalPrice' => $product->original_price ? (float) $product->original_price : null,
+                    'rating' => round($actualAverageRating, 1),
+                    'reviews' => $actualReviewCount,
+                    'image' => $product->image,
+                    'images' => $product->images ?? [],
+                    'store' => $product->store->name,
+                    'category' => $product->category->name,
+                    'badges' => $this->generateBadges($product),
+                ];
+            });
             
-            return [
-                'id' => (string) $product->id,
-                'name' => $product->name,
-                'price' => $product->price,
-                'originalPrice' => $product->original_price,
-                'rating' => $actualAverageRating,
-                'reviews' => $actualReviewCount,
-                'image' => $product->image,
-                'images' => $product->images ?? [], // Multiple images array
-                'store' => $product->store->name,
-                'category' => $product->category->name,
-                'badges' => $this->generateBadges($product),
-            ];
-        });
+        } catch (\Exception $e) {
+            \Log::error('Error getting all products', [
+                'error' => $e->getMessage()
+            ]);
+            return collect();
+        }
     }
 
     /**
-     * Get all categories with product counts
+     * Get all categories with product counts (cached)
      */
     private function getCategories()
     {
-        return Category::active()->ordered()->get()->map(function ($category) {
-            return [
-                'id' => (string) $category->id,
-                'name' => $category->name,
-                'product_count' => $category->products()->where('is_active', true)->count(),
-            ];
-        });
+        try {
+            return \Cache::remember('categories_active', 3600, function () {
+                return Category::active()
+                    ->ordered()
+                    ->withCount(['products' => function ($query) {
+                        $query->where('is_active', true);
+                    }])
+                    ->get()
+                    ->map(function ($category) {
+                        return [
+                            'id' => (string) $category->id,
+                            'name' => $category->name,
+                            'product_count' => $category->products_count ?? 0,
+                        ];
+                    });
+            });
+            
+        } catch (\Exception $e) {
+            \Log::error('Error getting categories', [
+                'error' => $e->getMessage()
+            ]);
+            return collect();
+        }
     }
 
     /**

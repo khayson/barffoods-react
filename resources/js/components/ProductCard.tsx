@@ -125,6 +125,7 @@ export default function ProductCard({
                             src={displayImage}
                             alt={product.name}
                             className="w-full h-full object-cover"
+                            loading="lazy"
                             onError={(e) => {
                                 // Fallback to emoji if image fails to load
                                 const target = e.currentTarget;

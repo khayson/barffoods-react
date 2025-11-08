@@ -27,11 +27,25 @@ class User extends Authenticatable
         'email',
         'phone',
         'password',
+        'avatar',
+        'is_wishlist_public',
+    ];
+
+    /**
+     * The attributes that should be guarded from mass assignment.
+     * These fields should only be updated through explicit assignment.
+     *
+     * @var list<string>
+     */
+    protected $guarded = [
+        'id',
         'role',
         'is_active',
-        'avatar',
         'wishlist_share_token',
-        'is_wishlist_public',
+        'remember_token',
+        'email_verified_at',
+        'created_at',
+        'updated_at',
     ];
 
     /**
@@ -56,6 +70,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'is_active' => 'boolean',
             'is_wishlist_public' => 'boolean',
+            'notification_preferences' => 'array',
         ];
     }
 

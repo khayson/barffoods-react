@@ -25,10 +25,21 @@ class CartItemController extends Controller
      */
     public function show()
     {
+        \Log::info('Cart show page accessed', [
+            'is_authenticated' => Auth::check(),
+            'session_id' => Session::getId(),
+            'user_id' => Auth::id(),
+        ]);
+        
         if (Auth::check()) {
             $cartItems = $this->getAuthenticatedUserCartItems();
         } else {
             $cartItems = $this->getAnonymousCartItems();
+            \Log::info('Anonymous cart items retrieved', [
+                'session_id' => Session::getId(),
+                'items_count' => $cartItems->count(),
+                'items' => $cartItems->toArray(),
+            ]);
         }
 
         // Group items by store

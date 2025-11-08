@@ -80,10 +80,19 @@ Route::get('/wishlist/shared/{token}', [App\Http\Controllers\WishlistShareContro
 // Cart page (no auth required)
 Route::get('/cart', [CartItemController::class, 'show'])->name('cart.show');
 
-// Checkout routes (auth required)
-Route::middleware(['auth'])->group(function () {
+// Anonymous cart API routes (no auth required, uses session, guest rate limiting)
+Route::middleware('throttle:guest')->group(function () {
+    Route::get('/api/cart/anonymous', [CartItemController::class, 'getAnonymousCart'])->name('api.cart.anonymous.index');
+    Route::post('/api/cart/anonymous', [CartItemController::class, 'addToAnonymousCart'])->name('api.cart.anonymous.store');
+    Route::put('/api/cart/anonymous/{id}', [CartItemController::class, 'updateAnonymousCartItem'])->name('api.cart.anonymous.update');
+    Route::delete('/api/cart/anonymous/{id}', [CartItemController::class, 'removeFromAnonymousCart'])->name('api.cart.anonymous.destroy');
+    Route::delete('/api/cart/anonymous', [CartItemController::class, 'clearAnonymousCart'])->name('api.cart.anonymous.clear');
+});
+
+// Checkout routes (auth required, payment rate limiting)
+Route::middleware(['auth', 'throttle:payment'])->group(function () {
     Route::get('/checkout', [App\Http\Controllers\CheckoutController::class, 'index'])->name('checkout.index');
-        Route::post('/checkout/create-session', [App\Http\Controllers\CheckoutController::class, 'createCheckoutSession'])->name('checkout.create-session');
+    Route::post('/checkout/create-session', [App\Http\Controllers\CheckoutController::class, 'createCheckoutSession'])->name('checkout.create-session');
     Route::get('/checkout/success', [App\Http\Controllers\CheckoutController::class, 'success'])->name('checkout.success');
     Route::post('/checkout', [App\Http\Controllers\CheckoutController::class, 'store'])->name('checkout.store');
     
@@ -99,14 +108,16 @@ Route::middleware(['auth'])->group(function () {
         ]);
     })->name('api.sanctum.token');
     
-    // Notification routes
-    Route::get('/api/notifications', [App\Http\Controllers\NotificationController::class, 'index'])->name('api.notifications.index');
-    Route::post('/api/notifications/{notification}/read', [App\Http\Controllers\NotificationController::class, 'markAsRead'])->name('api.notifications.read');
-    Route::post('/api/notifications/mark-all-read', [App\Http\Controllers\NotificationController::class, 'markAllAsRead'])->name('api.notifications.mark-all-read');
+    // Notification routes (authenticated rate limiting)
+    Route::middleware('throttle:authenticated')->group(function () {
+        Route::get('/api/notifications', [App\Http\Controllers\NotificationController::class, 'index'])->name('api.notifications.index');
+        Route::post('/api/notifications/{notification}/read', [App\Http\Controllers\NotificationController::class, 'markAsRead'])->name('api.notifications.read');
+        Route::post('/api/notifications/mark-all-read', [App\Http\Controllers\NotificationController::class, 'markAllAsRead'])->name('api.notifications.mark-all-read');
+    });
 });
 
-        // Address management routes (auth required)
-        Route::middleware(['auth'])->group(function () {
+        // Address management routes (auth required, authenticated rate limiting)
+        Route::middleware(['auth', 'throttle:authenticated'])->group(function () {
             Route::get('/api/addresses', [App\Http\Controllers\UserAddressController::class, 'index'])->name('addresses.index');
             Route::post('/api/addresses', [App\Http\Controllers\UserAddressController::class, 'store'])->name('addresses.store');
             Route::put('/api/addresses/{address}', [App\Http\Controllers\UserAddressController::class, 'update'])->name('addresses.update');
@@ -114,9 +125,11 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/api/addresses/{address}/set-default', [App\Http\Controllers\UserAddressController::class, 'setDefault'])->name('addresses.set-default');
         });
             
-        // Address validation routes (no auth required for suggestions)
-        Route::post('/api/address/validate', [App\Http\Controllers\AddressValidationController::class, 'validate'])->name('address.validate');
-        Route::post('/api/address/check-delivery-zone', [App\Http\Controllers\AddressValidationController::class, 'checkDeliveryZone'])->name('address.check-delivery-zone');
+        // Address validation routes (no auth required, guest rate limiting)
+        Route::middleware('throttle:guest')->group(function () {
+            Route::post('/api/address/validate', [App\Http\Controllers\AddressValidationController::class, 'validate'])->name('address.validate');
+            Route::post('/api/address/check-delivery-zone', [App\Http\Controllers\AddressValidationController::class, 'checkDeliveryZone'])->name('address.check-delivery-zone');
+        });
         
         // Shipping routes (auth required)
         Route::get('/api/orders/{order}/shipping/rates', [App\Http\Controllers\ShippingController::class, 'getRates'])->name('shipping.rates');

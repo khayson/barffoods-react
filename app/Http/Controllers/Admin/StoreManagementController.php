@@ -4,11 +4,19 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Store;
+use App\Services\FileUploadService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
 class StoreManagementController extends Controller
 {
+    protected $fileUploadService;
+
+    public function __construct(FileUploadService $fileUploadService)
+    {
+        $this->fileUploadService = $fileUploadService;
+    }
     /**
      * Display a listing of stores for admin
      */
@@ -106,6 +114,7 @@ class StoreManagementController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'image' => 'nullable|string',
+            'image_file' => 'nullable|image|max:5120', // 5MB max
             'address' => 'nullable|string',
             'phone' => 'nullable|string|max:20',
             'latitude' => 'nullable|numeric|between:-90,90',
@@ -115,6 +124,21 @@ class StoreManagementController extends Controller
             'delivery_fee' => 'nullable|numeric|min:0',
             'is_active' => 'boolean',
         ]);
+
+        // Handle image upload
+        if ($request->hasFile('image_file')) {
+            try {
+                $validated['image'] = $this->fileUploadService->uploadImage(
+                    $request->file('image_file'),
+                    'stores'
+                );
+            } catch (\Exception $e) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to upload store image: ' . $e->getMessage(),
+                ], 422);
+            }
+        }
 
         // Set defaults for optional fields
         $validated['address'] = $validated['address'] ?? '';
@@ -140,6 +164,7 @@ class StoreManagementController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'image' => 'nullable|string',
+            'image_file' => 'nullable|image|max:5120', // 5MB max
             'address' => 'nullable|string',
             'phone' => 'nullable|string|max:20',
             'latitude' => 'nullable|numeric|between:-90,90',
@@ -149,6 +174,26 @@ class StoreManagementController extends Controller
             'delivery_fee' => 'nullable|numeric|min:0',
             'is_active' => 'boolean',
         ]);
+
+        // Handle image upload
+        if ($request->hasFile('image_file')) {
+            try {
+                // Delete old image
+                if ($store->image && Storage::disk('public')->exists($store->image)) {
+                    Storage::disk('public')->delete($store->image);
+                }
+
+                $validated['image'] = $this->fileUploadService->uploadImage(
+                    $request->file('image_file'),
+                    'stores'
+                );
+            } catch (\Exception $e) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to upload store image: ' . $e->getMessage(),
+                ], 422);
+            }
+        }
 
         // Set defaults for optional fields if not provided
         $validated['address'] = $validated['address'] ?? $store->address ?? '';

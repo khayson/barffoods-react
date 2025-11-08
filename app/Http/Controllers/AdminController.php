@@ -141,13 +141,16 @@ class AdminController extends Controller
      */
     public function notifications(): Response
     {
+        // Limit to 20 most recent notifications for dashboard
         $notifications = Notification::orderBy('created_at', 'desc')
-            ->limit(100)
+            ->limit(20)
             ->get();
 
+        // Get active users (limited for dropdown)
         $users = User::select('id', 'name', 'email', 'role')
             ->where('is_active', true)
             ->orderBy('name')
+            ->limit(100)
             ->get();
 
         return Inertia::render('admin/notifications', [

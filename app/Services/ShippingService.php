@@ -5,15 +5,67 @@ namespace App\Services;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\SystemSetting;
+use App\Exceptions\Shipping\ShippingException;
+use App\Jobs\RetryShippingLabelJob;
 use Illuminate\Support\Facades\Log;
 
 class ShippingService
 {
     protected $easyPostService;
+    protected $maxRetries = 3;
+    protected $retryDelay = 1000; // milliseconds
 
     public function __construct(EasyPostService $easyPostService)
     {
         $this->easyPostService = $easyPostService;
+    }
+
+    /**
+     * Execute a callable with retry logic and exponential backoff
+     */
+    protected function retryWithBackoff(callable $callback, string $operation)
+    {
+        $attempt = 0;
+        $lastException = null;
+
+        while ($attempt < $this->maxRetries) {
+            try {
+                return $callback();
+            } catch (\Exception $e) {
+                $attempt++;
+                $lastException = $e;
+
+                if ($attempt >= $this->maxRetries) {
+                    break;
+                }
+
+                // Exponential backoff: 1s, 2s, 4s
+                $delay = $this->retryDelay * pow(2, $attempt - 1);
+                
+                Log::warning("Shipping operation failed, retrying", [
+                    'operation' => $operation,
+                    'attempt' => $attempt,
+                    'max_retries' => $this->maxRetries,
+                    'delay_ms' => $delay,
+                    'error' => $e->getMessage(),
+                ]);
+
+                usleep($delay * 1000); // Convert to microseconds
+            }
+        }
+
+        // All retries failed
+        Log::error("Shipping operation failed after all retries", [
+            'operation' => $operation,
+            'attempts' => $attempt,
+            'error' => $lastException->getMessage(),
+        ]);
+
+        throw new ShippingException(
+            "Shipping operation '{$operation}' failed after {$attempt} attempts: " . $lastException->getMessage(),
+            500,
+            $lastException
+        );
     }
 
     /**
@@ -80,33 +132,55 @@ class ShippingService
     public function calculateShippingRates(Order $order): array
     {
         try {
-            // Get store address (from address)
-            $storeAddress = $this->getStoreAddress();
-            
-            // Get customer address (to address)
+            // Create cache key based on order details
             $customerAddress = $this->formatCustomerAddress($order);
-            
-            // Calculate parcel dimensions and weight
             $parcel = $this->calculateParcelDimensions($order);
+            $cacheKey = 'shipping_rates_' . md5(json_encode([
+                'zip' => $customerAddress['zip'] ?? '',
+                'weight' => $parcel['weight'] ?? 0,
+                'length' => $parcel['length'] ?? 0,
+                'width' => $parcel['width'] ?? 0,
+                'height' => $parcel['height'] ?? 0,
+            ]));
             
-            // Get rates from EasyPost
-            $ratesResult = $this->easyPostService->getShippingRates(
-                $storeAddress,
-                $customerAddress,
-                $parcel
-            );
+            // Cache shipping rates for 15 minutes
+            return \Cache::remember($cacheKey, 900, function () use ($order) {
+                // Use retry logic for rate calculation
+                return $this->retryWithBackoff(function () use ($order) {
+                    // Get store address (from address)
+                    $storeAddress = $this->getStoreAddress();
+                    
+                    // Get customer address (to address)
+                    $customerAddress = $this->formatCustomerAddress($order);
+                    
+                    // Calculate parcel dimensions and weight
+                    $parcel = $this->calculateParcelDimensions($order);
+                    
+                    // Get rates from EasyPost
+                    $ratesResult = $this->easyPostService->getShippingRates(
+                        $storeAddress,
+                        $customerAddress,
+                        $parcel
+                    );
+                    
+                    if ($ratesResult['success']) {
+                        return [
+                            'success' => true,
+                            'rates' => $this->formatRatesForDisplay($ratesResult['rates']),
+                            'shipment_id' => $ratesResult['shipment_id'],
+                        ];
+                    }
+                    
+                    // Throw exception to trigger retry
+                    throw new \Exception($ratesResult['error'] ?? 'Unknown error in rate calculation');
+                }, 'calculate_shipping_rates');
+            });
             
-            if ($ratesResult['success']) {
-                return [
-                    'success' => true,
-                    'rates' => $this->formatRatesForDisplay($ratesResult['rates']),
-                    'shipment_id' => $ratesResult['shipment_id'],
-                ];
-            }
-            
+        } catch (ShippingException $e) {
+            // Already logged and formatted by retryWithBackoff
             return [
                 'success' => false,
-                'error' => $ratesResult['error'] ?? 'Unknown error in rate calculation',
+                'error' => $e->getMessage(),
             ];
             
         } catch (\Exception $e) {
@@ -129,44 +203,67 @@ class ShippingService
     public function createShippingLabel(Order $order, string $rateId): array
     {
         try {
-            // First get shipment ID by calculating rates
-            $ratesResult = $this->calculateShippingRates($order);
-            
-            if (!$ratesResult['success']) {
-                return $ratesResult;
-            }
-            
-            $shipmentId = $ratesResult['shipment_id'];
-            $rates = $ratesResult['rates'];
-            
-            // Find a matching rate or use the first available rate
-            $selectedRate = null;
-            foreach ($rates as $rate) {
-                if ($rate['id'] === $rateId) {
-                    $selectedRate = $rate;
-                    break;
+            // Use retry logic for label creation
+            return $this->retryWithBackoff(function () use ($order, $rateId) {
+                // First get shipment ID by calculating rates
+                $ratesResult = $this->calculateShippingRates($order);
+                
+                if (!$ratesResult['success']) {
+                    throw new \Exception($ratesResult['error']);
                 }
-            }
+                
+                $shipmentId = $ratesResult['shipment_id'];
+                $rates = $ratesResult['rates'];
+                
+                // Find a matching rate or use the first available rate
+                $selectedRate = null;
+                foreach ($rates as $rate) {
+                    if ($rate['id'] === $rateId) {
+                        $selectedRate = $rate;
+                        break;
+                    }
+                }
+                
+                // If the original rate ID doesn't exist, use the first available rate
+                if (!$selectedRate && !empty($rates)) {
+                    $selectedRate = $rates[0];
+                    \Log::warning('Original rate ID not found, using first available rate', [
+                        'order_id' => $order->id,
+                        'original_rate_id' => $rateId,
+                        'new_rate_id' => $selectedRate['id']
+                    ]);
+                }
+                
+                if (!$selectedRate) {
+                    throw new \Exception('No shipping rates available for this order');
+                }
+                
+                // Create the label using the selected rate
+                $labelResult = $this->easyPostService->createLabel($shipmentId, $selectedRate['id']);
+                
+                if (!$labelResult['success']) {
+                    throw new \Exception($labelResult['error'] ?? 'Label creation failed');
+                }
+                
+                return $labelResult;
+            }, 'create_shipping_label');
             
-            // If the original rate ID doesn't exist, use the first available rate
-            if (!$selectedRate && !empty($rates)) {
-                $selectedRate = $rates[0];
-                \Log::warning('Original rate ID not found, using first available rate', [
-                    'order_id' => $order->id,
-                    'original_rate_id' => $rateId,
-                    'new_rate_id' => $selectedRate['id']
-                ]);
-            }
-            
-            if (!$selectedRate) {
-                return [
-                    'success' => false,
-                    'error' => 'No shipping rates available for this order'
-                ];
-            }
-            
-            // Create the label using the selected rate
-            $labelResult = $this->easyPostService->createLabel($shipmentId, $selectedRate['id']);
+        } catch (ShippingException $e) {
+            // Already logged and formatted by retryWithBackoff
+            $labelResult = [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+
+            // Queue job to retry label creation
+            Log::info('Queueing retry job for failed shipping label', [
+                'order_id' => $order->id,
+                'order_number' => $order->order_number,
+                'rate_id' => $rateId,
+            ]);
+
+            RetryShippingLabelJob::dispatch($order->id, $rateId)
+                ->delay(now()->addMinutes(5)); // First retry after 5 minutes
             
             if ($labelResult['success']) {
                 // Calculate estimated delivery date from days

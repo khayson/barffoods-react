@@ -6,11 +6,19 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Store;
 use App\Models\Category;
+use App\Services\FileUploadService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
 class ProductManagementController extends Controller
 {
+    protected $fileUploadService;
+
+    public function __construct(FileUploadService $fileUploadService)
+    {
+        $this->fileUploadService = $fileUploadService;
+    }
     /**
      * Display a listing of products for admin
      */
@@ -152,8 +160,11 @@ class ProductManagementController extends Controller
             'price' => 'required|numeric|min:0',
             'original_price' => 'nullable|numeric|min:0',
             'image' => 'nullable|string',
+            'image_file' => 'nullable|image|max:5120', // 5MB max
             'images' => 'nullable|array|max:4',
             'images.*' => 'nullable|string',
+            'image_files' => 'nullable|array|max:4',
+            'image_files.*' => 'nullable|image|max:5120',
             'category_id' => 'required|exists:categories,id',
             'store_id' => 'required|exists:stores,id',
             'stock_quantity' => 'required|integer|min:0',
@@ -164,8 +175,46 @@ class ProductManagementController extends Controller
             'height' => 'nullable|numeric|min:0',
         ]);
 
+        // Handle primary image upload
+        if ($request->hasFile('image_file')) {
+            try {
+                $validated['image'] = $this->fileUploadService->uploadImage(
+                    $request->file('image_file'),
+                    'products'
+                );
+            } catch (\Exception $e) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to upload image: ' . $e->getMessage(),
+                ], 422);
+            }
+        }
+
+        // Handle multiple image uploads
+        if ($request->hasFile('image_files')) {
+            $uploadedImages = [];
+            foreach ($request->file('image_files') as $imageFile) {
+                try {
+                    $uploadedImages[] = $this->fileUploadService->uploadImage(
+                        $imageFile,
+                        'products'
+                    );
+                } catch (\Exception $e) {
+                    // Clean up already uploaded images
+                    foreach ($uploadedImages as $uploadedImage) {
+                        Storage::disk('public')->delete($uploadedImage);
+                    }
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Failed to upload images: ' . $e->getMessage(),
+                    ], 422);
+                }
+            }
+            $validated['images'] = $uploadedImages;
+        }
+
         // Always set the primary image to the first image in the array if array exists
-        if (!empty($validated['images']) && count($validated['images']) > 0) {
+        if (!empty($validated['images']) && count($validated['images']) > 0 && empty($validated['image'])) {
             $validated['image'] = $validated['images'][0];
         }
 
@@ -202,8 +251,11 @@ class ProductManagementController extends Controller
             'price' => 'required|numeric|min:0',
             'original_price' => 'nullable|numeric|min:0',
             'image' => 'nullable|string',
+            'image_file' => 'nullable|image|max:5120',
             'images' => 'nullable|array|max:4',
             'images.*' => 'nullable|string',
+            'image_files' => 'nullable|array|max:4',
+            'image_files.*' => 'nullable|image|max:5120',
             'category_id' => 'required|exists:categories,id',
             'store_id' => 'required|exists:stores,id',
             'stock_quantity' => 'required|integer|min:0',
@@ -214,8 +266,60 @@ class ProductManagementController extends Controller
             'height' => 'nullable|numeric|min:0',
         ]);
 
+        // Handle primary image upload
+        if ($request->hasFile('image_file')) {
+            try {
+                // Delete old image
+                if ($product->image && Storage::disk('public')->exists($product->image)) {
+                    Storage::disk('public')->delete($product->image);
+                }
+
+                $validated['image'] = $this->fileUploadService->uploadImage(
+                    $request->file('image_file'),
+                    'products'
+                );
+            } catch (\Exception $e) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to upload image: ' . $e->getMessage(),
+                ], 422);
+            }
+        }
+
+        // Handle multiple image uploads
+        if ($request->hasFile('image_files')) {
+            // Delete old images
+            if ($product->images) {
+                foreach ($product->images as $oldImage) {
+                    if (Storage::disk('public')->exists($oldImage)) {
+                        Storage::disk('public')->delete($oldImage);
+                    }
+                }
+            }
+
+            $uploadedImages = [];
+            foreach ($request->file('image_files') as $imageFile) {
+                try {
+                    $uploadedImages[] = $this->fileUploadService->uploadImage(
+                        $imageFile,
+                        'products'
+                    );
+                } catch (\Exception $e) {
+                    // Clean up already uploaded images
+                    foreach ($uploadedImages as $uploadedImage) {
+                        Storage::disk('public')->delete($uploadedImage);
+                    }
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Failed to upload images: ' . $e->getMessage(),
+                    ], 422);
+                }
+            }
+            $validated['images'] = $uploadedImages;
+        }
+
         // Always set the primary image to the first image in the array if array exists
-        if (!empty($validated['images']) && count($validated['images']) > 0) {
+        if (!empty($validated['images']) && count($validated['images']) > 0 && empty($validated['image'])) {
             $validated['image'] = $validated['images'][0];
         }
 

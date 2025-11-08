@@ -4,15 +4,23 @@ namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\ProfileUpdateRequest;
+use App\Services\FileUploadService;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class ProfileController extends Controller
 {
+    protected $fileUploadService;
+
+    public function __construct(FileUploadService $fileUploadService)
+    {
+        $this->fileUploadService = $fileUploadService;
+    }
     /**
      * Show the user's profile settings page.
      */
@@ -29,15 +37,37 @@ class ProfileController extends Controller
      */
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
-        $request->user()->fill($request->validated());
+        $user = $request->user();
+        
+        $user->fill($request->validated());
 
-        if ($request->user()->isDirty('email')) {
-            $request->user()->email_verified_at = null;
+        // Handle avatar upload
+        if ($request->hasFile('avatar')) {
+            try {
+                // Delete old avatar if exists
+                if ($user->avatar && Storage::disk('public')->exists($user->avatar)) {
+                    Storage::disk('public')->delete($user->avatar);
+                }
+
+                // Upload new avatar
+                $avatarPath = $this->fileUploadService->uploadImage(
+                    $request->file('avatar'),
+                    'avatars'
+                );
+
+                $user->avatar = $avatarPath;
+            } catch (\Exception $e) {
+                return back()->withErrors(['avatar' => 'Failed to upload avatar: ' . $e->getMessage()]);
+            }
         }
 
-        $request->user()->save();
+        if ($user->isDirty('email')) {
+            $user->email_verified_at = null;
+        }
 
-        return to_route('profile.edit');
+        $user->save();
+
+        return to_route('profile.edit')->with('success', 'Profile updated successfully');
     }
 
     /**

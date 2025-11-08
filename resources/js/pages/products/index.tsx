@@ -2,6 +2,7 @@ import { Head, usePage } from '@inertiajs/react';
 import CustomerLayout from '@/layouts/customer-layout';
 import ProductSection from '@/components/ProductSection';
 import ShopByCategory from '@/components/ShopByCategory';
+import ShopByStore from '@/components/ShopByStore';
 import { motion } from 'framer-motion';
 import { Package } from 'lucide-react';
 import { type SharedData } from '@/types';
@@ -87,6 +88,11 @@ export default function ProductsIndex() {
                             onCategorySelect={setSelectedCategoryName}
                             selectedCategory={selectedCategoryName}
                         />
+
+                        {/* Stores Section */}
+                        <div className="mt-8">
+                            <ShopByStore />
+                        </div>
                     </motion.div>
 
                     {/* Products Section */}

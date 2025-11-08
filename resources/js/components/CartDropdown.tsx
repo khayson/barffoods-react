@@ -123,6 +123,7 @@ export default function CartDropdown({ isOpen, onClose, buttonRef }: CartDropdow
                                                     <img
                                                         src={item.product.image}
                                                         alt={item.product.name}
+                                                        loading="lazy"
                                                         className="w-full h-full object-cover"
                                                         onError={(e) => {
                                                             e.currentTarget.style.display = 'none';
