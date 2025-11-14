@@ -74,19 +74,19 @@ export default function ProductSection({ nearbyStores, allStores, initialProduct
 
     // Initialize with props data
     useEffect(() => {
-        console.log('ProductSection initializing with:', {
-            initialProducts: initialProducts.length,
-            nearbyStores: nearbyStores.length,
-            allStores: allStores.length,
-            initialCategories: initialCategories.length
-        });
+        // console.log('ProductSection initializing with:', {
+        //     initialProducts: initialProducts.length,
+        //     nearbyStores: nearbyStores.length,
+        //     allStores: allStores.length,
+        //     initialCategories: initialCategories.length
+        // });
         
         // Remove duplicates based on ID
         const uniqueProducts = initialProducts.filter((product, index, self) => 
             index === self.findIndex(p => p.id === product.id)
         );
         
-        console.log('Unique products after deduplication:', uniqueProducts.length);
+        // console.log('Unique products after deduplication:', uniqueProducts.length);
         
         setAllProducts(uniqueProducts);
         setStores(allStores); // Use allStores for dropdown
@@ -100,7 +100,7 @@ export default function ProductSection({ nearbyStores, allStores, initialProduct
                 nearbyStoreNames.includes(product.store)
             );
             
-            console.log('Has products from nearby stores:', hasProductsFromNearbyStores);
+            // console.log('Has products from nearby stores:', hasProductsFromNearbyStores);
             
             // Only auto-select if there are products from nearby stores
             if (hasProductsFromNearbyStores) {
@@ -115,7 +115,7 @@ export default function ProductSection({ nearbyStores, allStores, initialProduct
         
         // Initialize with first page of products
         const firstPageProducts = uniqueProducts.slice(0, itemsPerPage);
-        console.log('Setting displayed products:', firstPageProducts.length);
+        // console.log('Setting displayed products:', firstPageProducts.length);
         setDisplayedProducts(firstPageProducts);
         setIsInitialLoad(false);
     }, [nearbyStores, allStores, initialProducts, initialCategories, itemsPerPage]);

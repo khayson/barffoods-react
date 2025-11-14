@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
+use App\Models\SystemSetting;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -38,6 +39,23 @@ class HandleInertiaRequests extends Middleware
     {
         [$message, $author] = str(Inspiring::quotes()->random())->explode('-');
 
+        // Get store address from system settings
+        $storeAddress = SystemSetting::get('store_address', [
+            'company_name' => 'BarfFoods',
+            'phone' => '+1 (555) 123-4567',
+            'email' => 'support@barffoods.com',
+            'street_address' => '123 Grocery Street',
+            'city' => 'Food City',
+            'state' => 'FC',
+            'zip_code' => '12345',
+            'country' => 'US'
+        ]);
+
+        // Parse if it's a JSON string
+        if (is_string($storeAddress)) {
+            $storeAddress = json_decode($storeAddress, true);
+        }
+
         return [
             ...parent::share($request),
             'name' => config('app.name'),
@@ -60,6 +78,7 @@ class HandleInertiaRequests extends Middleware
                 'warning' => $request->session()->get('warning'),
                 'info' => $request->session()->get('info'),
             ],
+            'storeAddress' => $storeAddress,
         ];
     }
 }

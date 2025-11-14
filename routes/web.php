@@ -25,6 +25,22 @@ Route::get('/about', function () {
 Route::get('/contact', [App\Http\Controllers\ContactController::class, 'index'])->name('contact');
 Route::post('/contact', [App\Http\Controllers\ContactController::class, 'store'])->name('contact.store');
 
+Route::get('/faq', function () {
+    return Inertia::render('faq');
+})->name('faq');
+
+Route::get('/privacy', function () {
+    return Inertia::render('privacy');
+})->name('privacy');
+
+Route::get('/terms', function () {
+    return Inertia::render('terms');
+})->name('terms');
+
+Route::get('/track-order', function () {
+    return Inertia::render('track-order');
+})->name('track-order');
+
 // Broadcasting authentication is handled by routes/channels.php
 
 // Product routes

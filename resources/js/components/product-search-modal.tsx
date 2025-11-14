@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, ArrowRight, Command, ChevronDown, Package, MapPin, X } from 'lucide-react';
-import { Kbd } from '@/components/ui/kbd';
+import { Search, ChevronDown, Package, MapPin, X, ChevronLeft, ChevronRight } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import ProductCard from '@/components/ProductCard';
@@ -44,43 +44,53 @@ export default function ProductSearchModal({ isOpen, onClose }: ProductSearchMod
     const [filteredItems, setFilteredItems] = useState<SearchItem[]>([]);
     const [selectedCategory, setSelectedCategory] = useState<string>('all');
     const [selectedStore, setSelectedStore] = useState<string>('all');
-    const [wishlistItems, setWishlistItems] = useState<Set<string>>(new Set());
-    const [cartItems, setCartItems] = useState<Map<string, number>>(new Map());
     const [products, setProducts] = useState<SearchItem[]>([]);
     const [stores, setStores] = useState<Store[]>([]);
     const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [lastPage, setLastPage] = useState(1);
+    const [perPage, setPerPage] = useState(12);
     const inputRef = useRef<HTMLInputElement>(null);
 
     // Fetch products from API
-    useEffect(() => {
-        const fetchProducts = async () => {
-            try {
-                setIsLoading(true);
-                const response = await axios.get<ApiResponse>(`/api/products?t=${Date.now()}`);
-                const { products: apiProducts, stores: apiStores, categories: apiCategories } = response.data;
-                
-                // Convert products to SearchItem format
-                const searchItems: SearchItem[] = apiProducts.map(product => ({
-                    ...product,
-                    href: `/products/${product.id}`,
-                    type: 'product' as const
-                }));
-                
-                setProducts(searchItems);
-                setStores(apiStores);
-                setCategories(apiCategories);
-            } catch (error) {
-                // console.error('Error fetching products:', error);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        if (isOpen) {
-            fetchProducts();
+    const fetchProducts = async (page: number = 1) => {
+        try {
+            setIsLoading(true);
+            
+            const response = await axios.get(`/api/products?per_page=${perPage}&page=${page}&t=${Date.now()}`);
+            const { products: apiProducts, stores: apiStores, categories: apiCategories } = response.data;
+            
+            // Handle paginated response - products.data contains the actual products
+            const productData = apiProducts.data || apiProducts || [];
+            
+            // Convert products to SearchItem format
+            const searchItems: SearchItem[] = productData.map((product: any) => ({
+                ...product,
+                href: `/products/${product.id}`,
+                type: 'product' as const
+            }));
+            
+            setProducts(searchItems);
+            setStores(apiStores || []);
+            setCategories(apiCategories || []);
+            
+            setCurrentPage(apiProducts.current_page || 1);
+            setLastPage(apiProducts.last_page || 1);
+            
+            console.log('Products loaded:', searchItems.length, 'Page:', page, 'of', apiProducts.last_page);
+        } catch (error) {
+            console.error('Error fetching products:', error);
+        } finally {
+            setIsLoading(false);
         }
-    }, [isOpen]);
+    };
+
+    useEffect(() => {
+        if (isOpen) {
+            fetchProducts(1);
+        }
+    }, [isOpen, perPage]);
 
     useEffect(() => {
         if (isOpen) {
@@ -158,35 +168,6 @@ export default function ProductSearchModal({ isOpen, onClose }: ProductSearchMod
         setFilteredItems(searchableItems);
     }, [searchTerm, selectedCategory, selectedStore, products, stores, categories]);
 
-    const handleSelect = (item: SearchItem) => {
-        // In a real application, this would navigate to the item's page
-        // console.log('Selected:', item.name, item.href);
-        onClose();
-    };
-
-    const toggleWishlist = (productId: string | number) => {
-        setWishlistItems(prev => {
-            const newSet = new Set(prev);
-            const id = String(productId);
-            if (newSet.has(id)) {
-                newSet.delete(id);
-            } else {
-                newSet.add(id);
-            }
-            return newSet;
-        });
-    };
-
-    const addToCart = (productId: string | number) => {
-        setCartItems(prev => {
-            const newMap = new Map(prev);
-            const id = String(productId);
-            const currentQuantity = newMap.get(id) || 0;
-            newMap.set(id, currentQuantity + 1);
-            return newMap;
-        });
-    };
-
     if (!isOpen) return null;
 
     const modalContent = (
@@ -238,7 +219,7 @@ export default function ProductSearchModal({ isOpen, onClose }: ProductSearchMod
                                         {searchTerm.trim() === '' ? 'Featured Products' : 'Search Results'}
                                     </h3>
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        {filteredItems.filter(item => item.type === 'product').slice(0, 6).map((product) => (
+                                        {filteredItems.filter(item => item.type === 'product').map((product) => (
                                             <ProductCard
                                                 key={product.id}
                                                 product={{
@@ -290,8 +271,38 @@ export default function ProductSearchModal({ isOpen, onClose }: ProductSearchMod
 
                     {/* Footer */}
                     <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+                        {/* Pagination Controls */}
+                        {!isLoading && lastPage > 1 && (
+                            <div className="mb-4 flex items-center justify-center gap-1">
+                                <button
+                                    onClick={() => fetchProducts(currentPage - 1)}
+                                    disabled={currentPage === 1 || isLoading}
+                                    className="p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                    aria-label="Previous page"
+                                >
+                                    <ChevronLeft className="h-5 w-5" />
+                                </button>
+                                <div className="flex items-center gap-1 px-2">
+                                    <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                        {currentPage}
+                                    </span>
+                                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                                        / {lastPage}
+                                    </span>
+                                </div>
+                                <button
+                                    onClick={() => fetchProducts(currentPage + 1)}
+                                    disabled={currentPage === lastPage || isLoading}
+                                    className="p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                    aria-label="Next page"
+                                >
+                                    <ChevronRight className="h-5 w-5" />
+                                </button>
+                            </div>
+                        )}
+                        
                         {/* Filters */}
-                        <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                             {/* Categories Dropdown */}
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -307,9 +318,9 @@ export default function ProductSearchModal({ isOpen, onClose }: ProductSearchMod
                                         <ChevronDown className="h-4 w-4" />
                                     </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent className="w-48 rounded-lg bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600">
+                                <DropdownMenuContent className="w-48 rounded-lg bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 z-[110]">
                                     <DropdownMenuItem 
-                                        className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
+                                        className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white cursor-pointer"
                                         onClick={() => setSelectedCategory('all')}
                                     >
                                         <Package className="mr-2 h-4 w-4" />
@@ -318,7 +329,7 @@ export default function ProductSearchModal({ isOpen, onClose }: ProductSearchMod
                                     {categories.map((category) => (
                                         <DropdownMenuItem 
                                             key={category.id}
-                                            className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
+                                            className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white cursor-pointer"
                                             onClick={() => setSelectedCategory(category.id)}
                                         >
                                             <Package className="mr-2 h-4 w-4" />
@@ -343,9 +354,9 @@ export default function ProductSearchModal({ isOpen, onClose }: ProductSearchMod
                                         <ChevronDown className="h-4 w-4" />
                                     </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent className="w-48 rounded-lg bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600">
+                                <DropdownMenuContent className="w-64 rounded-lg bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 z-[110] max-h-[300px] overflow-y-auto">
                                     <DropdownMenuItem 
-                                        className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
+                                        className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white cursor-pointer"
                                         onClick={() => setSelectedStore('all')}
                                     >
                                         <MapPin className="mr-2 h-4 w-4" />
@@ -354,14 +365,41 @@ export default function ProductSearchModal({ isOpen, onClose }: ProductSearchMod
                                     {stores.map((store) => (
                                         <DropdownMenuItem 
                                             key={store.id}
-                                            className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
+                                            className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white cursor-pointer"
                                             onClick={() => setSelectedStore(store.id)}
                                         >
-                                            <MapPin className="mr-2 h-4 w-4" />
-                                            <div className="flex flex-col">
-                                                <span>{store.name}</span>
-                                                <span className="text-xs text-gray-500 dark:text-gray-400">{store.address}</span>
+                                            <MapPin className="mr-2 h-4 w-4 flex-shrink-0" />
+                                            <div className="flex flex-col min-w-0">
+                                                <span className="truncate">{store.name}</span>
+                                                <span className="text-xs text-gray-500 dark:text-gray-400 truncate">{store.address}</span>
                                             </div>
+                                        </DropdownMenuItem>
+                                    ))}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+
+                            {/* Per Page Dropdown */}
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button 
+                                        variant="outline" 
+                                        size="sm"
+                                        className="flex items-center space-x-2 px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                                    >
+                                        <span className="text-sm">Show: {perPage}</span>
+                                        <ChevronDown className="h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent className="w-32 rounded-lg bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 z-[110]">
+                                    {[6, 12, 24, 48].map((count) => (
+                                        <DropdownMenuItem 
+                                            key={count}
+                                            className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white cursor-pointer"
+                                            onClick={() => {
+                                                setPerPage(count);
+                                            }}
+                                        >
+                                            <span>Show {count}</span>
                                         </DropdownMenuItem>
                                     ))}
                                 </DropdownMenuContent>

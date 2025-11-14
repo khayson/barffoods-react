@@ -108,7 +108,7 @@ export default function StoreLocationsMap({ defaultMapLocation }: StoreLocations
         });
       }
     } catch (error) {
-      console.error('Error fetching stores:', error);
+      // console.error('Error fetching stores:', error);
       toast.error('Failed to load nearby stores. Please try again.');
     }
   };
@@ -207,7 +207,7 @@ export default function StoreLocationsMap({ defaultMapLocation }: StoreLocations
         setLocationError('Location not found');
       }
     } catch (error) {
-      console.error('Geocoding error:', error);
+      // console.error('Geocoding error:', error);
       toast.error('Failed to search location. Please try again.');
       setLocationError('Search failed');
     } finally {
@@ -314,7 +314,7 @@ export default function StoreLocationsMap({ defaultMapLocation }: StoreLocations
               return;
           }
           
-          console.warn('Geolocation error:', error.message);
+          // console.warn('Geolocation error:', error.message);
           setLocationError(errorMessage);
           setIsDetectingLocation(false);
         },
@@ -390,7 +390,7 @@ export default function StoreLocationsMap({ defaultMapLocation }: StoreLocations
         toast.success(`Location detected using network. Accuracy: ~${Math.round(accuracy)}m`);
       },
       (error) => {
-        console.warn('Low accuracy geolocation also failed:', error.message);
+        // console.warn('Low accuracy geolocation also failed:', error.message);
         
         const errorMsg = 'Could not detect your location. Please ensure:\n• Location services are enabled\n• Browser has location permission\n• You have internet connection';
         toast.error('Location detection failed', {
@@ -468,13 +468,13 @@ export default function StoreLocationsMap({ defaultMapLocation }: StoreLocations
       `);
 
       fetchNearbyStores(userCoords, map);
-      console.log(`Using saved location: ${locationData.address}`);
+      // console.log(`Using saved location: ${locationData.address}`);
     } else {
       // Use default location - user will be prompted by the first-visit modal
       const defaultLocation: [number, number] = [DEFAULT_LOCATION.latitude, DEFAULT_LOCATION.longitude];
       setUserLocation(defaultLocation);
       fetchNearbyStores(defaultLocation, map);
-      console.log(`No saved location, using default (${DEFAULT_LOCATION.address}). First-visit modal will prompt user.`);
+      // console.log(`No saved location, using default (${DEFAULT_LOCATION.address}). First-visit modal will prompt user.`);
     }
 
     // Cleanup function
@@ -502,25 +502,25 @@ export default function StoreLocationsMap({ defaultMapLocation }: StoreLocations
   const addStoreMarkers = (storesToMark: Store[], map: L.Map) => {
     // Comprehensive map validation
     if (!map) {
-      console.warn('Map instance is null');
+      // console.warn('Map instance is null');
       return;
     }
 
     const container = map.getContainer();
     if (!container) {
-      console.warn('Map container is null');
+      // console.warn('Map container is null');
       return;
     }
 
     // Check if container is in the DOM
     if (!document.body.contains(container)) {
-      console.warn('Map container is not in the DOM');
+      // console.warn('Map container is not in the DOM');
       return;
     }
 
     // Check if map is ready
     if (!map.getPane('overlayPane')) {
-      console.warn('Map panes not initialized yet');
+      // console.warn('Map panes not initialized yet');
       return;
     }
 
@@ -531,7 +531,7 @@ export default function StoreLocationsMap({ defaultMapLocation }: StoreLocations
           map.removeLayer(marker);
         }
       } catch (e) {
-        console.warn('Error removing marker:', e);
+        // console.warn('Error removing marker:', e);
       }
     });
     markersRef.current = [];
@@ -540,7 +540,7 @@ export default function StoreLocationsMap({ defaultMapLocation }: StoreLocations
       try {
         // Validate store coordinates
         if (!store.coordinates || store.coordinates.length !== 2) {
-          console.warn('Invalid coordinates for store:', store.name);
+          // console.warn('Invalid coordinates for store:', store.name);
           return;
         }
 
@@ -548,7 +548,7 @@ export default function StoreLocationsMap({ defaultMapLocation }: StoreLocations
         const lng = parseFloat(String(store.coordinates[1]));
         
         if (isNaN(lat) || isNaN(lng)) {
-          console.warn('Invalid lat/lng for store:', store.name);
+          // console.warn('Invalid lat/lng for store:', store.name);
           return;
         }
 
@@ -601,11 +601,11 @@ export default function StoreLocationsMap({ defaultMapLocation }: StoreLocations
           markersRef.current.push(marker);
         }
       } catch (error) {
-        console.error('Error adding marker for store:', store.name, error);
+        // console.error('Error adding marker for store:', store.name, error);
       }
     });
 
-    console.log(`Successfully added ${markersRef.current.length} store markers`);
+    // console.log(`Successfully added ${markersRef.current.length} store markers`);
   };
 
   // Check if user is in delivery zone based on nearby stores

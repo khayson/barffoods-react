@@ -53,7 +53,7 @@ export function LocationProvider({
   // Fetch stores when location changes
   const fetchStores = async (location: UserLocation) => {
     if (!location || !location.latitude || !location.longitude) {
-      console.warn('Invalid location provided to fetchStores');
+      // console.warn('Invalid location provided to fetchStores');
       return;
     }
 
@@ -110,7 +110,7 @@ export function LocationProvider({
 
       setAllStores(allStoresData);
       
-      console.log(`Loaded ${stores.length} nearby stores and ${allStoresData.length} total stores`);
+      // console.log(`Loaded ${stores.length} nearby stores and ${allStoresData.length} total stores`);
     } catch (err) {
       const errorMsg = axios.isAxiosError(err) 
         ? (err.code === 'ECONNABORTED' ? 'Request timed out' : 'Failed to load stores')
@@ -118,7 +118,7 @@ export function LocationProvider({
       
       setError(errorMsg);
       toast.error(errorMsg);
-      console.error('Error fetching stores:', err);
+      // console.error('Error fetching stores:', err);
     } finally {
       setIsLoading(false);
     }
@@ -137,19 +137,19 @@ export function LocationProvider({
   const setUserLocation = (location: UserLocation) => {
     // Validate location
     if (!location || typeof location.latitude !== 'number' || typeof location.longitude !== 'number') {
-      console.error('Invalid location data:', location);
+      // console.error('Invalid location data:', location);
       toast.error('Invalid location data');
       return;
     }
 
     if (location.latitude < -90 || location.latitude > 90) {
-      console.error('Invalid latitude:', location.latitude);
+      // console.error('Invalid latitude:', location.latitude);
       toast.error('Invalid latitude value');
       return;
     }
 
     if (location.longitude < -180 || location.longitude > 180) {
-      console.error('Invalid longitude:', location.longitude);
+      // console.error('Invalid longitude:', location.longitude);
       toast.error('Invalid longitude value');
       return;
     }
@@ -173,7 +173,7 @@ export function LocationProvider({
           setUserLocationState(location);
           fetchStores(location);
         } catch (err) {
-          console.error('Error parsing saved location:', err);
+          // console.error('Error parsing saved location:', err);
           localStorage.removeItem('barffoods_user_location');
         }
       }

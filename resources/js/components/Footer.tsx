@@ -1,8 +1,23 @@
-import { Link } from '@inertiajs/react';
-import { Linkedin, Twitter, Facebook, Instagram, Youtube, Phone, Mail, MapPin } from 'lucide-react';
+import { Link, usePage } from '@inertiajs/react';
+import { Phone, Mail, MapPin } from 'lucide-react';
+import { useState } from 'react';
+import HowItWorksModal from './HowItWorksModal';
+
+interface StoreAddress {
+  company_name: string;
+  phone: string;
+  email: string;
+  street_address: string;
+  city: string;
+  state: string;
+  zip_code: string;
+  country: string;
+}
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
+  const [showHowItWorks, setShowHowItWorks] = useState(false);
+  const { storeAddress } = usePage().props as any;
 
   return (
     <footer className="bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
@@ -17,20 +32,6 @@ export default function Footer() {
             <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
               Fresh groceries delivered to your doorstep. Quality products from local stores with fast delivery.
             </p>
-            <div className="flex space-x-4">
-              <a href="#" className="text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors">
-                <Facebook className="h-5 w-5" />
-              </a>
-              <a href="#" className="text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors">
-                <Instagram className="h-5 w-5" />
-              </a>
-              <a href="#" className="text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors">
-                <Twitter className="h-5 w-5" />
-              </a>
-              <a href="#" className="text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors">
-                <Youtube className="h-5 w-5" />
-              </a>
-            </div>
           </div>
 
           {/* Quick Links */}
@@ -40,28 +41,26 @@ export default function Footer() {
             </h3>
             <ul className="space-y-2">
               <li>
+                <Link href="/about" className="text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors text-sm">
+                  About Us
+                </Link>
+              </li>
+              <li>
+                <button 
+                  onClick={() => setShowHowItWorks(true)}
+                  className="text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors text-sm text-left"
+                >
+                  How It Works
+                </button>
+              </li>
+              <li>
                 <Link href="/products" className="text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors text-sm">
                   All Products
                 </Link>
               </li>
               <li>
-                <Link href="/categories" className="text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors text-sm">
-                  Categories
-                </Link>
-              </li>
-              <li>
                 <Link href="/stores" className="text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors text-sm">
                   Stores
-                </Link>
-              </li>
-              <li>
-                <Link href="/deals" className="text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors text-sm">
-                  Deals & Offers
-                </Link>
-              </li>
-              <li>
-                <Link href="/fresh" className="text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors text-sm">
-                  Fresh Produce
                 </Link>
               </li>
             </ul>
@@ -74,8 +73,8 @@ export default function Footer() {
             </h3>
             <ul className="space-y-2">
               <li>
-                <Link href="/help" className="text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors text-sm">
-                  Help Center
+                <Link href="/faq" className="text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors text-sm">
+                  FAQ
                 </Link>
               </li>
               <li>
@@ -86,16 +85,6 @@ export default function Footer() {
               <li>
                 <Link href="/track-order" className="text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors text-sm">
                   Track Order
-                </Link>
-              </li>
-              <li>
-                <Link href="/returns" className="text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors text-sm">
-                  Returns & Refunds
-                </Link>
-              </li>
-              <li>
-                <Link href="/faq" className="text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors text-sm">
-                  FAQ
                 </Link>
               </li>
             </ul>
@@ -109,17 +98,17 @@ export default function Footer() {
             <div className="space-y-3">
               <div className="flex items-center space-x-3">
                 <Phone className="h-4 w-4 text-green-600 dark:text-green-400" />
-                <span className="text-gray-600 dark:text-gray-400 text-sm">+1 (555) 123-4567</span>
+                <span className="text-gray-600 dark:text-gray-400 text-sm">{storeAddress?.phone }</span>
               </div>
               <div className="flex items-center space-x-3">
                 <Mail className="h-4 w-4 text-green-600 dark:text-green-400" />
-                <span className="text-gray-600 dark:text-gray-400 text-sm">support@barffoods.com</span>
+                <span className="text-gray-600 dark:text-gray-400 text-sm">{storeAddress?.email}</span>
               </div>
               <div className="flex items-start space-x-3">
                 <MapPin className="h-4 w-4 text-green-600 dark:text-green-400 mt-0.5" />
                 <span className="text-gray-600 dark:text-gray-400 text-sm">
-                  123 Grocery Street<br />
-                  Food City, FC 12345
+                  {storeAddress?.street_address}<br />
+                  {storeAddress?.city}, {storeAddress?.state} {storeAddress?.zip_code}
                 </span>
               </div>
             </div>
@@ -140,9 +129,6 @@ export default function Footer() {
                 <Link href="/terms" className="text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors text-sm">
                   Terms of Service
                 </Link>
-                <Link href="/cookies" className="text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors text-sm">
-                  Cookie Policy
-                </Link>
               </div>
             </div>
             <div className="flex items-center space-x-2">
@@ -152,6 +138,9 @@ export default function Footer() {
           </div>
         </div>
       </div>
+
+      {/* How It Works Modal */}
+      <HowItWorksModal isOpen={showHowItWorks} onClose={() => setShowHowItWorks(false)} />
     </footer>
   );
 }

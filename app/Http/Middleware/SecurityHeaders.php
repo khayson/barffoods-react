@@ -65,7 +65,14 @@ class SecurityHeaders
         $cspDirectives[] = "img-src 'self' data: https: blob:";
         
         // Connect sources (for API calls and WebSockets)
-        $connectSrc = ["'self'", "https://api.stripe.com", "wss://{$appHost}"];
+        $connectSrc = [
+            "'self'", 
+            "https://api.stripe.com", 
+            "wss://{$appHost}",
+            "https://lottie.host",
+            "https://cdn.jsdelivr.net",
+            "https://unpkg.com"
+        ];
         if ($isDevelopment) {
             $connectSrc[] = "https://{$appHost}:5173";
             $connectSrc[] = "http://{$appHost}:5173";

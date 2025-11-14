@@ -7,6 +7,7 @@ import { usePage } from '@inertiajs/react';
 import ProductSearchModal from '@/components/product-search-modal';
 import CartDropdown from '@/components/CartDropdown';
 import NotificationDropdown from '@/components/notifications/NotificationDropdown';
+import HowItWorksModal from '@/components/HowItWorksModal';
 import { Kbd } from '@/components/ui/kbd';
 import { toast } from 'sonner';
 import { useWishlist } from '@/contexts/WishlistContext';
@@ -21,6 +22,7 @@ export default function Navigation() {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [searchOpen, setSearchOpen] = useState(false);
     const [cartOpen, setCartOpen] = useState(false);
+    const [showHowItWorks, setShowHowItWorks] = useState(false);
     const cartButtonRef = useRef<HTMLButtonElement>(null);
     
     // Helper function to check if a path is active
@@ -211,18 +213,12 @@ export default function Navigation() {
                         >
                             About
                         </Link>
-                        {/* <a
-                            href="/#products"
+                        <button
+                            onClick={() => setShowHowItWorks(true)}
                             className="text-sm font-medium transition-colors pb-1 inline-block text-gray-900 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-500"
-                            onClick={(e) => {
-                                if (window.location.pathname === '/') {
-                                    e.preventDefault();
-                                    document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' });
-                                }
-                            }}
                         >
-                            Products
-                        </a> */}
+                            How It Works
+                        </button>
                         <Link
                             href="/contact"
                             className={`text-sm font-medium transition-colors pb-1 inline-block ${
@@ -298,27 +294,37 @@ export default function Navigation() {
                             >
                                 Home
                             </Link>
-                            {[
-                                'About',
-                                // 'Products',
-                                // 'Blog',
-                                // 'Career',
-                                'Contact'
-                            ].map((item, index) => (
-                                <button
-                                    key={index}
-                                    onClick={() => {
-                                        toast.info(`${item} page coming soon! 🚀`, {
-                                            description: 'This feature is under development',
-                                            duration: 3000,
-                                        });
-                                        setIsMobileMenuOpen(false);
-                                    }}
-                                    className="block w-full text-left px-4 py-2.5 text-sm font-medium text-gray-900 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-500 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                                >
-                                    {item}
-                                </button>
-                            ))}
+                            <Link
+                                href="/about"
+                                className={`block px-4 py-2.5 text-sm font-medium transition-colors ${
+                                    isActive('/about')
+                                        ? 'text-green-600 dark:text-green-500 bg-green-50 dark:bg-green-900/20 border-l-4 border-green-600 dark:border-green-500'
+                                        : 'text-gray-900 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-500 hover:bg-gray-50 dark:hover:bg-gray-800'
+                                }`}
+                                onClick={() => setIsMobileMenuOpen(false)}
+                            >
+                                About
+                            </Link>
+                            <button
+                                onClick={() => {
+                                    setShowHowItWorks(true);
+                                    setIsMobileMenuOpen(false);
+                                }}
+                                className="block w-full text-left px-4 py-2.5 text-sm font-medium text-gray-900 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-500 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                            >
+                                How It Works
+                            </button>
+                            <Link
+                                href="/contact"
+                                className={`block px-4 py-2.5 text-sm font-medium transition-colors ${
+                                    isActive('/contact')
+                                        ? 'text-green-600 dark:text-green-500 bg-green-50 dark:bg-green-900/20 border-l-4 border-green-600 dark:border-green-500'
+                                        : 'text-gray-900 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-500 hover:bg-gray-50 dark:hover:bg-gray-800'
+                                }`}
+                                onClick={() => setIsMobileMenuOpen(false)}
+                            >
+                                Contact
+                            </Link>
 
                             {/* Social Media Icons in Mobile Menu */}
                             <div className="flex items-center justify-center gap-6 pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
@@ -366,6 +372,8 @@ export default function Navigation() {
                 buttonRef={cartButtonRef}
             />
             
+            {/* How It Works Modal */}
+            <HowItWorksModal isOpen={showHowItWorks} onClose={() => setShowHowItWorks(false)} />
         </nav>
     );
 }

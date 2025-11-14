@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Head, useForm } from '@inertiajs/react';
-import { Settings, DollarSign, Percent, Gift, CreditCard, Save } from 'lucide-react';
+import { Settings, DollarSign, Percent, Gift, CreditCard, Save, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import AdminLayout from '@/layouts/admin-layout';
@@ -39,6 +40,13 @@ interface DefaultMapLocation {
     zoom: number;
 }
 
+interface ContactInfo {
+    email: string;
+    phone: string;
+    address: string;
+    business_hours: string;
+}
+
 interface SystemSettingsProps {
     settings: {
         global_delivery_fee: number;
@@ -47,6 +55,7 @@ interface SystemSettingsProps {
         payment_methods: Record<string, PaymentMethod>;
         store_address: StoreAddress;
         default_map_location: DefaultMapLocation;
+        contact_info: ContactInfo;
     };
 }
 
@@ -57,6 +66,7 @@ interface FormData {
     payment_methods: Record<string, PaymentMethod>;
     store_address: StoreAddress;
     default_map_location: DefaultMapLocation;
+    contact_info: ContactInfo;
 }
 
 export default function SystemSettings({ settings }: SystemSettingsProps) {
@@ -90,6 +100,14 @@ export default function SystemSettings({ settings }: SystemSettingsProps) {
                 longitude: -74.0060,
                 address: 'New York, NY',
                 zoom: 13
+            },
+        contact_info: typeof settings.contact_info === 'string'
+            ? JSON.parse(settings.contact_info)
+            : settings.contact_info || {
+                email: 'support@barffoods.com',
+                phone: '+1 (555) 123-4567',
+                address: '123 Grocery Street, Food City, FC 12345',
+                business_hours: 'Monday - Friday: 9:00 AM - 6:00 PM\nSaturday - Sunday: 10:00 AM - 4:00 PM'
             },
     });
 
@@ -542,6 +560,98 @@ export default function SystemSettings({ settings }: SystemSettingsProps) {
                                             Google Maps
                                         </a>
                                         {' '}and right-clicking on the location to copy the coordinates.
+                                    </p>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Contact Information */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Mail className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                                    Contact Information
+                                </CardTitle>
+                                <CardDescription>
+                                    Contact details displayed on the Contact Us page
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <Label htmlFor="contact_email">Email</Label>
+                                        <Input
+                                            id="contact_email"
+                                            type="email"
+                                            value={data.contact_info.email}
+                                            onChange={(e) => setData('contact_info', {
+                                                ...data.contact_info,
+                                                email: e.target.value
+                                            })}
+                                            placeholder="support@barffoods.com"
+                                        />
+                                        {errors.contact_info && typeof errors.contact_info === 'object' && 'email' in errors.contact_info && (
+                                            <p className="text-sm text-red-600 dark:text-red-400">
+                                                {(errors.contact_info as any).email}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <Label htmlFor="contact_phone">Phone</Label>
+                                        <Input
+                                            id="contact_phone"
+                                            value={data.contact_info.phone}
+                                            onChange={(e) => setData('contact_info', {
+                                                ...data.contact_info,
+                                                phone: e.target.value
+                                            })}
+                                            placeholder="+1 (555) 123-4567"
+                                        />
+                                        {errors.contact_info && typeof errors.contact_info === 'object' && 'phone' in errors.contact_info && (
+                                            <p className="text-sm text-red-600 dark:text-red-400">
+                                                {(errors.contact_info as any).phone}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <Label htmlFor="contact_address">Address</Label>
+                                    <Input
+                                        id="contact_address"
+                                        value={data.contact_info.address}
+                                        onChange={(e) => setData('contact_info', {
+                                            ...data.contact_info,
+                                            address: e.target.value
+                                        })}
+                                        placeholder="123 Grocery Street, Food City, FC 12345"
+                                    />
+                                    {errors.contact_info && typeof errors.contact_info === 'object' && 'address' in errors.contact_info && (
+                                        <p className="text-sm text-red-600 dark:text-red-400">
+                                            {(errors.contact_info as any).address}
+                                        </p>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <Label htmlFor="business_hours">Business Hours</Label>
+                                    <Textarea
+                                        id="business_hours"
+                                        value={data.contact_info.business_hours}
+                                        onChange={(e) => setData('contact_info', {
+                                            ...data.contact_info,
+                                            business_hours: e.target.value
+                                        })}
+                                        placeholder="Monday - Friday: 9:00 AM - 6:00 PM&#10;Saturday - Sunday: 10:00 AM - 4:00 PM"
+                                        rows={3}
+                                    />
+                                    {errors.contact_info && typeof errors.contact_info === 'object' && 'business_hours' in errors.contact_info && (
+                                        <p className="text-sm text-red-600 dark:text-red-400">
+                                            {(errors.contact_info as any).business_hours}
+                                        </p>
+                                    )}
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                        Use line breaks to separate different days or time ranges
                                     </p>
                                 </div>
                             </CardContent>

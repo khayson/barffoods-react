@@ -1,16 +1,18 @@
 import { Head, Link } from '@inertiajs/react';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
-import HowItWorksBanner from '@/components/HowItWorksBanner';
+import HowItWorksModal from '@/components/HowItWorksModal';
 import { motion } from 'framer-motion';
-import { ShoppingCart, Truck, Package, Users, Clock, MapPin, Facebook, Instagram, Youtube, Twitter, Linkedin } from 'lucide-react';
+import { ShoppingCart, Truck, Package, Users, Clock, MapPin, Facebook, Instagram, Youtube, Twitter, Linkedin, Search, CreditCard, ArrowRight } from 'lucide-react';
+import { useState } from 'react';
 
 export default function About() {
+    const [showHowItWorksModal, setShowHowItWorksModal] = useState(false);
+
     return (
         <>
             <Head title="About Us - Grocery Bazar" />
             
-            <HowItWorksBanner />
             <Navigation />
 
             <div className="min-h-screen bg-white dark:bg-gray-900">
@@ -203,6 +205,128 @@ export default function About() {
                     </div>
                 </section>
 
+                {/* How It Works Section */}
+                <section className="bg-gradient-to-br from-green-50 to-blue-50 dark:from-gray-800 dark:to-gray-900 py-12 md:py-20">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.6 }}
+                            className="text-center mb-12"
+                        >
+                            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-4 tracking-tight">
+                                HOW IT WORKS
+                            </h2>
+                            <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+                                Getting fresh groceries delivered is simple and convenient with BarfFoods
+                            </p>
+                        </motion.div>
+
+                        {/* Steps Grid */}
+                        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+                            {/* Step 1 */}
+                            <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.6, delay: 0.1 }}
+                                className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow"
+                            >
+                                <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl w-16 h-16 flex items-center justify-center mb-4">
+                                    <Search className="h-8 w-8 text-white" />
+                                </div>
+                                <div className="text-sm font-semibold text-blue-600 dark:text-blue-400 mb-2">
+                                    STEP 1
+                                </div>
+                                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                                    Browse Products
+                                </h3>
+                                <p className="text-gray-600 dark:text-gray-400 text-sm">
+                                    Explore our wide selection of fresh groceries from local stores
+                                </p>
+                            </motion.div>
+
+                            {/* Step 2 */}
+                            <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.6, delay: 0.2 }}
+                                className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow"
+                            >
+                                <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl w-16 h-16 flex items-center justify-center mb-4">
+                                    <ShoppingCart className="h-8 w-8 text-white" />
+                                </div>
+                                <div className="text-sm font-semibold text-green-600 dark:text-green-400 mb-2">
+                                    STEP 2
+                                </div>
+                                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                                    Add to Cart
+                                </h3>
+                                <p className="text-gray-600 dark:text-gray-400 text-sm">
+                                    Select your favorite items and add them to your cart
+                                </p>
+                            </motion.div>
+
+                            {/* Step 3 */}
+                            <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.6, delay: 0.3 }}
+                                className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow"
+                            >
+                                <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl w-16 h-16 flex items-center justify-center mb-4">
+                                    <CreditCard className="h-8 w-8 text-white" />
+                                </div>
+                                <div className="text-sm font-semibold text-purple-600 dark:text-purple-400 mb-2">
+                                    STEP 3
+                                </div>
+                                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                                    Secure Checkout
+                                </h3>
+                                <p className="text-gray-600 dark:text-gray-400 text-sm">
+                                    Complete your order with safe and secure payment
+                                </p>
+                            </motion.div>
+
+                            {/* Step 4 */}
+                            <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.6, delay: 0.4 }}
+                                className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow"
+                            >
+                                <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl w-16 h-16 flex items-center justify-center mb-4">
+                                    <Truck className="h-8 w-8 text-white" />
+                                </div>
+                                <div className="text-sm font-semibold text-orange-600 dark:text-orange-400 mb-2">
+                                    STEP 4
+                                </div>
+                                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                                    Fast Delivery
+                                </h3>
+                                <p className="text-gray-600 dark:text-gray-400 text-sm">
+                                    Get your groceries delivered fresh to your doorstep
+                                </p>
+                            </motion.div>
+                        </div>
+
+                        {/* CTA Button */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.6, delay: 0.5 }}
+                            className="text-center"
+                        >
+                            <button
+                                onClick={() => setShowHowItWorksModal(true)}
+                                className="inline-flex items-center gap-2 px-8 py-4 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors shadow-lg hover:shadow-xl"
+                            >
+                                Learn More About Our Process
+                                <ArrowRight className="h-5 w-5" />
+                            </button>
+                        </motion.div>
+                    </div>
+                </section>
+
                 {/* Social Media Section */}
                 <section className="bg-gray-50 dark:bg-gray-800/50 py-12 md:py-16">
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -310,6 +434,9 @@ export default function About() {
             </div>
             
             <Footer />
+
+            {/* How It Works Modal */}
+            <HowItWorksModal isOpen={showHowItWorksModal} onClose={() => setShowHowItWorksModal(false)} />
         </>
     );
 }

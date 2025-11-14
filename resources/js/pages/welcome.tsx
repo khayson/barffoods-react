@@ -1,7 +1,6 @@
 import { Head, usePage, router } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import Navigation from '@/components/Navigation';
-import HowItWorksBanner from '@/components/HowItWorksBanner';
 import HeroCarousel from '@/components/HeroCarousel';
 import FeaturesSection from '@/components/FeaturesSection';
 import ShopByCategory from '@/components/ShopByCategory';
@@ -350,9 +349,6 @@ export default function Welcome() {
                         </div>
                     </div>
                 )}
-
-                {/* How it Works Banner */}
-                <HowItWorksBanner />
                 
                 <Navigation />
                 

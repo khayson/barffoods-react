@@ -1,7 +1,6 @@
 import { Head, useForm, router } from '@inertiajs/react';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
-import HowItWorksBanner from '@/components/HowItWorksBanner';
 import { motion } from 'framer-motion';
 import { Mail, Phone, MapPin, Clock, Send, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -51,7 +50,6 @@ export default function Contact({ contactInfo }: ContactProps) {
         <>
             <Head title="Contact Us - Grocery Bazar" />
             
-            <HowItWorksBanner />
             <Navigation />
 
             <div className="min-h-screen bg-white dark:bg-gray-900">
