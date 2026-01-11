@@ -10,8 +10,9 @@ import { UserMenuContent } from '@/components/user-menu-content';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useInitials } from '@/hooks/use-initials';
-import { ChevronsUpDown, Bell, MessageSquare, Search, LayoutGrid, Sun, Moon, ShoppingCart, Settings, Package, Store as StoreIcon, Tag } from 'lucide-react';
+import { ChevronsUpDown, Bell, MessageSquare, Search, LayoutGrid, Sun, Moon, ShoppingCart, Settings, Package, Store as StoreIcon, Tag, ChevronRight, Home } from 'lucide-react';
 import NotificationDropdown from '@/components/notifications/NotificationDropdown';
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 
 interface AdminLayoutProps {
     children: ReactNode;
@@ -38,7 +39,7 @@ function AdminLayoutContent({ children, hideRightSidebar = false }: AdminLayoutP
         if (isDarkMode) {
             document.documentElement.classList.add('dark');
             localStorage.setItem('theme', 'dark');
-            } else {
+        } else {
             document.documentElement.classList.remove('dark');
             localStorage.setItem('theme', 'light');
         }
@@ -72,14 +73,24 @@ function AdminLayoutContent({ children, hideRightSidebar = false }: AdminLayoutP
     useEffect(() => {
         setShowSidebar(false);
     }, [currentPath]);
-    
+
     const isActive = (href: string) => currentPath === href;
+
+    const pathSegments = currentPath.split('/').filter(Boolean);
+    const breadcrumbs = pathSegments.map((segment, index) => {
+        const href = `/${pathSegments.slice(0, index + 1).join('/')}`;
+        return {
+            label: segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, ' '),
+            href,
+            active: index === pathSegments.length - 1
+        };
+    });
 
     return (
         <div className="h-screen bg-gray-50 dark:bg-gray-950 flex overflow-hidden">
             {/* Mobile Overlay */}
             {showSidebar && (
-                <div 
+                <div
                     className="lg:hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
                     onClick={() => setShowSidebar(false)}
                 />
@@ -95,162 +106,146 @@ function AdminLayoutContent({ children, hideRightSidebar = false }: AdminLayoutP
                 transition-transform duration-300 ease-in-out
             `}>
                 {/* Sidebar Header - Brand */}
-                <div className="h-16 px-6 flex items-center justify-between border-b border-gray-200 dark:border-gray-800">
-                    <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                            <span className="text-white font-bold text-sm">BF</span>
+                <div className="h-16 px-6 flex items-center border-b border-gray-100 dark:border-gray-800">
+                    <Link href="/admin/dashboard" className="flex items-center space-x-3 group">
+                        <div className="w-9 h-9 bg-gray-900 dark:bg-white rounded-xl flex items-center justify-center transition-transform group-hover:scale-105">
+                            <StoreIcon className="h-5 w-5 text-white dark:text-gray-900" />
                         </div>
                         <div>
-                            <h1 className="text-sm font-semibold text-gray-900 dark:text-white">BarfFoods</h1>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">Admin Panel</p>
+                            <h1 className="text-sm font-bold tracking-tight text-gray-900 dark:text-white">BARFFOODS</h1>
+                            <p className="text-[10px] font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500">Professional Admin</p>
                         </div>
-                    </div>
+                    </Link>
                 </div>
 
                 {/* Navigation */}
-                <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+                <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto scrollbar-thin">
                     {/* Dashboard */}
                     <Link
                         href="/admin/dashboard"
                         className={`
-                            group flex items-center px-3 py-2.5 rounded-lg transition-all duration-200
+                            group flex items-center px-3 py-2 rounded-lg transition-all duration-200
                             ${isActive('/admin/dashboard')
-                                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
-                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+                                ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
+                                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
                             }
                         `}
                     >
-                        <LayoutGrid className={`h-5 w-5 mr-3 ${isActive('/admin/dashboard') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'}`} />
+                        <LayoutGrid className="h-4.5 w-4.5 mr-3" />
                         <span className="text-sm font-medium">Dashboard</span>
-                        {isActive('/admin/dashboard') && (
-                            <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-blue-400"></div>
-                        )}
                     </Link>
+
+                    <div className="pt-4 pb-2 px-3">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">Management</span>
+                    </div>
 
                     {/* Orders */}
                     <Link
                         href="/admin/orders"
                         className={`
-                            group flex items-center px-3 py-2.5 rounded-lg transition-all duration-200
+                            group flex items-center px-3 py-2 rounded-lg transition-all duration-200
                             ${isActive('/admin/orders')
-                                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
-                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+                                ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
+                                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
                             }
                         `}
                     >
-                        <ShoppingCart className={`h-5 w-5 mr-3 ${isActive('/admin/orders') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'}`} />
+                        <ShoppingCart className="h-4.5 w-4.5 mr-3" />
                         <span className="text-sm font-medium">Orders</span>
-                        {isActive('/admin/orders') && (
-                            <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-blue-400"></div>
-                        )}
                     </Link>
 
                     {/* Products */}
                     <Link
                         href="/admin/products"
                         className={`
-                            group flex items-center px-3 py-2.5 rounded-lg transition-all duration-200
+                            group flex items-center px-3 py-2 rounded-lg transition-all duration-200
                             ${isActive('/admin/products')
-                                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
-                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+                                ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
+                                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
                             }
                         `}
                     >
-                        <Package className={`h-5 w-5 mr-3 ${isActive('/admin/products') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'}`} />
+                        <Package className="h-4.5 w-4.5 mr-3" />
                         <span className="text-sm font-medium">Products</span>
-                        {isActive('/admin/products') && (
-                            <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-blue-400"></div>
-                        )}
                     </Link>
 
                     {/* Stores */}
                     <Link
                         href="/admin/stores"
                         className={`
-                            group flex items-center px-3 py-2.5 rounded-lg transition-all duration-200
+                            group flex items-center px-3 py-2 rounded-lg transition-all duration-200
                             ${isActive('/admin/stores')
-                                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
-                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+                                ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
+                                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
                             }
                         `}
                     >
-                        <StoreIcon className={`h-5 w-5 mr-3 ${isActive('/admin/stores') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'}`} />
+                        <StoreIcon className="h-4.5 w-4.5 mr-3" />
                         <span className="text-sm font-medium">Stores</span>
-                        {isActive('/admin/stores') && (
-                            <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-blue-400"></div>
-                        )}
                     </Link>
 
                     {/* Categories */}
                     <Link
                         href="/admin/categories"
                         className={`
-                            group flex items-center px-3 py-2.5 rounded-lg transition-all duration-200
+                            group flex items-center px-3 py-2 rounded-lg transition-all duration-200
                             ${isActive('/admin/categories')
-                                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
-                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+                                ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
+                                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
                             }
                         `}
                     >
-                        <Tag className={`h-5 w-5 mr-3 ${isActive('/admin/categories') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'}`} />
+                        <Tag className="h-4.5 w-4.5 mr-3" />
                         <span className="text-sm font-medium">Categories</span>
-                        {isActive('/admin/categories') && (
-                            <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-blue-400"></div>
-                        )}
                     </Link>
+
+                    <div className="pt-4 pb-2 px-3">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">System</span>
+                    </div>
 
                     {/* Notifications */}
                     <Link
                         href="/admin/notifications"
                         className={`
-                            group flex items-center px-3 py-2.5 rounded-lg transition-all duration-200
+                            group flex items-center px-3 py-2 rounded-lg transition-all duration-200
                             ${isActive('/admin/notifications')
-                                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
-                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+                                ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
+                                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
                             }
                         `}
                     >
-                        <Bell className={`h-5 w-5 mr-3 ${isActive('/admin/notifications') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'}`} />
+                        <Bell className="h-4.5 w-4.5 mr-3" />
                         <span className="text-sm font-medium">Notifications</span>
-                        {isActive('/admin/notifications') && (
-                            <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-blue-400"></div>
-                        )}
                     </Link>
 
                     {/* Messages */}
                     <Link
                         href="/admin/messaging"
                         className={`
-                            group flex items-center px-3 py-2.5 rounded-lg transition-all duration-200
+                            group flex items-center px-3 py-2 rounded-lg transition-all duration-200
                             ${isActive('/admin/messaging')
-                                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
-                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+                                ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
+                                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
                             }
                         `}
                     >
-                        <MessageSquare className={`h-5 w-5 mr-3 ${isActive('/admin/messaging') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'}`} />
+                        <MessageSquare className="h-4.5 w-4.5 mr-3" />
                         <span className="text-sm font-medium">Messages</span>
-                        {isActive('/admin/messaging') && (
-                            <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-blue-400"></div>
-                        )}
                     </Link>
 
                     {/* System Settings */}
                     <Link
                         href="/admin/system-settings"
                         className={`
-                            group flex items-center px-3 py-2.5 rounded-lg transition-all duration-200
+                            group flex items-center px-3 py-2 rounded-lg transition-all duration-200
                             ${isActive('/admin/system-settings')
-                                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
-                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+                                ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
+                                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
                             }
                         `}
                     >
-                        <Settings className={`h-5 w-5 mr-3 ${isActive('/admin/system-settings') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'}`} />
+                        <Settings className="h-4.5 w-4.5 mr-3" />
                         <span className="text-sm font-medium">Settings</span>
-                        {isActive('/admin/system-settings') && (
-                            <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-blue-400"></div>
-                        )}
                     </Link>
                 </nav>
 
@@ -271,13 +266,12 @@ function AdminLayoutContent({ children, hideRightSidebar = false }: AdminLayoutP
                         </div>
                     </button>
 
-                    {/* User Dropdown */}
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <button className="flex w-full items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                                <Avatar className="h-9 w-9">
+                            <button className="flex w-full items-center space-x-3 px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all border border-transparent hover:border-gray-200 dark:hover:border-gray-700">
+                                <Avatar className="h-9 w-9 border-2 border-white dark:border-gray-900 shadow-sm">
                                     <AvatarImage src={auth.user?.avatar} />
-                                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-sm">
+                                    <AvatarFallback className="bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-xs font-bold">
                                         {getInitials(auth.user?.name || '')}
                                     </AvatarFallback>
                                 </Avatar>
@@ -298,9 +292,8 @@ function AdminLayoutContent({ children, hideRightSidebar = false }: AdminLayoutP
             {/* Main Content Area */}
             <main className="flex-1 flex flex-col min-w-0 bg-gray-50 dark:bg-gray-950">
                 {/* Top Header Bar */}
-                <header className="h-16 px-4 sm:px-6 flex items-center justify-between border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
-                    {/* Left Side - Mobile Menu + Search */}
-                    <div className="flex items-center space-x-3 flex-1 max-w-2xl">
+                <header className="h-16 px-6 flex items-center justify-between border-b border-gray-100 dark:border-gray-800 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md sticky top-0 z-30">
+                    <div className="flex items-center space-x-6 flex-1">
                         {/* Mobile Menu Button */}
                         <button
                             onClick={() => setShowSidebar(!showSidebar)}
@@ -311,21 +304,44 @@ function AdminLayoutContent({ children, hideRightSidebar = false }: AdminLayoutP
                             </svg>
                         </button>
 
-                        {/* Search */}
-                        <div className="flex-1">
-                            <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                <input
-                                    type="text"
-                                    placeholder="Search..."
-                                    className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                                />
-                            </div>
+                        {/* Breadcrumbs - Desktop Only */}
+                        <div className="hidden md:block">
+                            <Breadcrumb>
+                                <BreadcrumbList>
+                                    <BreadcrumbItem>
+                                        <BreadcrumbLink href="/admin/dashboard" className="flex items-center">
+                                            <Home className="h-3.5 w-3.5" />
+                                        </BreadcrumbLink>
+                                    </BreadcrumbItem>
+                                    {breadcrumbs.map((crumb, idx) => (
+                                        <span key={crumb.href} className="flex items-center">
+                                            <BreadcrumbSeparator>
+                                                <ChevronRight className="h-3.5 w-3.5" />
+                                            </BreadcrumbSeparator>
+                                            <BreadcrumbItem>
+                                                {crumb.active ? (
+                                                    <BreadcrumbPage className="font-semibold text-gray-900 dark:text-white">
+                                                        {crumb.label}
+                                                    </BreadcrumbPage>
+                                                ) : (
+                                                    <BreadcrumbLink href={crumb.href}>
+                                                        {crumb.label}
+                                                    </BreadcrumbLink>
+                                                )}
+                                            </BreadcrumbItem>
+                                        </span>
+                                    ))}
+                                </BreadcrumbList>
+                            </Breadcrumb>
                         </div>
                     </div>
 
                     {/* Right Actions */}
-                    <div className="flex items-center space-x-4 ml-6">
+                    <div className="flex items-center space-x-2">
+                        {/* Search Trigger */}
+                        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors">
+                            <Search className="h-4.5 w-4.5" />
+                        </Button>
                         {/* Date/Time */}
                         <div className="hidden lg:flex items-center text-sm text-gray-600 dark:text-gray-400">
                             {formatDateTime(currentDateTime)}
@@ -346,9 +362,9 @@ function AdminLayoutContent({ children, hideRightSidebar = false }: AdminLayoutP
                                     </span>
                                 )}
                             </Button>
-                            <NotificationDropdown 
-                                isOpen={notificationOpen} 
-                                onClose={() => setNotificationOpen(false)} 
+                            <NotificationDropdown
+                                isOpen={notificationOpen}
+                                onClose={() => setNotificationOpen(false)}
                             />
                         </div>
 
@@ -364,7 +380,7 @@ function AdminLayoutContent({ children, hideRightSidebar = false }: AdminLayoutP
                 </header>
 
                 {/* Main Content */}
-                <div className="flex-1 overflow-auto p-6 scrollbar-hide">
+                <div className="flex-1 overflow-auto p-6 scrollbar-thin">
                     {children}
                 </div>
             </main>
@@ -375,20 +391,20 @@ function AdminLayoutContent({ children, hideRightSidebar = false }: AdminLayoutP
 export default function AdminLayout({ children }: AdminLayoutProps) {
     const page = usePage<SharedData>();
     const { auth } = page.props;
-    
+
     // Check localStorage for user's global preference
     const [globalHideRightSidebar, setGlobalHideRightSidebar] = useState(false);
-    
+
     useEffect(() => {
         const savedPreference = localStorage.getItem('admin-hide-right-sidebar');
         if (savedPreference !== null) {
             setGlobalHideRightSidebar(JSON.parse(savedPreference));
         }
     }, []);
-    
+
     // Use global preference for all pages
     const hideRightSidebar = globalHideRightSidebar;
-    
+
     return (
         <NotificationProvider userId={auth.user?.id?.toString()}>
             <AdminLayoutContent hideRightSidebar={hideRightSidebar}>

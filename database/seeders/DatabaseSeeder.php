@@ -18,13 +18,13 @@ class DatabaseSeeder extends Seeder
         $this->call([
             SuperAdminSeeder::class,
             CustomerSeeder::class,
-            MessagingSeeder::class,
-            StoreSeeder::class,
-            CategorySeeder::class,
-            ProductSeeder::class,
-            ProductReviewSeeder::class,
-            SystemSettingsSeeder::class,
-            ZipCodeSeeder::class,
+            // MessagingSeeder::class,
+            // StoreSeeder::class,
+            // CategorySeeder::class,
+            // ProductSeeder::class,
+            // ProductReviewSeeder::class,
+            // SystemSettingsSeeder::class,
+            // ZipCodeSeeder::class,
         ]);
     }
 }

@@ -24,6 +24,8 @@ class Product extends Model
         'length',
         'width',
         'height',
+        'stock_quantity',
+        'is_active',
     ];
 
     /**
@@ -34,8 +36,6 @@ class Product extends Model
      */
     protected $guarded = [
         'id',
-        'stock_quantity',
-        'is_active',
         'average_rating',
         'review_count',
         'version',
